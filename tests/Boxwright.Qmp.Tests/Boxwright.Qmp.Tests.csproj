@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests for the QMP client. Driven against a loopback fake QMP server;
+       no live QEMU. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Boxwright.Qmp\Boxwright.Qmp.csproj" />
+  </ItemGroup>
+
+  <!--
+    Add test packages when scaffolding (check NuGet for latest):
+      Microsoft.NET.Test.Sdk
+      xunit
+      xunit.runner.visualstudio
+      coverlet.collector
+    Tip: `dotnet new xunit` generates a correct, current set of references.
+  -->
+
+</Project>

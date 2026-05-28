@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Boxwright.App — the Avalonia GUI (MVVM).
+    Views + viewmodels ONLY. No QEMU/process/QMP logic here.
+    References Core (and transitively Qmp).
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Boxwright.Core\Boxwright.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    Add the Avalonia packages when scaffolding (check NuGet for the latest 11.x/12.x):
+      Avalonia
+      Avalonia.Desktop
+      Avalonia.Themes.Fluent
+      Avalonia.Fonts.Inter
+      Avalonia.Diagnostics            (Debug only)
+      CommunityToolkit.Mvvm
+    e.g.  dotnet add package Avalonia.Desktop
+  -->
+
+</Project>

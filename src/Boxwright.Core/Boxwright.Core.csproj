@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Boxwright.Core — orchestration / domain layer.
+    Knows what a VM is; knows nothing about pixels.
+    May reference Boxwright.Qmp. MUST NOT reference Avalonia.
+  -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\Boxwright.Qmp\Boxwright.Qmp.csproj" />
+  </ItemGroup>
+
+  <!--
+    Likely additions as the domain grows (keep them UI-free):
+      CommandLineBuilder, AcceleratorDetector, QemuProcess,
+      DiskService (wraps qemu-img), DisplayLauncher, VmConfig (System.Text.Json).
+  -->
+
+</Project>

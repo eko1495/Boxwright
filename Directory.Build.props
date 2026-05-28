@@ -1,0 +1,39 @@
+<Project>
+
+  <!--
+    Shared build settings for every project in the Boxwright monorepo.
+    Pin the target framework HERE, not in individual .csproj files.
+    .NET 8 is the floor; bump to the current LTS as appropriate.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Quality gates -->
+    <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Don't fail the build just because a public member lacks an XML doc
+         comment; we enforce docs by review on the published Qmp library. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Common package metadata (used by the NuGet-published projects). -->
+  <PropertyGroup>
+    <Product>Boxwright</Product>
+    <Company>WhileTrue Krzysztof Krak</Company>
+    <Authors>Krzysztof Krak</Authors>
+    <Copyright>Copyright (c) 2026 Krzysztof Krak</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/your-org/boxwright</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/your-org/boxwright</PackageProjectUrl>
+  </PropertyGroup>
+
+</Project>

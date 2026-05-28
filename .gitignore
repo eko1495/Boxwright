@@ -1,0 +1,61 @@
+# --- .NET build output ---
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+artifacts/
+*.user
+*.userosscache
+*.suo
+*.dll
+*.exe
+*.pdb
+
+# --- NuGet ---
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!**/packages/build/
+
+# --- Test / coverage ---
+[Tt]est[Rr]esult*/
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.trx
+
+# --- IDEs / editors ---
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# --- Rider ---
+*.sln.iml
+.idea.*/
+
+# --- Avalonia ---
+*.axaml.cs.g.cs
+
+# --- Local VM data & bundled QEMU (never commit these) ---
+/vms/
+*.qcow2
+*.img
+*.iso
+*.vhd
+*.vhdx
+/qemu-bin/
+/tools/qemu/
+
+# --- Logs & local env ---
+*.log
+.env
+local.settings.json

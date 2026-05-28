@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Boxwright.Qmp — the QEMU Machine Protocol client.
+    GUI-agnostic and independently publishable to NuGet.
+    MUST NOT reference Avalonia or any other Boxwright project.
+  -->
+  <PropertyGroup>
+    <PackageId>Boxwright.Qmp</PackageId>
+    <Description>A cross-platform C# client for the QEMU Machine Protocol (QMP).</Description>
+    <IsPackable>true</IsPackable>
+    <PackageTags>qemu;qmp;virtualization;vm</PackageTags>
+  </PropertyGroup>
+
+  <!-- No package references needed: System.Text.Json and sockets ship in the BCL. -->
+
+</Project>

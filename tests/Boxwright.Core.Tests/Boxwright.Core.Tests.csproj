@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests for Core. CommandLineBuilder (config -> args) should be covered
+       exhaustively; AcceleratorDetector logic via injected probes. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Boxwright.Core\Boxwright.Core.csproj" />
+  </ItemGroup>
+
+  <!-- See Boxwright.Qmp.Tests for the test package list / `dotnet new xunit` tip. -->
+
+</Project>
