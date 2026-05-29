@@ -19,6 +19,7 @@ public sealed class QmpClient : IQmpClient
 
     private readonly ConcurrentDictionary<long, TaskCompletionSource<JsonElement>> _pending = new();
     private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private readonly SemaphoreSlim _schemaLock = new(1, 1);
     private readonly EventStream _events = new();
 
     private TcpClient? _tcpClient;
@@ -28,6 +29,7 @@ public sealed class QmpClient : IQmpClient
     private StreamWriter? _writer;
     private CancellationTokenSource? _loopCts;
     private Task? _readLoopTask;
+    private QmpSchema? _schema;
     private long _nextId;
     private volatile bool _connected;
 
@@ -130,6 +132,33 @@ public sealed class QmpClient : IQmpClient
     }
 
     /// <inheritdoc />
+    public async Task<QmpSchema> GetSchemaAsync(CancellationToken cancellationToken = default)
+    {
+        QmpSchema? cached = _schema;
+        if (cached is not null)
+        {
+            return cached;
+        }
+
+        await _schemaLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (_schema is null)
+            {
+                JsonElement payload = await ExecuteAsync("query-qmp-schema", arguments: null, cancellationToken);
+                List<QmpSchemaEntry> entries = payload.Deserialize<List<QmpSchemaEntry>>() ?? [];
+                _schema = new QmpSchema(entries);
+            }
+
+            return _schema;
+        }
+        finally
+        {
+            _schemaLock.Release();
+        }
+    }
+
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
         _connected = false;
@@ -166,6 +195,7 @@ public sealed class QmpClient : IQmpClient
         _unixSocket?.Dispose();
         _loopCts?.Dispose();
         _writeLock.Dispose();
+        _schemaLock.Dispose();
         _events.Complete();
     }
 

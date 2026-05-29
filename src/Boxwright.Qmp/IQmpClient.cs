@@ -50,4 +50,11 @@ public interface IQmpClient : IAsyncDisposable
     /// </summary>
     /// <exception cref="QmpCommandException">QEMU replied with a QMP <c>error</c>.</exception>
     Task<TResult> ExecuteAsync<TResult>(string command, object? arguments = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches and caches QEMU's QMP schema (<c>query-qmp-schema</c>) so callers can
+    /// feature-detect supported commands/events instead of guessing. The schema is
+    /// fetched once and reused for the lifetime of the connection.
+    /// </summary>
+    Task<QmpSchema> GetSchemaAsync(CancellationToken cancellationToken = default);
 }
