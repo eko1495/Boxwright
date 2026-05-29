@@ -9,9 +9,13 @@
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
   <PropertyGroup>
-    <!-- Test methods use the idiomatic Method_State_Expected naming convention,
-         so CA1707 (no underscores in member names) does not apply here. -->
-    <NoWarn>$(NoWarn);CA1707</NoWarn>
+    <!--
+      Test-only analyzer relaxations (product-code quality gates are unaffected):
+      - CA1707:   test methods use the idiomatic Method_State_Expected naming convention.
+      - xUnit1051: advisory xUnit v3 rule to thread TestContext.Current.CancellationToken;
+                   our tests are deterministic and fast, and pass their own tokens where it matters.
+    -->
+    <NoWarn>$(NoWarn);CA1707;xUnit1051</NoWarn>
   </PropertyGroup>
 
 </Project>
