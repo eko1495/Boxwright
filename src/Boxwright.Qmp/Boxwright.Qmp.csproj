@@ -14,4 +14,9 @@
 
   <!-- No package references needed: System.Text.Json and sockets ship in the BCL. -->
 
+  <ItemGroup>
+    <!-- Expose the internal wire-protocol envelopes to the test project only. -->
+    <InternalsVisibleTo Include="Boxwright.Qmp.Tests" />
+  </ItemGroup>
+
 </Project>
