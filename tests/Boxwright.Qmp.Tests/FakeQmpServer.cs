@@ -12,7 +12,8 @@ namespace Boxwright.Qmp.Tests;
 /// without a live QEMU (CLAUDE.md §6). On connect it sends a greeting, answers
 /// <c>qmp_capabilities</c>, returns scripted <c>return</c>/<c>error</c> replies
 /// (echoing the command <c>id</c>), and can push unsolicited events on demand.
-/// One client connection per instance; create one per test.
+/// Command handlers run concurrently, so replies/events can arrive out of order —
+/// which lets tests exercise the client's id-correlation. One client per instance.
 /// </summary>
 internal sealed class FakeQmpServer : IAsyncDisposable
 {
@@ -24,7 +25,8 @@ internal sealed class FakeQmpServer : IAsyncDisposable
 
     private readonly TcpListener _listener;
     private readonly string _greeting;
-    private readonly ConcurrentDictionary<string, Func<long?, string>> _handlers = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Func<long?, CancellationToken, Task<string>>> _handlers = new(StringComparer.Ordinal);
+    private readonly ConcurrentBag<Task> _responses = new();
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
     private readonly TaskCompletionSource _clientConnected = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -37,7 +39,7 @@ internal sealed class FakeQmpServer : IAsyncDisposable
     private FakeQmpServer(string greeting)
     {
         _greeting = greeting;
-        _handlers["qmp_capabilities"] = id => SuccessReply("{}", id);
+        _handlers["qmp_capabilities"] = (id, _) => Task.FromResult(SuccessReply("{}", id));
         _listener = new TcpListener(IPAddress.Loopback, 0);
         _listener.Start();
         Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
@@ -56,14 +58,25 @@ internal sealed class FakeQmpServer : IAsyncDisposable
     /// <summary>Scripts a successful reply for <paramref name="command"/>, using <paramref name="returnJson"/> as the raw <c>return</c> payload.</summary>
     public FakeQmpServer OnCommand(string command, string returnJson)
     {
-        _handlers[command] = id => SuccessReply(returnJson, id);
+        _handlers[command] = (id, _) => Task.FromResult(SuccessReply(returnJson, id));
         return this;
     }
 
     /// <summary>Scripts an error reply for <paramref name="command"/>.</summary>
     public FakeQmpServer OnCommandError(string command, string errorClass, string description)
     {
-        _handlers[command] = id => ErrorReply(errorClass, description, id);
+        _handlers[command] = (id, _) => Task.FromResult(ErrorReply(errorClass, description, id));
+        return this;
+    }
+
+    /// <summary>Scripts a reply for <paramref name="command"/> that is withheld until <paramref name="gate"/> completes — used to force out-of-order replies.</summary>
+    public FakeQmpServer OnCommandGated(string command, string returnJson, Task gate)
+    {
+        _handlers[command] = async (id, ct) =>
+        {
+            await gate.WaitAsync(ct);
+            return SuccessReply(returnJson, id);
+        };
         return this;
     }
 
@@ -105,15 +118,30 @@ internal sealed class FakeQmpServer : IAsyncDisposable
                     continue;
                 }
 
-                string reply = _handlers.TryGetValue(command, out var handler)
-                    ? handler(id)
-                    : ErrorReply("CommandNotFound", $"The command {command} has not been found", id);
-                await WriteLineAsync(reply, ct);
+                Func<long?, CancellationToken, Task<string>> handler = _handlers.TryGetValue(command, out var registered)
+                    ? registered
+                    : (cmdId, _) => Task.FromResult(ErrorReply("CommandNotFound", $"The command {command} has not been found", cmdId));
+
+                // Run handlers without blocking the read loop, so replies can interleave / arrive out of order.
+                _responses.Add(RespondAsync(handler, id, ct));
             }
         }
         catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or IOException or SocketException)
         {
             // Expected on dispose or client disconnect.
+        }
+    }
+
+    private async Task RespondAsync(Func<long?, CancellationToken, Task<string>> handler, long? id, CancellationToken ct)
+    {
+        try
+        {
+            string reply = await handler(id, ct);
+            await WriteLineAsync(reply, ct);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or IOException or SocketException)
+        {
+            // Server shutting down before this reply could be sent.
         }
     }
 
@@ -199,6 +227,7 @@ internal sealed class FakeQmpServer : IAsyncDisposable
         }
 
         await _serveTask;
+        await Task.WhenAll(_responses);
 
         // Readers/writers use leaveOpen; the client owns and closes the stream.
         _reader?.Dispose();

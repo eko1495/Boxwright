@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -6,31 +7,35 @@ namespace Boxwright.Qmp;
 
 /// <summary>
 /// The default <see cref="IQmpClient"/>: a QMP client over a TCP (Windows) or
-/// Unix-domain (Linux/macOS) socket. <see cref="ConnectAsync"/> opens the socket,
-/// reads the greeting, and performs the <c>qmp_capabilities</c> handshake.
+/// Unix-domain (Linux/macOS) socket. <see cref="ConnectAsync"/> performs the
+/// greeting + <c>qmp_capabilities</c> handshake; a background read loop then
+/// correlates replies to <see cref="ExecuteAsync(string, object?, CancellationToken)"/>
+/// callers by id and routes events to <see cref="Events"/>.
 /// </summary>
-/// <remarks>
-/// Correlated command execution and the <see cref="Events"/> stream are
-/// implemented in later milestones (backlog QMP-4/QMP-5); calling
-/// <c>ExecuteAsync</c> before then throws, and <see cref="Events"/> is inert.
-/// </remarks>
 public sealed class QmpClient : IQmpClient
 {
     private const string CapabilitiesCommand = "{\"execute\":\"qmp_capabilities\"}";
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
+
+    private readonly ConcurrentDictionary<long, TaskCompletionSource<JsonElement>> _pending = new();
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private readonly EventStream _events = new();
 
     private TcpClient? _tcpClient;
     private Socket? _unixSocket;
     private Stream? _stream;
     private StreamReader? _reader;
     private StreamWriter? _writer;
+    private CancellationTokenSource? _loopCts;
+    private Task? _readLoopTask;
+    private long _nextId;
     private volatile bool _connected;
 
     /// <inheritdoc />
     public bool IsConnected => _connected;
 
     /// <inheritdoc />
-    public IObservable<QmpEvent> Events => NoOpObservable.Instance; // Replaced by a real stream in QMP-5.
+    public IObservable<QmpEvent> Events => _events;
 
     /// <inheritdoc />
     public async Task ConnectAsync(QmpEndpoint endpoint, CancellationToken cancellationToken = default)
@@ -68,7 +73,7 @@ public sealed class QmpClient : IQmpClient
         }
 
         // 2) qmp_capabilities must be sent before any other command.
-        await _writer.WriteLineAsync(CapabilitiesCommand.AsMemory(), cancellationToken);
+        await SendLineAsync(CapabilitiesCommand, cancellationToken);
 
         // 3) Expect a success reply ({"return": {}}); an error means the handshake failed.
         string replyLine = await ReadLineExpectedAsync("the qmp_capabilities reply", cancellationToken);
@@ -79,20 +84,69 @@ public sealed class QmpClient : IQmpClient
         }
 
         _connected = true;
+        _loopCts = new CancellationTokenSource();
+        _readLoopTask = ReadLoopAsync(_loopCts.Token);
     }
 
     /// <inheritdoc />
-    public Task<JsonElement> ExecuteAsync(string command, object? arguments = null, CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException("Command execution is implemented in a later milestone (backlog QMP-4).");
+    public async Task<JsonElement> ExecuteAsync(string command, object? arguments = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+        if (!_connected)
+        {
+            throw new InvalidOperationException("The QMP client is not connected.");
+        }
+
+        long id = Interlocked.Increment(ref _nextId);
+        var tcs = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[id] = tcs;
+        try
+        {
+            string json = JsonSerializer.Serialize(new QmpCommandEnvelope { Execute = command, Arguments = arguments, Id = id });
+            await SendLineAsync(json, cancellationToken);
+
+            await using (cancellationToken.Register(static state => ((TaskCompletionSource<JsonElement>)state!).TrySetCanceled(), tcs))
+            {
+                return await tcs.Task;
+            }
+        }
+        finally
+        {
+            _pending.TryRemove(id, out _);
+        }
+    }
 
     /// <inheritdoc />
-    public Task<TResult> ExecuteAsync<TResult>(string command, object? arguments = null, CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException("Command execution is implemented in a later milestone (backlog QMP-4/QMP-6).");
+    public async Task<TResult> ExecuteAsync<TResult>(string command, object? arguments = null, CancellationToken cancellationToken = default)
+    {
+        JsonElement payload = await ExecuteAsync(command, arguments, cancellationToken);
+        TResult? result = payload.Deserialize<TResult>();
+        if (result is null)
+        {
+            throw new QmpProtocolException($"The '{command}' reply could not be deserialized to {typeof(TResult).Name}.");
+        }
+
+        return result;
+    }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
         _connected = false;
+        if (_loopCts is not null)
+        {
+            await _loopCts.CancelAsync();
+        }
+
+        if (_readLoopTask is not null)
+        {
+            await _readLoopTask;
+        }
+        else
+        {
+            CancelPending();
+        }
+
         try
         {
             _writer?.Dispose();
@@ -110,6 +164,120 @@ public sealed class QmpClient : IQmpClient
 
         _tcpClient?.Dispose();
         _unixSocket?.Dispose();
+        _loopCts?.Dispose();
+        _writeLock.Dispose();
+        _events.Complete();
+    }
+
+    private async Task ReadLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            string? line;
+            while (!cancellationToken.IsCancellationRequested && (line = await _reader!.ReadLineAsync(cancellationToken)) is not null)
+            {
+                if (line.Length == 0)
+                {
+                    continue;
+                }
+
+                Dispatch(line);
+            }
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException or SocketException)
+        {
+            // Loop cancelled (dispose) or connection dropped.
+        }
+        finally
+        {
+            _connected = false;
+            if (cancellationToken.IsCancellationRequested)
+            {
+                CancelPending();
+            }
+            else
+            {
+                FailPending(new QmpProtocolException("The QMP connection was closed unexpectedly."));
+            }
+        }
+    }
+
+    private void Dispatch(string line)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(line);
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("event", out _))
+            {
+                QmpEventEnvelope? evt = JsonSerializer.Deserialize<QmpEventEnvelope>(line);
+                if (evt?.Event is not null)
+                {
+                    _events.Publish(new QmpEvent(
+                        evt.Event,
+                        evt.Data,
+                        evt.Timestamp?.Seconds ?? 0,
+                        evt.Timestamp?.Microseconds ?? 0));
+                }
+
+                return;
+            }
+
+            bool hasReturn = root.TryGetProperty("return", out _);
+            bool hasError = root.TryGetProperty("error", out JsonElement errorElement);
+            if (!hasReturn && !hasError)
+            {
+                return; // Not a reply we can act on.
+            }
+
+            if (!root.TryGetProperty("id", out JsonElement idElement) || idElement.ValueKind != JsonValueKind.Number)
+            {
+                return; // No id to correlate by.
+            }
+
+            if (!_pending.TryRemove(idElement.GetInt64(), out var tcs))
+            {
+                return; // Already cancelled, or unknown id.
+            }
+
+            if (hasError)
+            {
+                string errorClass = errorElement.TryGetProperty("class", out var c) ? c.GetString() ?? "GenericError" : "GenericError";
+                string description = errorElement.TryGetProperty("desc", out var d) ? d.GetString() ?? string.Empty : string.Empty;
+                tcs.TrySetException(new QmpCommandException(errorClass, description));
+            }
+            else
+            {
+                tcs.TrySetResult(root.GetProperty("return").Clone());
+            }
+        }
+        catch (JsonException)
+        {
+            // Ignore malformed lines.
+        }
+    }
+
+    private void CancelPending()
+    {
+        foreach (long id in _pending.Keys.ToArray())
+        {
+            if (_pending.TryRemove(id, out var tcs))
+            {
+                tcs.TrySetCanceled();
+            }
+        }
+    }
+
+    private void FailPending(Exception exception)
+    {
+        foreach (long id in _pending.Keys.ToArray())
+        {
+            if (_pending.TryRemove(id, out var tcs))
+            {
+                tcs.TrySetException(exception);
+            }
+        }
     }
 
     private async Task<Stream> OpenStreamAsync(QmpEndpoint endpoint, CancellationToken cancellationToken)
@@ -148,6 +316,19 @@ public sealed class QmpClient : IQmpClient
         return line ?? throw new QmpProtocolException($"The QMP server closed the connection before sending {what}.");
     }
 
+    private async Task SendLineAsync(string line, CancellationToken cancellationToken)
+    {
+        await _writeLock.WaitAsync(cancellationToken);
+        try
+        {
+            await _writer!.WriteLineAsync(line.AsMemory(), cancellationToken);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
     private static QmpReplyEnvelope ParseReply(string line)
     {
         try
@@ -161,24 +342,70 @@ public sealed class QmpClient : IQmpClient
         }
     }
 
-    private sealed class NoOpObservable : IObservable<QmpEvent>
+    // Minimal dependency-free multicast observable (resolves the QMP-5 surface question:
+    // hand-rolled, no System.Reactive). Observer-exception isolation is a later refinement.
+    private sealed class EventStream : IObservable<QmpEvent>
     {
-        public static readonly NoOpObservable Instance = new();
+        private readonly object _gate = new();
+        private readonly List<IObserver<QmpEvent>> _observers = new();
 
         public IDisposable Subscribe(IObserver<QmpEvent> observer)
         {
             ArgumentNullException.ThrowIfNull(observer);
-            return NoOpSubscription.Instance;
+            lock (_gate)
+            {
+                _observers.Add(observer);
+            }
+
+            return new Subscription(this, observer);
         }
-    }
 
-    private sealed class NoOpSubscription : IDisposable
-    {
-        public static readonly NoOpSubscription Instance = new();
-
-        public void Dispose()
+        public void Publish(QmpEvent value)
         {
-            // Nothing to release.
+            IObserver<QmpEvent>[] snapshot;
+            lock (_gate)
+            {
+                snapshot = _observers.ToArray();
+            }
+
+            foreach (IObserver<QmpEvent> observer in snapshot)
+            {
+                observer.OnNext(value);
+            }
+        }
+
+        public void Complete()
+        {
+            IObserver<QmpEvent>[] snapshot;
+            lock (_gate)
+            {
+                snapshot = _observers.ToArray();
+                _observers.Clear();
+            }
+
+            foreach (IObserver<QmpEvent> observer in snapshot)
+            {
+                observer.OnCompleted();
+            }
+        }
+
+        private void Remove(IObserver<QmpEvent> observer)
+        {
+            lock (_gate)
+            {
+                _observers.Remove(observer);
+            }
+        }
+
+        private sealed class Subscription(EventStream stream, IObserver<QmpEvent> observer) : IDisposable
+        {
+            private EventStream? _stream = stream;
+
+            public void Dispose()
+            {
+                _stream?.Remove(observer);
+                _stream = null;
+            }
         }
     }
 }
