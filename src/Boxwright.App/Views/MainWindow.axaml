@@ -1,0 +1,22 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Boxwright.App.ViewModels"
+        x:Class="Boxwright.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="960" Height="640"
+        MinWidth="640" MinHeight="420"
+        WindowStartupLocation="CenterScreen"
+        Title="{Binding Title}">
+
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" MaxWidth="680">
+        <TextBlock Text="{Binding Title}" FontSize="32" FontWeight="SemiBold" HorizontalAlignment="Center" />
+        <TextBlock Text="{Binding Tagline}" Opacity="0.7" HorizontalAlignment="Center"
+                   TextWrapping="Wrap" TextAlignment="Center" />
+        <TextBlock Text="{Binding Accelerator, StringFormat='Detected accelerator: {0}'}"
+                   Margin="0,12,0,0" HorizontalAlignment="Center" Opacity="0.7" />
+        <TextBlock Text="{Binding VmsDirectory, StringFormat='VMs folder: {0}'}"
+                   HorizontalAlignment="Center" Opacity="0.5" FontSize="12"
+                   TextWrapping="Wrap" TextAlignment="Center" />
+    </StackPanel>
+
+</Window>

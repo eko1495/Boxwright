@@ -3,7 +3,8 @@
   <!--
     Boxwright.App — the Avalonia GUI (MVVM).
     Views + viewmodels ONLY. No QEMU/process/QMP logic here.
-    References Core (and transitively Qmp).
+    References Core (and transitively Qmp). Package versions are centralized in
+    Directory.Packages.props; Avalonia is pinned to the 11.x line (see APP-1).
   -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -16,15 +17,15 @@
     <ProjectReference Include="..\Boxwright.Core\Boxwright.Core.csproj" />
   </ItemGroup>
 
-  <!--
-    Add the Avalonia packages when scaffolding (check NuGet for the latest 11.x/12.x):
-      Avalonia
-      Avalonia.Desktop
-      Avalonia.Themes.Fluent
-      Avalonia.Fonts.Inter
-      Avalonia.Diagnostics            (Debug only)
-      CommunityToolkit.Mvvm
-    e.g.  dotnet add package Avalonia.Desktop
-  -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <!-- Dev-only visual inspector (F12). Excluded from Release builds. -->
+    <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
+  </ItemGroup>
 
 </Project>

@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Boxwright.App/Boxwright.App.csproj" />
     <Project Path="src/Boxwright.Core/Boxwright.Core.csproj" />
     <Project Path="src/Boxwright.Qmp/Boxwright.Qmp.csproj" />
   </Folder>
