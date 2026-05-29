@@ -62,7 +62,7 @@ public sealed class QmpClient : IQmpClient
         QmpGreetingEnvelope? greeting;
         try
         {
-            greeting = JsonSerializer.Deserialize<QmpGreetingEnvelope>(greetingLine);
+            greeting = JsonSerializer.Deserialize(greetingLine, QmpJsonContext.Default.QmpGreetingEnvelope);
         }
         catch (JsonException ex)
         {
@@ -146,7 +146,7 @@ public sealed class QmpClient : IQmpClient
             if (_schema is null)
             {
                 JsonElement payload = await ExecuteAsync("query-qmp-schema", arguments: null, cancellationToken);
-                List<QmpSchemaEntry> entries = payload.Deserialize<List<QmpSchemaEntry>>() ?? [];
+                List<QmpSchemaEntry> entries = payload.Deserialize(QmpJsonContext.Default.ListQmpSchemaEntry) ?? [];
                 _schema = new QmpSchema(entries);
             }
 
@@ -241,7 +241,7 @@ public sealed class QmpClient : IQmpClient
 
             if (root.TryGetProperty("event", out _))
             {
-                QmpEventEnvelope? evt = JsonSerializer.Deserialize<QmpEventEnvelope>(line);
+                QmpEventEnvelope? evt = JsonSerializer.Deserialize(line, QmpJsonContext.Default.QmpEventEnvelope);
                 if (evt?.Event is not null)
                 {
                     _events.Publish(new QmpEvent(
@@ -363,7 +363,7 @@ public sealed class QmpClient : IQmpClient
     {
         try
         {
-            return JsonSerializer.Deserialize<QmpReplyEnvelope>(line)
+            return JsonSerializer.Deserialize(line, QmpJsonContext.Default.QmpReplyEnvelope)
                 ?? throw new QmpProtocolException($"Received an empty QMP reply: '{line}'.");
         }
         catch (JsonException ex)
