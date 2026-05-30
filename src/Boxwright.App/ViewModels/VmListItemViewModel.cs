@@ -275,7 +275,21 @@ public sealed partial class VmListItemViewModel : ObservableObject
     {
         VmConfig updated = edit(Vm.Config);
         await _repository.SaveAsync(updated);
-        Vm = Vm with { Config = updated };
+        ApplyConfig(updated);
+    }
+
+    /// <summary>
+    /// Replaces this item's config in place (already persisted elsewhere) and refreshes
+    /// the derived display. Used after the Settings panel saves; does not touch a running
+    /// process — the live session keeps the config it launched with.
+    /// </summary>
+    public void ApplyConfig(VmConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
+        Vm = Vm with { Config = config };
+        OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(Summary));
         OnPropertyChanged(nameof(IsoPath));
         OnPropertyChanged(nameof(HasIso));
         OnPropertyChanged(nameof(BootSummary));

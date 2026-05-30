@@ -16,7 +16,8 @@
                 <TextBlock Grid.Column="0" Text="{Binding Title}" FontSize="20" FontWeight="SemiBold"
                            VerticalAlignment="Center" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                    <Button Content="New VM" Command="{Binding BeginCreateCommand}" IsEnabled="{Binding !IsCreating}" />
+                    <Button Content="New VM" Command="{Binding BeginCreateCommand}" IsEnabled="{Binding !IsShowingForm}" />
+                    <Button Content="Settings" Command="{Binding BeginEditCommand}" IsEnabled="{Binding Vms.HasSelection}" />
                     <Button Content="Refresh" Command="{Binding Vms.RefreshCommand}" IsEnabled="{Binding !Vms.IsLoading}" />
                 </StackPanel>
             </Grid>
@@ -114,8 +115,65 @@
                         </ContentControl.ContentTemplate>
                     </ContentControl>
 
-                    <!-- Detail / placeholder (hidden while creating) -->
-                    <Panel IsVisible="{Binding !IsCreating}">
+                    <!-- Settings form -->
+                    <ContentControl Content="{Binding Editing}" IsVisible="{Binding IsEditing}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:VmSettingsViewModel">
+                                <ScrollViewer>
+                                    <StackPanel Spacing="10" MaxWidth="420" HorizontalAlignment="Left">
+                                        <TextBlock Text="VM settings" FontSize="22" FontWeight="SemiBold" />
+                                        <Border Background="#22808080" CornerRadius="4" Padding="10">
+                                            <TextBlock TextWrapping="Wrap" FontSize="12"
+                                                       Text="These are boot-time settings — they take effect the next time the VM starts." />
+                                        </Border>
+                                        <TextBlock IsVisible="{Binding IsRunning}" Foreground="#CC8800" FontSize="12"
+                                                   TextWrapping="Wrap"
+                                                   Text="The VM is running. Stop and restart it to apply these changes." />
+
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Name" Opacity="0.7" />
+                                            <TextBox Text="{Binding Name}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Memory (MiB)" Opacity="0.7" />
+                                            <TextBox Text="{Binding MemoryMiB}" Width="160" HorizontalAlignment="Left" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="CPU cores" Opacity="0.7" />
+                                            <TextBox Text="{Binding CpuCores}" Width="160" HorizontalAlignment="Left" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Firmware" Opacity="0.7" />
+                                            <ComboBox ItemsSource="{Binding FirmwareOptions}" SelectedItem="{Binding Firmware}"
+                                                      Width="160" HorizontalAlignment="Left" />
+                                        </StackPanel>
+                                        <CheckBox IsChecked="{Binding DisplayGl}" Content="Enable OpenGL acceleration (SPICE)" />
+                                        <CheckBox IsChecked="{Binding BootMenu}" Content="Show the firmware boot menu" />
+
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Disks (read-only)" Opacity="0.7" />
+                                            <TextBlock Text="{Binding DisksText}" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                                        </StackPanel>
+
+                                        <TextBlock Text="{Binding ValidationError}" IsVisible="{Binding HasValidationError}"
+                                                   Foreground="#CC8800" TextWrapping="Wrap" />
+                                        <Border IsVisible="{Binding HasErrorMessage}" Background="#33CC3333"
+                                                CornerRadius="4" Padding="10">
+                                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#CC3333" TextWrapping="Wrap" />
+                                        </Border>
+
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button Content="Save" Command="{Binding SaveCommand}" />
+                                            <Button Content="Cancel" Command="{Binding CancelCommand}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+
+                    <!-- Detail / placeholder (hidden while a form is open) -->
+                    <Panel IsVisible="{Binding !IsShowingForm}">
                         <TextBlock Text="Select a VM to manage it." Opacity="0.5"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    IsVisible="{Binding !Vms.HasSelection}" />

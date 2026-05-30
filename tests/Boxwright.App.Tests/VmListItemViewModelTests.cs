@@ -233,4 +233,16 @@ public sealed class VmListItemViewModelTests : IDisposable
 
         Assert.False(item.OpenDisplayCommand.CanExecute(null));
     }
+
+    [Fact]
+    public void ApplyConfig_UpdatesDisplayedConfig()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
+        VmConfig updated = item.Vm.Config with { Name = "Renamed", MemoryMiB = 9000 };
+
+        item.ApplyConfig(updated);
+
+        Assert.Equal("Renamed", item.Name);
+        Assert.Contains("9000 MiB", item.Summary, StringComparison.Ordinal);
+    }
 }
