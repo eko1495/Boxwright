@@ -5,7 +5,7 @@ namespace Boxwright.Core;
 /// against the VM's SPICE port — the MVP display strategy (ADR-0004). No display is
 /// embedded. A missing viewer surfaces a clear, actionable error.
 /// </summary>
-public sealed class DisplayLauncher
+public sealed class DisplayLauncher : IDisplayLauncher
 {
     private readonly IProcessLauncher _processLauncher;
     private readonly IRemoteViewerLocator _locator;
