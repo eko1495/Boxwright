@@ -38,6 +38,9 @@ internal static class ServiceConfiguration
         // File selection (installer ISOs) via Avalonia's storage provider.
         services.AddSingleton<IFilePicker, AvaloniaFilePicker>();
 
+        // Reads per-VM qemu.log for the Logs panel.
+        services.AddSingleton<ILogReader, FileLogReader>();
+
         // View models.
         services.AddTransient<VmListViewModel>();
         services.AddTransient<MainWindowViewModel>();

@@ -134,3 +134,17 @@ internal sealed class FakeDisplayLauncher : IDisplayLauncher
         Launches.Add((port, protocol));
     }
 }
+
+/// <summary>A fake log reader returning preset content and recording the path it was asked for.</summary>
+internal sealed class FakeLogReader : ILogReader
+{
+    public string? Content { get; set; }
+
+    public string? LastPath { get; private set; }
+
+    public Task<string?> ReadAsync(string path, CancellationToken cancellationToken = default)
+    {
+        LastPath = path;
+        return Task.FromResult(Content);
+    }
+}

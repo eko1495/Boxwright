@@ -15,6 +15,7 @@ public sealed class VmListItemViewModelTests : IDisposable
     private readonly ImmediateUiDispatcher _dispatcher = new();
     private readonly FakeFilePicker _filePicker = new();
     private readonly FakeDisplayLauncher _display = new();
+    private readonly FakeLogReader _logReader = new();
 
     public VmListItemViewModelTests()
     {
@@ -36,7 +37,7 @@ public sealed class VmListItemViewModelTests : IDisposable
 
     private VmListItemViewModel NewItem(IVmLauncher launcher, Vm? vm = null) =>
         new(vm ?? new Vm(Path.Combine(_root, "x"), new VmConfig { Id = "x", Name = "Test" }),
-            launcher, _repository, _dispatcher, _filePicker, _display);
+            launcher, _repository, _dispatcher, _filePicker, _display, _logReader);
 
     [Fact]
     public async Task Start_TransitionsToRunning_AndSurfacesAcceleratorHonesty()
@@ -255,5 +256,42 @@ public sealed class VmListItemViewModelTests : IDisposable
 
         Assert.Equal("Renamed", item.Name);
         Assert.Contains("9000 MiB", item.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RefreshLog_PopulatesLogContentFromTheVmLogPath()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
+        _logReader.Content = "=== Boxwright launch ===\n--- QEMU output ---\nVNC server running";
+
+        await item.RefreshLogCommand.ExecuteAsync(null);
+
+        Assert.True(item.HasLog);
+        Assert.Equal(_logReader.Content, item.LogContent);
+        Assert.Equal(item.Vm.LogPath, _logReader.LastPath);
+    }
+
+    [Fact]
+    public async Task RefreshLog_WhenNeverRun_LeavesEmptyState()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
+        _logReader.Content = null;
+
+        await item.RefreshLogCommand.ExecuteAsync(null);
+
+        Assert.False(item.HasLog);
+        Assert.Null(item.LogContent);
+    }
+
+    [Fact]
+    public async Task Start_AutoRefreshesTheLog()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
+        _logReader.Content = "boot log";
+
+        await item.StartCommand.ExecuteAsync(null);
+
+        Assert.Equal("boot log", item.LogContent);
+        Assert.Equal(item.Vm.LogPath, _logReader.LastPath);
     }
 }

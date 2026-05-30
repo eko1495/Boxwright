@@ -37,6 +37,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     private readonly IUiDispatcher _dispatcher;
     private readonly IFilePicker _filePicker;
     private readonly IDisplayLauncher _displayLauncher;
+    private readonly ILogReader _logReader;
     private IRunningVm? _session;
 
     public VmListItemViewModel(
@@ -45,7 +46,8 @@ public sealed partial class VmListItemViewModel : ObservableObject
         VmRepository repository,
         IUiDispatcher dispatcher,
         IFilePicker filePicker,
-        IDisplayLauncher displayLauncher)
+        IDisplayLauncher displayLauncher,
+        ILogReader logReader)
     {
         ArgumentNullException.ThrowIfNull(vm);
         ArgumentNullException.ThrowIfNull(launcher);
@@ -53,6 +55,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(filePicker);
         ArgumentNullException.ThrowIfNull(displayLauncher);
+        ArgumentNullException.ThrowIfNull(logReader);
 
         Vm = vm;
         _launcher = launcher;
@@ -60,6 +63,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         _dispatcher = dispatcher;
         _filePicker = filePicker;
         _displayLauncher = displayLauncher;
+        _logReader = logReader;
     }
 
     /// <summary>The underlying domain VM (replaced when its config is edited).</summary>
@@ -106,6 +110,13 @@ public sealed partial class VmListItemViewModel : ObservableObject
     [ObservableProperty]
     private bool _isConfirmingDelete;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLog))]
+    private string? _logContent;
+
+    /// <summary>True when there is captured log text to show.</summary>
+    public bool HasLog => !string.IsNullOrEmpty(LogContent);
+
     /// <summary>Human-readable status for the UI.</summary>
     public string StatusText => Status switch
     {
@@ -142,6 +153,9 @@ public sealed partial class VmListItemViewModel : ObservableObject
             Status = VmStatus.Stopped;
             StatusMessage = $"Couldn't start the VM: {ex.Message}";
         }
+
+        // Surface what QEMU wrote (the launch header + any output/errors) without a manual click.
+        await RefreshLogAsync();
     }
 
     private bool CanStart() => Status == VmStatus.Stopped;
@@ -166,6 +180,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         {
             await TeardownSessionAsync();
             Status = VmStatus.Stopped;
+            await RefreshLogAsync();
         }
     }
 
@@ -226,6 +241,9 @@ public sealed partial class VmListItemViewModel : ObservableObject
             StatusMessage = ex.Message;
         }
     }
+
+    [RelayCommand]
+    private async Task RefreshLogAsync() => LogContent = await _logReader.ReadAsync(Vm.LogPath);
 
     [RelayCommand(CanExecute = nameof(CanDelete))]
     private void Delete() => IsConfirmingDelete = true;
@@ -317,6 +335,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
             Status = VmStatus.Stopped;
             StatusMessage = "The VM stopped unexpectedly (the guest powered off or the process exited).";
             _ = TeardownSessionAsync();
+            _ = RefreshLogAsync();
         });
 
     private static string DescribeAccelerator(Accelerator accelerator) => accelerator switch

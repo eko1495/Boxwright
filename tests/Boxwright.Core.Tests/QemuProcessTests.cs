@@ -42,6 +42,30 @@ public class QemuProcessTests
     }
 
     [Fact]
+    public void Start_WritesLaunchHeaderBeforeOutput()
+    {
+        WithTempFolder((folder, logPath) =>
+        {
+            var launcher = new FakeProcessLauncher();
+            using var qemu = new QemuProcess(launcher, "qemu-system-x86_64",
+                ["-accel", "whpx,kernel-irqchip=off", "-cpu", "Westmere"], folder, logPath, Accelerator.Whpx);
+            qemu.Start();
+            launcher.Last!.EmitOutput("VNC server running on 127.0.0.1");
+            qemu.Dispose();
+
+            string log = File.ReadAllText(logPath);
+            Assert.Contains("=== Boxwright launch", log, StringComparison.Ordinal);
+            Assert.Contains("Accelerator: Whpx", log, StringComparison.Ordinal);
+            Assert.Contains("-accel whpx,kernel-irqchip=off", log, StringComparison.Ordinal);
+            Assert.Contains("-cpu Westmere", log, StringComparison.Ordinal);
+            Assert.True(
+                log.IndexOf("Boxwright launch", StringComparison.Ordinal) <
+                log.IndexOf("VNC server", StringComparison.Ordinal),
+                "the launch header should precede QEMU output");
+        });
+    }
+
+    [Fact]
     public void Exit_SetsStateAndExitCode_AndRaisesExited()
     {
         WithTempFolder((folder, logPath) =>

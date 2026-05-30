@@ -24,6 +24,7 @@ public sealed class QemuProcess : IDisposable
     private readonly string _executable;
     private readonly IReadOnlyList<string> _arguments;
     private readonly string _workingDirectory;
+    private readonly Accelerator? _accelerator;
     private readonly object _logGate = new();
 
     private IRunningProcess? _process;
@@ -36,7 +37,8 @@ public sealed class QemuProcess : IDisposable
         string executable,
         IReadOnlyList<string> arguments,
         string workingDirectory,
-        string logFilePath)
+        string logFilePath,
+        Accelerator? accelerator = null)
     {
         ArgumentNullException.ThrowIfNull(launcher);
         ArgumentException.ThrowIfNullOrWhiteSpace(executable);
@@ -48,6 +50,7 @@ public sealed class QemuProcess : IDisposable
         _executable = executable;
         _arguments = arguments;
         _workingDirectory = workingDirectory;
+        _accelerator = accelerator;
         LogFilePath = logFilePath;
     }
 
@@ -73,6 +76,7 @@ public sealed class QemuProcess : IDisposable
 
         // Per-VM log of combined stdout/stderr (overwritten each launch).
         _log = new StreamWriter(LogFilePath, append: false) { AutoFlush = true };
+        WriteLaunchHeader();
 
         IRunningProcess process = _launcher.Start(new ProcessLaunchRequest
         {
@@ -110,6 +114,25 @@ public sealed class QemuProcess : IDisposable
         }
 
         CloseLog();
+    }
+
+    // Echo what Boxwright launched at the top of the log — human-readable, NOT shell-escaped
+    // (args containing spaces aren't quoted), so a launch failure (e.g. a bad -cpu under WHPX)
+    // is diagnosable alongside QEMU's own output below. Runs before the process starts, so no
+    // OutputReceived can race it.
+    private void WriteLaunchHeader()
+    {
+        lock (_logGate)
+        {
+            _log!.WriteLine($"=== Boxwright launch {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}Z ===");
+            if (_accelerator is not null)
+            {
+                _log.WriteLine($"Accelerator: {_accelerator}");
+            }
+
+            _log.WriteLine($"Command: {_executable} {string.Join(' ', _arguments)}");
+            _log.WriteLine("--- QEMU output ---");
+        }
     }
 
     private void OnOutput(object? sender, string line)

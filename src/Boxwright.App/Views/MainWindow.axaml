@@ -221,6 +221,21 @@
                                             </StackPanel>
                                         </Border>
 
+                                        <Expander Header="Logs">
+                                            <StackPanel Spacing="6">
+                                                <Button Content="Refresh" Command="{Binding RefreshLogCommand}"
+                                                        HorizontalAlignment="Left" />
+                                                <TextBlock Text="This VM hasn't been run yet — start it to capture a log."
+                                                           IsVisible="{Binding !HasLog}" FontSize="12" Opacity="0.5"
+                                                           TextWrapping="Wrap" />
+                                                <TextBox Text="{Binding LogContent, Mode=OneWay}" IsVisible="{Binding HasLog}"
+                                                         IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                                                         FontFamily="Consolas,Menlo,monospace" FontSize="11" MaxHeight="260"
+                                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                         ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+                                            </StackPanel>
+                                        </Expander>
+
                                         <StackPanel>
                                             <Button Content="Delete…" Command="{Binding DeleteCommand}"
                                                     IsVisible="{Binding !IsConfirmingDelete}" />

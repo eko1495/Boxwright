@@ -9,8 +9,6 @@ namespace Boxwright.Core;
 /// </summary>
 public sealed class VmLauncher : IVmLauncher
 {
-    private const string LogFileName = "qemu.log";
-
     private readonly IProcessLauncher _processLauncher;
     private readonly IEndpointAllocator _endpointAllocator;
     private readonly IQmpConnector _qmpConnector;
@@ -50,9 +48,8 @@ public sealed class VmLauncher : IVmLauncher
         var context = new QemuLaunchContext { QmpEndpoint = qmpEndpoint, SpicePort = spicePort };
         IReadOnlyList<string> arguments = CommandLineBuilder.Build(vm.Config, accelerator, context);
         string executable = _locator.ResolveSystemEmulator(vm.Config.Arch);
-        string logPath = Path.Combine(vm.FolderPath, LogFileName);
 
-        var process = new QemuProcess(_processLauncher, executable, arguments, vm.FolderPath, logPath);
+        var process = new QemuProcess(_processLauncher, executable, arguments, vm.FolderPath, vm.LogPath, accelerator);
         bool launched = false;
         try
         {

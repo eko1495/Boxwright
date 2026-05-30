@@ -18,25 +18,29 @@ public sealed partial class VmListViewModel : ObservableObject
     private readonly IUiDispatcher _dispatcher;
     private readonly IFilePicker _filePicker;
     private readonly IDisplayLauncher _displayLauncher;
+    private readonly ILogReader _logReader;
 
     public VmListViewModel(
         VmRepository repository,
         IVmLauncher launcher,
         IUiDispatcher dispatcher,
         IFilePicker filePicker,
-        IDisplayLauncher displayLauncher)
+        IDisplayLauncher displayLauncher,
+        ILogReader logReader)
     {
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(filePicker);
         ArgumentNullException.ThrowIfNull(displayLauncher);
+        ArgumentNullException.ThrowIfNull(logReader);
 
         _repository = repository;
         _launcher = launcher;
         _dispatcher = dispatcher;
         _filePicker = filePicker;
         _displayLauncher = displayLauncher;
+        _logReader = logReader;
     }
 
     /// <summary>The loaded VMs, sorted by name.</summary>
@@ -104,7 +108,7 @@ public sealed partial class VmListViewModel : ObservableObject
 
     private VmListItemViewModel CreateItem(Vm vm)
     {
-        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher);
+        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _logReader);
         item.Deleted += OnItemDeleted;
         return item;
     }
