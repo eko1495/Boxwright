@@ -72,6 +72,38 @@ public class CommandLineBuilderTests
     }
 
     [Fact]
+    public void Build_WhpxWithHostCpu_SubstitutesCompatibleModel()
+    {
+        // WHPX cannot run "-cpu host"/"max" (they abort with "Unexpected VP exit code 4").
+        IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Whpx, TcpContext());
+
+        Assert.Equal("Westmere", ArgValue(args, "-cpu"));
+    }
+
+    [Fact]
+    public void Build_KvmWithHostCpu_KeepsHostPassthrough()
+    {
+        // KVM (and HVF) handle "-cpu host" natively — keep it for near-native performance.
+        IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Kvm, TcpContext());
+
+        Assert.Equal("host", ArgValue(args, "-cpu"));
+    }
+
+    [Fact]
+    public void Build_WhpxWithExplicitCpu_KeepsIt()
+    {
+        // Only the "host"/"max" sentinels are substituted; an explicit model is honoured.
+        VmConfig config = CanonicalConfig() with
+        {
+            Cpu = new CpuConfig { Model = "Haswell", Sockets = 1, Cores = 2, Threads = 1 },
+        };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Whpx, TcpContext());
+
+        Assert.Equal("Haswell", ArgValue(args, "-cpu"));
+    }
+
+    [Fact]
     public void Build_Uefi_WithFirmwarePath_EmitsBios()
     {
         VmConfig config = CanonicalConfig() with { Firmware = "uefi" };

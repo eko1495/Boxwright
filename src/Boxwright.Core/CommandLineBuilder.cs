@@ -29,7 +29,7 @@ public static class CommandLineBuilder
             "-name", config.Name,
             "-machine", config.Machine,
             "-accel", AccelValue(accelerator),
-            "-cpu", config.Cpu.Model,
+            "-cpu", CpuModel(config, accelerator),
             "-smp", $"sockets={config.Cpu.Sockets},cores={config.Cpu.Cores},threads={config.Cpu.Threads}",
             "-m", $"{config.MemoryMiB}",
         };
@@ -52,6 +52,19 @@ public static class CommandLineBuilder
     // GATE-0: WHPX runs cleaner with the in-kernel IRQ chip disabled.
     private static string AccelValue(Accelerator accelerator) =>
         accelerator == Accelerator.Whpx ? "whpx,kernel-irqchip=off" : accelerator.ToQemuValue();
+
+    // The host-passthrough CPU models ("host"/"max") abort under WHPX with
+    // "Unexpected VP exit code 4" — they expose features (APX/MPX, …) WHPX cannot run.
+    // Substitute a broadly-compatible, x86-64-v2 named model so modern guests (e.g.
+    // Ubuntu 24.04, which requires x86-64-v2) still boot. KVM/HVF keep the configured
+    // model, where "host" gives near-native performance. An explicit model is honoured
+    // as-is. Verified by the e2e dry-run on Windows: host/max fail; named models work.
+    private const string WhpxCompatibleCpu = "Westmere";
+
+    private static string CpuModel(VmConfig config, Accelerator accelerator) =>
+        accelerator == Accelerator.Whpx && config.Cpu.Model is "host" or "max"
+            ? WhpxCompatibleCpu
+            : config.Cpu.Model;
 
     private static void AppendFirmware(List<string> args, VmConfig config, QemuLaunchContext context)
     {
