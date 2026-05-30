@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Boxwright.Qmp;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Boxwright.Core.Tests;
@@ -89,7 +90,8 @@ public class VmLauncherTests
             new QmpEndpointAllocator(),
             new FakeQmpConnector(recording),
             new AcceleratorDetector(new TcgProbe()),
-            new QemuLocator(qemuDir));
+            new QemuLocator(qemuDir),
+            NullLogger<VmLauncher>.Instance);
         var vm = new Vm(vmFolder, new VmConfig { Name = "Test", Firmware = "bios" });
 
         try

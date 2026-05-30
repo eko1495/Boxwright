@@ -31,6 +31,8 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <!-- Dev-only visual inspector (F12). Excluded from Release builds. -->
     <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
   </ItemGroup>
 
 </Project>

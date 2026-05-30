@@ -2,6 +2,7 @@ using Boxwright.App.Services;
 using Boxwright.App.ViewModels;
 using Boxwright.Core;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Boxwright.App;
 
@@ -15,6 +16,15 @@ internal static class ServiceConfiguration
     public static void Register(IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        // App-wide structured logging: a rolling file (app diagnostics) plus Debug output.
+        // Lower the minimum level to Debug to also capture QMP traffic and full command lines.
+        services.AddLogging(builder =>
+        {
+            builder.SetMinimumLevel(LogLevel.Information);
+            builder.AddProvider(new FileLoggerProvider(AppPaths.AppLogFile));
+            builder.AddDebug();
+        });
 
         // Core infrastructure (process, sockets, tool discovery). The optional
         // "bundled directory" arguments are null in dev: tools resolve from PATH.

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Boxwright.Core.Tests;
@@ -9,7 +10,7 @@ public class DisplayLauncherTests
     public void Launch_WhenViewerFound_StartsRemoteViewerWithSpiceUri()
     {
         var launcher = new FakeProcessLauncher();
-        var display = new DisplayLauncher(launcher, new FakeRemoteViewerLocator("/usr/bin/remote-viewer"));
+        var display = new DisplayLauncher(launcher, new FakeRemoteViewerLocator("/usr/bin/remote-viewer"), NullLogger<DisplayLauncher>.Instance);
 
         display.Launch(5930);
 
@@ -22,7 +23,7 @@ public class DisplayLauncherTests
     public void Launch_WithVncProtocol_StartsRemoteViewerWithVncUri()
     {
         var launcher = new FakeProcessLauncher();
-        var display = new DisplayLauncher(launcher, new FakeRemoteViewerLocator("/usr/bin/remote-viewer"));
+        var display = new DisplayLauncher(launcher, new FakeRemoteViewerLocator("/usr/bin/remote-viewer"), NullLogger<DisplayLauncher>.Instance);
 
         display.Launch(5930, "vnc");
 
@@ -32,7 +33,7 @@ public class DisplayLauncherTests
     [Fact]
     public void Launch_WhenViewerNotFound_ThrowsDisplayException()
     {
-        var display = new DisplayLauncher(new FakeProcessLauncher(), new FakeRemoteViewerLocator(null));
+        var display = new DisplayLauncher(new FakeProcessLauncher(), new FakeRemoteViewerLocator(null), NullLogger<DisplayLauncher>.Instance);
 
         Assert.Throws<DisplayException>(() => display.Launch(5930));
     }
@@ -40,7 +41,7 @@ public class DisplayLauncherTests
     [Fact]
     public void Launch_RejectsNonPositivePort()
     {
-        var display = new DisplayLauncher(new FakeProcessLauncher(), new FakeRemoteViewerLocator("remote-viewer"));
+        var display = new DisplayLauncher(new FakeProcessLauncher(), new FakeRemoteViewerLocator("remote-viewer"), NullLogger<DisplayLauncher>.Instance);
 
         Assert.Throws<ArgumentOutOfRangeException>(() => display.Launch(0));
     }

@@ -1,4 +1,5 @@
 using Boxwright.Qmp;
+using Microsoft.Extensions.Logging;
 
 namespace Boxwright.Core;
 
@@ -14,6 +15,7 @@ public sealed class VmLauncher : IVmLauncher
     private readonly IQmpConnector _qmpConnector;
     private readonly AcceleratorDetector _acceleratorDetector;
     private readonly QemuLocator _locator;
+    private readonly ILogger<VmLauncher> _logger;
 
     /// <summary>Creates a launcher from its collaborators.</summary>
     public VmLauncher(
@@ -21,19 +23,22 @@ public sealed class VmLauncher : IVmLauncher
         IEndpointAllocator endpointAllocator,
         IQmpConnector qmpConnector,
         AcceleratorDetector acceleratorDetector,
-        QemuLocator locator)
+        QemuLocator locator,
+        ILogger<VmLauncher> logger)
     {
         ArgumentNullException.ThrowIfNull(processLauncher);
         ArgumentNullException.ThrowIfNull(endpointAllocator);
         ArgumentNullException.ThrowIfNull(qmpConnector);
         ArgumentNullException.ThrowIfNull(acceleratorDetector);
         ArgumentNullException.ThrowIfNull(locator);
+        ArgumentNullException.ThrowIfNull(logger);
 
         _processLauncher = processLauncher;
         _endpointAllocator = endpointAllocator;
         _qmpConnector = qmpConnector;
         _acceleratorDetector = acceleratorDetector;
         _locator = locator;
+        _logger = logger;
     }
 
     /// <summary>Starts <paramref name="vm"/> and returns a handle for controlling it.</summary>
@@ -48,6 +53,8 @@ public sealed class VmLauncher : IVmLauncher
         var context = new QemuLaunchContext { QmpEndpoint = qmpEndpoint, SpicePort = spicePort };
         IReadOnlyList<string> arguments = CommandLineBuilder.Build(vm.Config, accelerator, context);
         string executable = _locator.ResolveSystemEmulator(vm.Config.Arch);
+        _logger.LogInformation(
+            "Starting VM '{Name}' (arch {Arch}) with accelerator {Accelerator}.", vm.Config.Name, vm.Config.Arch, accelerator);
 
         var process = new QemuProcess(_processLauncher, executable, arguments, vm.FolderPath, vm.LogPath, accelerator);
         bool launched = false;
@@ -61,7 +68,12 @@ public sealed class VmLauncher : IVmLauncher
 
             var runningVm = new RunningVm(process, client, accelerator, spicePort, vm.Config.Display.Protocol);
             launched = true;
+            _logger.LogInformation("VM '{Name}' started; SPICE port {Port}.", vm.Config.Name, spicePort);
             return runningVm;
+        }
+        catch (Exception ex) when (LogLaunchFailure(vm.Config.Name, ex))
+        {
+            throw; // Not reached: the filter logs and returns false, so the exception propagates (and the finally runs).
         }
         finally
         {
@@ -71,5 +83,13 @@ public sealed class VmLauncher : IVmLauncher
                 process.Dispose();
             }
         }
+    }
+
+    // Logs the failure via the exception filter (returns false so the exception still
+    // propagates) — keeps the launch log complete without swallowing the error.
+    private bool LogLaunchFailure(string name, Exception ex)
+    {
+        _logger.LogError(ex, "Failed to start VM '{Name}'.", name);
+        return false;
     }
 }

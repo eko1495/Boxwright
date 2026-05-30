@@ -20,8 +20,12 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <!-- Don't fail the build just because a public member lacks an XML doc
-         comment; we enforce docs by review on the published Qmp library. -->
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+         comment; we enforce docs by review on the published Qmp library.
+         CA1848/CA1873 are high-performance-logging rules (LoggerMessage source-gen
+         delegates, guarding expensive log arguments). Boxwright logs only occasional
+         operational events (VM launch, display, startup, crashes), never a hot path,
+         so they're not worth the boilerplate; keep the log calls inline and readable. -->
+    <NoWarn>$(NoWarn);CS1591;CA1848;CA1873</NoWarn>
   </PropertyGroup>
 
   <!-- Common package metadata (used by the NuGet-published projects). -->

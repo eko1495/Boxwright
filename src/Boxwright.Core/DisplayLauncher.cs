@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace Boxwright.Core;
 
 /// <summary>
@@ -9,14 +11,17 @@ public sealed class DisplayLauncher : IDisplayLauncher
 {
     private readonly IProcessLauncher _processLauncher;
     private readonly IRemoteViewerLocator _locator;
+    private readonly ILogger<DisplayLauncher> _logger;
 
     /// <summary>Creates a display launcher.</summary>
-    public DisplayLauncher(IProcessLauncher processLauncher, IRemoteViewerLocator locator)
+    public DisplayLauncher(IProcessLauncher processLauncher, IRemoteViewerLocator locator, ILogger<DisplayLauncher> logger)
     {
         ArgumentNullException.ThrowIfNull(processLauncher);
         ArgumentNullException.ThrowIfNull(locator);
+        ArgumentNullException.ThrowIfNull(logger);
         _processLauncher = processLauncher;
         _locator = locator;
+        _logger = logger;
     }
 
     /// <summary>Launches <c>remote-viewer</c> against the display server at <paramref name="host"/>:<paramref name="port"/> using <paramref name="protocol"/> (<c>spice</c> or <c>vnc</c>).</summary>
@@ -31,9 +36,12 @@ public sealed class DisplayLauncher : IDisplayLauncher
         string? viewer = _locator.Locate();
         if (viewer is null)
         {
+            _logger.LogWarning("remote-viewer not found; cannot open the {Scheme} display.", scheme);
             throw new DisplayException(
                 "remote-viewer (from virt-viewer) was not found. Install virt-viewer, or ensure it is on PATH.");
         }
+
+        _logger.LogInformation("Opening display via {Viewer} ({Scheme}://{Host}:{Port}).", viewer, scheme, host, port);
 
         // We don't supervise remote-viewer; launch it detached and release our handle.
         using (_processLauncher.Start(new ProcessLaunchRequest
