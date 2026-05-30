@@ -135,6 +135,7 @@
 
                                         <WrapPanel>
                                             <Button Content="Start" Command="{Binding StartCommand}" Margin="0,0,8,8" />
+                                            <Button Content="Open display" Command="{Binding OpenDisplayCommand}" Margin="0,0,8,8" />
                                             <Button Content="Pause" Command="{Binding PauseCommand}" Margin="0,0,8,8" />
                                             <Button Content="Resume" Command="{Binding ResumeCommand}" Margin="0,0,8,8" />
                                             <Button Content="Reset" Command="{Binding ResetCommand}" Margin="0,0,8,8" />

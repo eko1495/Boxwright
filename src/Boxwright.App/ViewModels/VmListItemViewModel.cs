@@ -36,6 +36,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     private readonly VmRepository _repository;
     private readonly IUiDispatcher _dispatcher;
     private readonly IFilePicker _filePicker;
+    private readonly IDisplayLauncher _displayLauncher;
     private IRunningVm? _session;
 
     public VmListItemViewModel(
@@ -43,19 +44,22 @@ public sealed partial class VmListItemViewModel : ObservableObject
         IVmLauncher launcher,
         VmRepository repository,
         IUiDispatcher dispatcher,
-        IFilePicker filePicker)
+        IFilePicker filePicker,
+        IDisplayLauncher displayLauncher)
     {
         ArgumentNullException.ThrowIfNull(vm);
         ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(filePicker);
+        ArgumentNullException.ThrowIfNull(displayLauncher);
 
         Vm = vm;
         _launcher = launcher;
         _repository = repository;
         _dispatcher = dispatcher;
         _filePicker = filePicker;
+        _displayLauncher = displayLauncher;
     }
 
     /// <summary>The underlying domain VM (replaced when its config is edited).</summary>
@@ -92,7 +96,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(StatusText))]
     [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(StopCommand), nameof(PauseCommand),
         nameof(ResumeCommand), nameof(ResetCommand), nameof(DeleteCommand),
-        nameof(ChooseIsoCommand), nameof(RemoveIsoCommand))]
+        nameof(ChooseIsoCommand), nameof(RemoveIsoCommand), nameof(OpenDisplayCommand))]
     private VmStatus _status = VmStatus.Stopped;
 
     [ObservableProperty]
@@ -201,6 +205,25 @@ public sealed partial class VmListItemViewModel : ObservableObject
         if (_session is not null)
         {
             await _session.ResetAsync();
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanControlRunning))]
+    private void OpenDisplay()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _displayLauncher.Launch(_session.SpicePort);
+        }
+        catch (DisplayException ex)
+        {
+            // remote-viewer missing — show CORE-10's actionable message (Directive 4).
+            StatusMessage = ex.Message;
         }
     }
 

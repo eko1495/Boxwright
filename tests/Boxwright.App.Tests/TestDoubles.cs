@@ -114,3 +114,21 @@ internal sealed class FakeFilePicker : IFilePicker
 
     public Task<string?> PickIsoAsync() => Task.FromResult(IsoToReturn);
 }
+
+/// <summary>A fake display launcher that records SPICE ports (or fails to simulate a missing viewer).</summary>
+internal sealed class FakeDisplayLauncher : IDisplayLauncher
+{
+    public List<int> LaunchedPorts { get; } = [];
+
+    public DisplayException? FailWith { get; set; }
+
+    public void Launch(int spicePort, string host = "127.0.0.1")
+    {
+        if (FailWith is not null)
+        {
+            throw FailWith;
+        }
+
+        LaunchedPorts.Add(spicePort);
+    }
+}

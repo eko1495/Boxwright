@@ -14,6 +14,7 @@ public sealed class VmListItemViewModelTests : IDisposable
     private readonly VmRepository _repository;
     private readonly ImmediateUiDispatcher _dispatcher = new();
     private readonly FakeFilePicker _filePicker = new();
+    private readonly FakeDisplayLauncher _display = new();
 
     public VmListItemViewModelTests()
     {
@@ -35,7 +36,7 @@ public sealed class VmListItemViewModelTests : IDisposable
 
     private VmListItemViewModel NewItem(IVmLauncher launcher, Vm? vm = null) =>
         new(vm ?? new Vm(Path.Combine(_root, "x"), new VmConfig { Id = "x", Name = "Test" }),
-            launcher, _repository, _dispatcher, _filePicker);
+            launcher, _repository, _dispatcher, _filePicker, _display);
 
     [Fact]
     public async Task Start_TransitionsToRunning_AndSurfacesAcceleratorHonesty()
@@ -200,5 +201,36 @@ public sealed class VmListItemViewModelTests : IDisposable
 
         Assert.False(item.ChooseIsoCommand.CanExecute(null));
         Assert.False(item.RemoveIsoCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task OpenDisplay_WhenRunning_LaunchesViewerAgainstSpicePort()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm { SpicePort = 5905 }));
+        await item.StartCommand.ExecuteAsync(null);
+
+        item.OpenDisplayCommand.Execute(null);
+
+        Assert.Equal(5905, Assert.Single(_display.LaunchedPorts));
+    }
+
+    [Fact]
+    public async Task OpenDisplay_WhenViewerMissing_ShowsActionableMessage()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
+        await item.StartCommand.ExecuteAsync(null);
+        _display.FailWith = new DisplayException("remote-viewer was not found");
+
+        item.OpenDisplayCommand.Execute(null);
+
+        Assert.Contains("remote-viewer was not found", item.StatusMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OpenDisplay_IsDisabledWhenStopped()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
+
+        Assert.False(item.OpenDisplayCommand.CanExecute(null));
     }
 }

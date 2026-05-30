@@ -13,6 +13,7 @@ public sealed class VmListViewModelTests : IDisposable
     private readonly string _root;
     private readonly ImmediateUiDispatcher _dispatcher = new();
     private readonly FakeFilePicker _filePicker = new();
+    private readonly FakeDisplayLauncher _display = new();
 
     public VmListViewModelTests()
     {
@@ -34,7 +35,7 @@ public sealed class VmListViewModelTests : IDisposable
     private VmRepository NewRepository() => new(_root);
 
     private VmListViewModel NewSut(VmRepository repository) =>
-        new(repository, new FakeVmLauncher(new FakeRunningVm()), _dispatcher, _filePicker);
+        new(repository, new FakeVmLauncher(new FakeRunningVm()), _dispatcher, _filePicker, _display);
 
     [Fact]
     public async Task Refresh_WithNoVms_LeavesListEmptyAndFlagsEmpty()
