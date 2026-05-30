@@ -151,4 +151,21 @@ public sealed class VmListViewModelTests : IDisposable
         Assert.Empty(sut.Vms);
         Assert.True(sut.IsEmpty);
     }
+
+    [Fact]
+    public async Task AddCreated_InsertsSorted_AndSelectsTheNewVm()
+    {
+        VmRepository repo = NewRepository();
+        await repo.CreateAsync(new VmConfig { Name = "Beta" });
+        var sut = NewSut(repo);
+        await sut.RefreshCommand.ExecuteAsync(null);
+
+        Vm created = new(Path.Combine(_root, "new-id"), new VmConfig { Id = "new-id", Name = "Alpha" });
+        sut.AddCreated(created);
+
+        Assert.Equal(2, sut.Vms.Count);
+        Assert.Equal("Alpha", sut.Vms[0].Name);
+        Assert.Same(sut.Vms[0], sut.SelectedVm);
+        Assert.True(sut.HasSelection);
+    }
 }

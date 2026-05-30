@@ -15,8 +15,10 @@
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding Title}" FontSize="20" FontWeight="SemiBold"
                            VerticalAlignment="Center" />
-                <Button Grid.Column="1" Content="Refresh" Command="{Binding Vms.RefreshCommand}"
-                        IsEnabled="{Binding !Vms.IsLoading}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Content="New VM" Command="{Binding BeginCreateCommand}" IsEnabled="{Binding !IsCreating}" />
+                    <Button Content="Refresh" Command="{Binding Vms.RefreshCommand}" IsEnabled="{Binding !Vms.IsLoading}" />
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -35,7 +37,7 @@
             </Grid>
         </Border>
 
-        <!-- Content: VM list (left) + detail / power controls (right) -->
+        <!-- Content: VM list (left) + detail / power controls / new-VM form (right) -->
         <Grid ColumnDefinitions="300,*">
 
             <Panel Grid.Column="0" Margin="8">
@@ -58,52 +60,104 @@
                 <StackPanel IsVisible="{Binding Vms.IsEmpty}" HorizontalAlignment="Center"
                             VerticalAlignment="Center" Spacing="6">
                     <TextBlock Text="No VMs yet." FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                    <TextBlock Text="Create one to get started — coming soon." Opacity="0.6" HorizontalAlignment="Center" />
+                    <TextBlock Text="Click “New VM” to create one." Opacity="0.6" HorizontalAlignment="Center" />
                 </StackPanel>
             </Panel>
 
             <Border Grid.Column="1" BorderThickness="1,0,0,0" BorderBrush="#22808080" Padding="20">
                 <Panel>
-                    <TextBlock Text="Select a VM to manage it." Opacity="0.5"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               IsVisible="{Binding !Vms.HasSelection}" />
 
-                    <ContentControl Content="{Binding Vms.SelectedVm}" IsVisible="{Binding Vms.HasSelection}">
+                    <!-- New-VM form -->
+                    <ContentControl Content="{Binding Creation}" IsVisible="{Binding IsCreating}">
                         <ContentControl.ContentTemplate>
-                            <DataTemplate x:DataType="vm:VmListItemViewModel">
-                                <StackPanel Spacing="12">
-                                    <TextBlock Text="{Binding Name}" FontSize="22" FontWeight="SemiBold" />
-                                    <TextBlock Text="{Binding Summary}" Opacity="0.6" />
-                                    <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" />
+                            <DataTemplate x:DataType="vm:NewVmViewModel">
+                                <ScrollViewer>
+                                    <StackPanel Spacing="10" MaxWidth="420" HorizontalAlignment="Left">
+                                        <TextBlock Text="New VM" FontSize="22" FontWeight="SemiBold" />
 
-                                    <Border IsVisible="{Binding HasStatusMessage}" Background="#22808080"
-                                            CornerRadius="4" Padding="10">
-                                        <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12" />
-                                    </Border>
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Name" Opacity="0.7" />
+                                            <TextBox Text="{Binding Name}" Watermark="e.g. Ubuntu 24.04" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Memory (MiB)" Opacity="0.7" />
+                                            <TextBox Text="{Binding MemoryMiB}" Width="160" HorizontalAlignment="Left" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="CPU cores" Opacity="0.7" />
+                                            <TextBox Text="{Binding CpuCores}" Width="160" HorizontalAlignment="Left" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Disk size (GiB)" Opacity="0.7" />
+                                            <TextBox Text="{Binding DiskSizeGiB}" Width="160" HorizontalAlignment="Left" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Firmware" Opacity="0.7" />
+                                            <ComboBox ItemsSource="{Binding FirmwareOptions}" SelectedItem="{Binding Firmware}"
+                                                      Width="160" HorizontalAlignment="Left" />
+                                        </StackPanel>
 
-                                    <WrapPanel>
-                                        <Button Content="Start" Command="{Binding StartCommand}" Margin="0,0,8,8" />
-                                        <Button Content="Pause" Command="{Binding PauseCommand}" Margin="0,0,8,8" />
-                                        <Button Content="Resume" Command="{Binding ResumeCommand}" Margin="0,0,8,8" />
-                                        <Button Content="Reset" Command="{Binding ResetCommand}" Margin="0,0,8,8" />
-                                        <Button Content="Stop" Command="{Binding StopCommand}" Margin="0,0,8,8" />
-                                    </WrapPanel>
+                                        <TextBlock Text="{Binding ValidationError}" IsVisible="{Binding HasValidationError}"
+                                                   Foreground="#CC8800" TextWrapping="Wrap" />
+                                        <Border IsVisible="{Binding HasErrorMessage}" Background="#33CC3333"
+                                                CornerRadius="4" Padding="10">
+                                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#CC3333" TextWrapping="Wrap" />
+                                        </Border>
 
-                                    <StackPanel>
-                                        <Button Content="Delete…" Command="{Binding DeleteCommand}"
-                                                IsVisible="{Binding !IsConfirmingDelete}" />
-                                        <StackPanel Orientation="Horizontal" Spacing="8"
-                                                    IsVisible="{Binding IsConfirmingDelete}">
-                                            <TextBlock Text="Delete this VM and its disks?" VerticalAlignment="Center"
-                                                       TextWrapping="Wrap" />
-                                            <Button Content="Delete" Command="{Binding ConfirmDeleteCommand}" />
-                                            <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button Content="Create" Command="{Binding CreateCommand}" />
+                                            <Button Content="Cancel" Command="{Binding CancelCommand}" />
                                         </StackPanel>
                                     </StackPanel>
-                                </StackPanel>
+                                </ScrollViewer>
                             </DataTemplate>
                         </ContentControl.ContentTemplate>
                     </ContentControl>
+
+                    <!-- Detail / placeholder (hidden while creating) -->
+                    <Panel IsVisible="{Binding !IsCreating}">
+                        <TextBlock Text="Select a VM to manage it." Opacity="0.5"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   IsVisible="{Binding !Vms.HasSelection}" />
+
+                        <ContentControl Content="{Binding Vms.SelectedVm}" IsVisible="{Binding Vms.HasSelection}">
+                            <ContentControl.ContentTemplate>
+                                <DataTemplate x:DataType="vm:VmListItemViewModel">
+                                    <StackPanel Spacing="12">
+                                        <TextBlock Text="{Binding Name}" FontSize="22" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Summary}" Opacity="0.6" />
+                                        <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" />
+
+                                        <Border IsVisible="{Binding HasStatusMessage}" Background="#22808080"
+                                                CornerRadius="4" Padding="10">
+                                            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12" />
+                                        </Border>
+
+                                        <WrapPanel>
+                                            <Button Content="Start" Command="{Binding StartCommand}" Margin="0,0,8,8" />
+                                            <Button Content="Pause" Command="{Binding PauseCommand}" Margin="0,0,8,8" />
+                                            <Button Content="Resume" Command="{Binding ResumeCommand}" Margin="0,0,8,8" />
+                                            <Button Content="Reset" Command="{Binding ResetCommand}" Margin="0,0,8,8" />
+                                            <Button Content="Stop" Command="{Binding StopCommand}" Margin="0,0,8,8" />
+                                        </WrapPanel>
+
+                                        <StackPanel>
+                                            <Button Content="Delete…" Command="{Binding DeleteCommand}"
+                                                    IsVisible="{Binding !IsConfirmingDelete}" />
+                                            <StackPanel Orientation="Horizontal" Spacing="8"
+                                                        IsVisible="{Binding IsConfirmingDelete}">
+                                                <TextBlock Text="Delete this VM and its disks?" VerticalAlignment="Center"
+                                                           TextWrapping="Wrap" />
+                                                <Button Content="Delete" Command="{Binding ConfirmDeleteCommand}" />
+                                                <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ContentControl.ContentTemplate>
+                        </ContentControl>
+                    </Panel>
+
                 </Panel>
             </Border>
 

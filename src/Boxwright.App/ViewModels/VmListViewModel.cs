@@ -52,6 +52,26 @@ public sealed partial class VmListViewModel : ObservableObject
     /// <summary>True when a VM is selected (drives the detail/actions panel).</summary>
     public bool HasSelection => SelectedVm is not null;
 
+    /// <summary>Inserts a freshly created VM into the list (kept sorted) and selects it.</summary>
+    public void AddCreated(Vm vm)
+    {
+        ArgumentNullException.ThrowIfNull(vm);
+
+        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher);
+        item.Deleted += OnItemDeleted;
+
+        int index = 0;
+        while (index < Vms.Count &&
+               string.Compare(Vms[index].Name, item.Name, StringComparison.OrdinalIgnoreCase) < 0)
+        {
+            index++;
+        }
+
+        Vms.Insert(index, item);
+        SelectedVm = item;
+        OnPropertyChanged(nameof(IsEmpty));
+    }
+
     [RelayCommand]
     private async Task RefreshAsync(CancellationToken cancellationToken)
     {

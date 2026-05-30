@@ -27,7 +27,7 @@ internal static class ServiceConfiguration
         services.AddSingleton(_ => AcceleratorDetector.CreateDefault());
 
         // Core services (orchestration).
-        services.AddSingleton<DiskService>();
+        services.AddSingleton<IDiskService, DiskService>();
         services.AddSingleton<DisplayLauncher>();
         services.AddSingleton<IVmLauncher, VmLauncher>();
         services.AddSingleton(_ => new VmRepository(VmRepository.DefaultRootDirectory));

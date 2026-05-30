@@ -84,3 +84,25 @@ internal sealed class ThrowingVmLauncher : IVmLauncher
     public Task<IRunningVm> StartAsync(Vm vm, CancellationToken cancellationToken = default) =>
         Task.FromException<IRunningVm>(_exception);
 }
+
+/// <summary>A fake disk service that records creates (or fails on demand) instead of invoking qemu-img.</summary>
+internal sealed class FakeDiskService : IDiskService
+{
+    public List<(string Path, long SizeBytes, string Format)> Created { get; } = [];
+
+    public DiskException? FailWith { get; init; }
+
+    public Task CreateAsync(string path, long sizeBytes, string format = "qcow2", CancellationToken cancellationToken = default)
+    {
+        if (FailWith is not null)
+        {
+            return Task.FromException(FailWith);
+        }
+
+        Created.Add((path, sizeBytes, format));
+        return Task.CompletedTask;
+    }
+
+    public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+}
