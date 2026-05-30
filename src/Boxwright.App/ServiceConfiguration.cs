@@ -53,6 +53,9 @@ internal static class ServiceConfiguration
         // Reads per-VM qemu.log for the Logs panel.
         services.AddSingleton<ILogReader, FileLogReader>();
 
+        // Reveals the app-wide logs folder in the OS file manager (toolbar button).
+        services.AddSingleton<IFolderOpener, ShellFolderOpener>();
+
         // View models.
         services.AddTransient<VmListViewModel>();
         services.AddTransient<MainWindowViewModel>();

@@ -19,6 +19,8 @@
                     <Button Content="New VM" Command="{Binding BeginCreateCommand}" IsEnabled="{Binding !IsShowingForm}" />
                     <Button Content="Settings" Command="{Binding BeginEditCommand}" IsEnabled="{Binding Vms.HasSelection}" />
                     <Button Content="Refresh" Command="{Binding Vms.RefreshCommand}" IsEnabled="{Binding !Vms.IsLoading}" />
+                    <Button Content="Logs folder" Command="{Binding OpenLogsFolderCommand}"
+                            ToolTip.Tip="Open Boxwright's logs folder (app diagnostics) in your file manager" />
                 </StackPanel>
             </Grid>
         </Border>

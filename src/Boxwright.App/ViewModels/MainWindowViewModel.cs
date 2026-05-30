@@ -1,3 +1,4 @@
+using Boxwright.App.Services;
 using Boxwright.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -12,21 +13,25 @@ public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly VmRepository _repository;
     private readonly IDiskService _diskService;
+    private readonly IFolderOpener _folderOpener;
 
     public MainWindowViewModel(
         VmListViewModel vms,
         AcceleratorDetector acceleratorDetector,
         VmRepository repository,
-        IDiskService diskService)
+        IDiskService diskService,
+        IFolderOpener folderOpener)
     {
         ArgumentNullException.ThrowIfNull(vms);
         ArgumentNullException.ThrowIfNull(acceleratorDetector);
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(diskService);
+        ArgumentNullException.ThrowIfNull(folderOpener);
 
         Vms = vms;
         _repository = repository;
         _diskService = diskService;
+        _folderOpener = folderOpener;
         Accelerator = acceleratorDetector.Detect().ToQemuValue();
         VmsDirectory = repository.RootDirectory;
     }
@@ -94,6 +99,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         form.Cancelled += (_, _) => Editing = null;
         Editing = form;
     }
+
+    /// <summary>Reveals the app-wide logs folder (<c>boxwright.log</c>) in the OS file manager.</summary>
+    [RelayCommand]
+    private void OpenLogsFolder() => _folderOpener.OpenFolder(AppPaths.LogsDirectory);
 
     private bool IsNameTaken(string name) =>
         Vms.Vms.Any(i => string.Equals(i.Vm.Config.Name, name, StringComparison.OrdinalIgnoreCase));

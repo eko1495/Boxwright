@@ -135,6 +135,14 @@ internal sealed class FakeDisplayLauncher : IDisplayLauncher
     }
 }
 
+/// <summary>A fake folder opener that records the path it was asked to reveal, instead of shelling out.</summary>
+internal sealed class FakeFolderOpener : IFolderOpener
+{
+    public string? LastPath { get; private set; }
+
+    public void OpenFolder(string path) => LastPath = path;
+}
+
 /// <summary>A fake log reader returning preset content and recording the path it was asked for.</summary>
 internal sealed class FakeLogReader : ILogReader
 {
