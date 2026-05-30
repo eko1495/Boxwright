@@ -101,6 +101,27 @@ public class VmRepositoryTests
     }
 
     [Fact]
+    public async Task DeleteAsync_RemovesTheVmFolder()
+    {
+        await WithTempRootAsync(async repo =>
+        {
+            Vm vm = await repo.CreateAsync(new VmConfig { Name = "trash-me" });
+            Assert.True(Directory.Exists(vm.FolderPath));
+
+            await repo.DeleteAsync(vm.Config.Id);
+
+            Assert.False(Directory.Exists(vm.FolderPath));
+            Assert.Empty(await repo.ListAsync());
+        });
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WhenFolderMissing_DoesNotThrow()
+    {
+        await WithTempRootAsync(repo => repo.DeleteAsync("does-not-exist"));
+    }
+
+    [Fact]
     public void DefaultRootDirectory_IsUnderBoxwright()
     {
         string path = VmRepository.DefaultRootDirectory;

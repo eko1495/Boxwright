@@ -95,4 +95,20 @@ public sealed class VmRepository
         Directory.CreateDirectory(folder);
         await VmConfigJson.SaveAsync(Path.Combine(folder, ConfigFileName), config, cancellationToken);
     }
+
+    /// <summary>
+    /// Deletes a VM's folder (config, disks, and logs) under the root. Does nothing
+    /// if the folder does not exist. The (potentially disk-heavy) delete runs off the
+    /// caller's thread.
+    /// </summary>
+    public async Task DeleteAsync(string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        string folder = Path.Combine(_rootDirectory, id);
+        if (Directory.Exists(folder))
+        {
+            await Task.Run(() => Directory.Delete(folder, recursive: true), cancellationToken);
+        }
+    }
 }

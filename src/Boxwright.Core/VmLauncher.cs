@@ -7,7 +7,7 @@ namespace Boxwright.Core;
 /// (CORE-8), builds the command line (CORE-5), spawns the QEMU process (CORE-7),
 /// and connects the QMP client with retry (CORE-8). Returns a <see cref="RunningVm"/>.
 /// </summary>
-public sealed class VmLauncher
+public sealed class VmLauncher : IVmLauncher
 {
     private const string LogFileName = "qemu.log";
 
@@ -39,7 +39,7 @@ public sealed class VmLauncher
     }
 
     /// <summary>Starts <paramref name="vm"/> and returns a handle for controlling it.</summary>
-    public async Task<RunningVm> StartAsync(Vm vm, CancellationToken cancellationToken = default)
+    public async Task<IRunningVm> StartAsync(Vm vm, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(vm);
 

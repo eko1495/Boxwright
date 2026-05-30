@@ -7,7 +7,7 @@ namespace Boxwright.Core;
 /// Exposes power actions (graceful shutdown, force-stop, pause/resume, reset) and
 /// the resolved accelerator + display port for the UI to surface.
 /// </summary>
-public sealed class RunningVm : IAsyncDisposable
+public sealed class RunningVm : IRunningVm
 {
     private readonly QemuProcess _process;
     private readonly IQmpClient _client;

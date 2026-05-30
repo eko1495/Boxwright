@@ -73,7 +73,7 @@ public class VmLauncherTests
 
     private static string ExeName(string baseName) => OperatingSystem.IsWindows() ? baseName + ".exe" : baseName;
 
-    private static async Task WithStartedVmAsync(Func<RunningVm, FakeProcessLauncher, RecordingQmpClient, Task> body)
+    private static async Task WithStartedVmAsync(Func<IRunningVm, FakeProcessLauncher, RecordingQmpClient, Task> body)
     {
         string root = Path.Combine(Path.GetTempPath(), $"boxwright-launch-{Guid.NewGuid():N}");
         string vmFolder = Path.Combine(root, "vm");
@@ -94,7 +94,7 @@ public class VmLauncherTests
 
         try
         {
-            RunningVm running = await vmLauncher.StartAsync(vm);
+            IRunningVm running = await vmLauncher.StartAsync(vm);
             await body(running, launcher, recording);
             await running.DisposeAsync();
         }
