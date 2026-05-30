@@ -38,6 +38,7 @@ public static class CommandLineBuilder
         AppendDisks(args, config);
         AppendRemovableMedia(args, config);
         AppendNetworking(args, config);
+        AppendInput(args);
         AppendDisplay(args, config, context);
 
         args.Add("-qmp");
@@ -119,8 +120,23 @@ public static class CommandLineBuilder
         args.Add($"{config.Network.Model},netdev=net0");
     }
 
+    private static void AppendInput(List<string> args)
+    {
+        // An absolute pointing device so the guest cursor tracks the host pointer 1:1.
+        // Without it QEMU falls back to a relative PS/2 mouse that desyncs in the viewer,
+        // so clicks land in the wrong place (GATE-1 dry-run: couldn't click the installer).
+        args.Add("-usb");
+        args.Add("-device");
+        args.Add("usb-tablet");
+    }
+
     private static void AppendDisplay(List<string> args, VmConfig config, QemuLaunchContext context)
     {
+        // A real GPU so the guest desktop renders. QEMU's bare "std" VGA commonly leaves
+        // modern GNOME/Wayland on a black screen; QXL pairs with SPICE (and works under VNC).
+        args.Add("-vga");
+        args.Add("qxl");
+
         if (string.Equals(config.Display.Protocol, "spice", StringComparison.OrdinalIgnoreCase))
         {
             string spice = $"port={context.SpicePort},addr=127.0.0.1,disable-ticketing=on";

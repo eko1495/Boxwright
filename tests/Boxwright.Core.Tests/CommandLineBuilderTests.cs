@@ -48,11 +48,31 @@ public class CommandLineBuilderTests
             "-drive", "file=ubuntu.iso,media=cdrom",
             "-netdev", "user,id=net0,hostfwd=tcp::2222-:22",
             "-device", "virtio-net,netdev=net0",
+            "-usb",
+            "-device", "usb-tablet",
+            "-vga", "qxl",
             "-spice", "port=5930,addr=127.0.0.1,disable-ticketing=on",
             "-qmp", "tcp:127.0.0.1:4444,server,nowait",
             "-boot", "order=cd,menu=off",
         ];
         Assert.Equal(expected, args);
+    }
+
+    [Fact]
+    public void Build_IncludesUsbTablet_ForAbsolutePointer()
+    {
+        IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());
+
+        Assert.Contains("-usb", args);
+        Assert.Contains("usb-tablet", args);
+    }
+
+    [Fact]
+    public void Build_IncludesQxlGpu_SoTheDesktopRenders()
+    {
+        IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());
+
+        Assert.Equal("qxl", ArgValue(args, "-vga"));
     }
 
     [Fact]
