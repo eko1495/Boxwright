@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -21,6 +22,8 @@ public sealed class QmpClient : IQmpClient
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly SemaphoreSlim _schemaLock = new(1, 1);
     private readonly EventStream _events = new();
+    private readonly Action<string>? _onSent;
+    private readonly Action<string>? _onReceived;
 
     private TcpClient? _tcpClient;
     private Socket? _unixSocket;
@@ -32,6 +35,20 @@ public sealed class QmpClient : IQmpClient
     private QmpSchema? _schema;
     private long _nextId;
     private volatile bool _connected;
+
+    /// <summary>
+    /// Creates a QMP client. The optional diagnostic hooks are invoked with each raw JSON
+    /// line sent to and received from the server — intended for traffic logging. They keep
+    /// this library dependency-free (no logging framework leaks in). Hook exceptions are
+    /// swallowed, so a misbehaving hook can never disrupt the protocol or the read loop.
+    /// </summary>
+    /// <param name="onSent">Invoked with each JSON line written to the server, or <see langword="null"/>.</param>
+    /// <param name="onReceived">Invoked with each JSON line read from the server, or <see langword="null"/>.</param>
+    public QmpClient(Action<string>? onSent = null, Action<string>? onReceived = null)
+    {
+        _onSent = onSent;
+        _onReceived = onReceived;
+    }
 
     /// <inheritdoc />
     public bool IsConnected => _connected;
@@ -211,6 +228,7 @@ public sealed class QmpClient : IQmpClient
                     continue;
                 }
 
+                NotifyTrace(_onReceived, line);
                 Dispatch(line);
             }
         }
@@ -343,7 +361,13 @@ public sealed class QmpClient : IQmpClient
             throw new QmpProtocolException($"The connection failed while reading {what}.", ex);
         }
 
-        return line ?? throw new QmpProtocolException($"The QMP server closed the connection before sending {what}.");
+        if (line is null)
+        {
+            throw new QmpProtocolException($"The QMP server closed the connection before sending {what}.");
+        }
+
+        NotifyTrace(_onReceived, line);
+        return line;
     }
 
     private async Task SendLineAsync(string line, CancellationToken cancellationToken)
@@ -356,6 +380,26 @@ public sealed class QmpClient : IQmpClient
         finally
         {
             _writeLock.Release();
+        }
+
+        NotifyTrace(_onSent, line);
+    }
+
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A diagnostic trace hook (e.g. logging) must never disrupt the QMP protocol or fault the read loop; all hook exceptions are intentionally swallowed.")]
+    private static void NotifyTrace(Action<string>? hook, string line)
+    {
+        if (hook is null)
+        {
+            return;
+        }
+
+        try
+        {
+            hook(line);
+        }
+        catch (Exception)
+        {
+            // Swallow: a diagnostic hook must never affect protocol behavior.
         }
     }
 

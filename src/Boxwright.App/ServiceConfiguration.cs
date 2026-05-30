@@ -18,10 +18,12 @@ internal static class ServiceConfiguration
         ArgumentNullException.ThrowIfNull(services);
 
         // App-wide structured logging: a rolling file (app diagnostics) plus Debug output.
-        // Lower the minimum level to Debug to also capture QMP traffic and full command lines.
+        // Defaults to Information (keeps the file small); set BOXWRIGHT_LOG_LEVEL=Debug (or
+        // Trace) to also capture QMP traffic and full command lines — in a packaged build,
+        // without recompiling.
         services.AddLogging(builder =>
         {
-            builder.SetMinimumLevel(LogLevel.Information);
+            builder.SetMinimumLevel(ResolveMinimumLevel(Environment.GetEnvironmentVariable("BOXWRIGHT_LOG_LEVEL")));
             builder.AddProvider(new FileLoggerProvider(AppPaths.AppLogFile));
             builder.AddDebug();
         });
@@ -55,4 +57,15 @@ internal static class ServiceConfiguration
         services.AddTransient<VmListViewModel>();
         services.AddTransient<MainWindowViewModel>();
     }
+
+    /// <summary>
+    /// Resolves the logging floor from a <paramref name="configured"/> level name (the
+    /// <c>BOXWRIGHT_LOG_LEVEL</c> environment variable; case-insensitive, e.g. <c>Debug</c>/<c>Trace</c>),
+    /// defaulting to <see cref="LogLevel.Information"/> when unset or unrecognized. Lets a shipped
+    /// build surface QMP traffic and full command lines without a rebuild.
+    /// </summary>
+    internal static LogLevel ResolveMinimumLevel(string? configured) =>
+        Enum.TryParse(configured, ignoreCase: true, out LogLevel level) && Enum.IsDefined(level)
+            ? level
+            : LogLevel.Information;
 }
