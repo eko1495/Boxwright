@@ -5,6 +5,7 @@
     <Project Path="src/Boxwright.Qmp/Boxwright.Qmp.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Boxwright.App.Tests/Boxwright.App.Tests.csproj" />
     <Project Path="tests/Boxwright.Core.Tests/Boxwright.Core.Tests.csproj" />
     <Project Path="tests/Boxwright.Qmp.Tests/Boxwright.Qmp.Tests.csproj" />
   </Folder>

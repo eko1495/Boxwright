@@ -8,15 +8,54 @@
         WindowStartupLocation="CenterScreen"
         Title="{Binding Title}">
 
-    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" MaxWidth="680">
-        <TextBlock Text="{Binding Title}" FontSize="32" FontWeight="SemiBold" HorizontalAlignment="Center" />
-        <TextBlock Text="{Binding Tagline}" Opacity="0.7" HorizontalAlignment="Center"
-                   TextWrapping="Wrap" TextAlignment="Center" />
-        <TextBlock Text="{Binding Accelerator, StringFormat='Detected accelerator: {0}'}"
-                   Margin="0,12,0,0" HorizontalAlignment="Center" Opacity="0.7" />
-        <TextBlock Text="{Binding VmsDirectory, StringFormat='VMs folder: {0}'}"
-                   HorizontalAlignment="Center" Opacity="0.5" FontSize="12"
-                   TextWrapping="Wrap" TextAlignment="Center" />
-    </StackPanel>
+    <DockPanel>
+
+        <!-- Toolbar -->
+        <Border DockPanel.Dock="Top" Padding="16,10" BorderThickness="0,0,0,1" BorderBrush="#22808080">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding Title}" FontSize="20" FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="Refresh" Command="{Binding Vms.RefreshCommand}"
+                        IsEnabled="{Binding !Vms.IsLoading}" />
+            </Grid>
+        </Border>
+
+        <!-- Error banner (only when a load fails) -->
+        <Border DockPanel.Dock="Top" IsVisible="{Binding Vms.HasError}" Background="#33CC3333" Padding="16,8">
+            <TextBlock Text="{Binding Vms.ErrorMessage}" Foreground="#CC3333" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- Status bar -->
+        <Border DockPanel.Dock="Bottom" Padding="16,6" BorderThickness="0,1,0,0" BorderBrush="#22808080">
+            <Grid ColumnDefinitions="Auto,*">
+                <TextBlock Grid.Column="0" Text="{Binding Accelerator, StringFormat='Accelerator: {0}'}"
+                           Opacity="0.7" FontSize="12" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding VmsDirectory}" Opacity="0.5" FontSize="12"
+                           HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </Grid>
+        </Border>
+
+        <!-- Main content: the VM list, or an empty state -->
+        <Panel Margin="8">
+            <ListBox ItemsSource="{Binding Vms.Vms}" SelectedItem="{Binding Vms.SelectedVm}"
+                     IsVisible="{Binding !Vms.IsEmpty}" Background="Transparent">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:VmListItemViewModel">
+                        <StackPanel Spacing="2" Margin="4">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding Summary}" Opacity="0.6" FontSize="12" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <StackPanel IsVisible="{Binding Vms.IsEmpty}" HorizontalAlignment="Center"
+                        VerticalAlignment="Center" Spacing="6">
+                <TextBlock Text="No VMs yet." FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="Create one to get started — coming soon." Opacity="0.6" HorizontalAlignment="Center" />
+            </StackPanel>
+        </Panel>
+
+    </DockPanel>
 
 </Window>

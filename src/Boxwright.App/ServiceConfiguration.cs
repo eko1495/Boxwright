@@ -32,6 +32,7 @@ internal static class ServiceConfiguration
         services.AddSingleton(_ => new VmRepository(VmRepository.DefaultRootDirectory));
 
         // View models.
+        services.AddTransient<VmListViewModel>();
         services.AddTransient<MainWindowViewModel>();
     }
 }
