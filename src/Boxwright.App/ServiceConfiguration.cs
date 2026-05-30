@@ -1,3 +1,4 @@
+using Boxwright.App.Services;
 using Boxwright.App.ViewModels;
 using Boxwright.Core;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,8 +29,11 @@ internal static class ServiceConfiguration
         // Core services (orchestration).
         services.AddSingleton<DiskService>();
         services.AddSingleton<DisplayLauncher>();
-        services.AddSingleton<VmLauncher>();
+        services.AddSingleton<IVmLauncher, VmLauncher>();
         services.AddSingleton(_ => new VmRepository(VmRepository.DefaultRootDirectory));
+
+        // UI-thread marshalling for background callbacks (VM process exit).
+        services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
 
         // View models.
         services.AddTransient<VmListViewModel>();

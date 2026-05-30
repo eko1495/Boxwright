@@ -1,0 +1,86 @@
+using Boxwright.App.Services;
+using Boxwright.Core;
+
+namespace Boxwright.App.Tests;
+
+/// <summary>Runs posted callbacks synchronously, so background-style callbacks are deterministic in tests.</summary>
+internal sealed class ImmediateUiDispatcher : IUiDispatcher
+{
+    public void Post(Action action) => action();
+}
+
+/// <summary>A fake running VM that records the power commands issued to it.</summary>
+internal sealed class FakeRunningVm : IRunningVm
+{
+    public Accelerator Accelerator { get; init; } = Accelerator.Tcg;
+
+    public int SpicePort { get; init; } = 5900;
+
+    public QemuProcessState State { get; private set; } = QemuProcessState.Running;
+
+    public List<string> Calls { get; } = [];
+
+    public event EventHandler? Exited;
+
+    public Task RequestShutdownAsync(CancellationToken cancellationToken = default) => Record("shutdown");
+
+    public Task PauseAsync(CancellationToken cancellationToken = default) => Record("pause");
+
+    public Task ResumeAsync(CancellationToken cancellationToken = default) => Record("resume");
+
+    public Task ResetAsync(CancellationToken cancellationToken = default) => Record("reset");
+
+    public void ForceStop()
+    {
+        Calls.Add("forcestop");
+        State = QemuProcessState.Exited;
+    }
+
+    public Task StopAsync(TimeSpan gracePeriod, CancellationToken cancellationToken = default)
+    {
+        State = QemuProcessState.Exited;
+        return Record("stop");
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        Calls.Add("dispose");
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>Simulates the QEMU process exiting on its own (guest power-off / crash).</summary>
+    public void RaiseExited() => Exited?.Invoke(this, EventArgs.Empty);
+
+    private Task Record(string call)
+    {
+        Calls.Add(call);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>An <see cref="IVmLauncher"/> that hands back a pre-built session.</summary>
+internal sealed class FakeVmLauncher : IVmLauncher
+{
+    private readonly IRunningVm _session;
+
+    public FakeVmLauncher(IRunningVm session) => _session = session;
+
+    public Vm? LastVm { get; private set; }
+
+    public Task<IRunningVm> StartAsync(Vm vm, CancellationToken cancellationToken = default)
+    {
+        LastVm = vm;
+        return Task.FromResult(_session);
+    }
+}
+
+/// <summary>An <see cref="IVmLauncher"/> that always fails to start (e.g. accelerator unavailable).</summary>
+internal sealed class ThrowingVmLauncher : IVmLauncher
+{
+    private readonly Exception _exception;
+
+    public ThrowingVmLauncher(Exception exception) => _exception = exception;
+
+    public Task<IRunningVm> StartAsync(Vm vm, CancellationToken cancellationToken = default) =>
+        Task.FromException<IRunningVm>(_exception);
+}

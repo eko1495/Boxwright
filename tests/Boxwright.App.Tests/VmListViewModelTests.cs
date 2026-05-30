@@ -6,11 +6,12 @@ namespace Boxwright.App.Tests;
 
 /// <summary>
 /// Exercises <see cref="VmListViewModel"/> against a real <see cref="VmRepository"/>
-/// over a throwaway temp directory — no UI, no mocks.
+/// over a throwaway temp directory, with fake launcher/dispatcher doubles.
 /// </summary>
 public sealed class VmListViewModelTests : IDisposable
 {
     private readonly string _root;
+    private readonly ImmediateUiDispatcher _dispatcher = new();
 
     public VmListViewModelTests()
     {
@@ -26,16 +27,18 @@ public sealed class VmListViewModelTests : IDisposable
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Best-effort cleanup of the temp directory.
         }
     }
 
     private VmRepository NewRepository() => new(_root);
 
+    private VmListViewModel NewSut(VmRepository repository) =>
+        new(repository, new FakeVmLauncher(new FakeRunningVm()), _dispatcher);
+
     [Fact]
     public async Task Refresh_WithNoVms_LeavesListEmptyAndFlagsEmpty()
     {
-        var sut = new VmListViewModel(NewRepository());
+        var sut = NewSut(NewRepository());
 
         await sut.RefreshCommand.ExecuteAsync(null);
 
@@ -52,7 +55,7 @@ public sealed class VmListViewModelTests : IDisposable
         await repo.CreateAsync(new VmConfig { Name = "ubuntu" });
         await repo.CreateAsync(new VmConfig { Name = "Alpine" });
         await repo.CreateAsync(new VmConfig { Name = "debian" });
-        var sut = new VmListViewModel(repo);
+        var sut = NewSut(repo);
 
         await sut.RefreshCommand.ExecuteAsync(null);
 
@@ -69,7 +72,7 @@ public sealed class VmListViewModelTests : IDisposable
     {
         VmRepository repo = NewRepository();
         await repo.CreateAsync(new VmConfig { Name = "Solo" });
-        var sut = new VmListViewModel(repo);
+        var sut = NewSut(repo);
 
         await sut.RefreshCommand.ExecuteAsync(null);
         await sut.RefreshCommand.ExecuteAsync(null);
@@ -82,14 +85,16 @@ public sealed class VmListViewModelTests : IDisposable
     {
         VmRepository repo = NewRepository();
         await repo.CreateAsync(new VmConfig { Name = "Pick me" });
-        var sut = new VmListViewModel(repo);
+        var sut = NewSut(repo);
         await sut.RefreshCommand.ExecuteAsync(null);
 
         Assert.Null(sut.SelectedVm);
+        Assert.False(sut.HasSelection);
 
         sut.SelectedVm = sut.Vms[0];
 
         Assert.Same(sut.Vms[0], sut.SelectedVm);
+        Assert.True(sut.HasSelection);
     }
 
     [Fact]
@@ -103,7 +108,7 @@ public sealed class VmListViewModelTests : IDisposable
             MemoryMiB = 4096,
             Cpu = new CpuConfig { Sockets = 1, Cores = 4, Threads = 1 },
         });
-        var sut = new VmListViewModel(repo);
+        var sut = NewSut(repo);
 
         await sut.RefreshCommand.ExecuteAsync(null);
 
@@ -112,5 +117,38 @@ public sealed class VmListViewModelTests : IDisposable
         Assert.Contains("x86_64", item.Summary, StringComparison.Ordinal);
         Assert.Contains("4 vCPU", item.Summary, StringComparison.Ordinal);
         Assert.Contains("4096 MiB", item.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Refresh_PreservesRunningItems()
+    {
+        VmRepository repo = NewRepository();
+        await repo.CreateAsync(new VmConfig { Name = "keep-running" });
+        var sut = NewSut(repo);
+        await sut.RefreshCommand.ExecuteAsync(null);
+        VmListItemViewModel item = sut.Vms[0];
+        await item.StartCommand.ExecuteAsync(null);
+        Assert.Equal(VmStatus.Running, item.Status);
+
+        await sut.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Same(item, sut.Vms[0]);
+        Assert.Equal(VmStatus.Running, item.Status);
+    }
+
+    [Fact]
+    public async Task DeletingTheOnlyVm_EmptiesTheList()
+    {
+        VmRepository repo = NewRepository();
+        await repo.CreateAsync(new VmConfig { Name = "gone" });
+        var sut = NewSut(repo);
+        await sut.RefreshCommand.ExecuteAsync(null);
+        VmListItemViewModel item = sut.Vms[0];
+
+        item.DeleteCommand.Execute(null);
+        await item.ConfirmDeleteCommand.ExecuteAsync(null);
+
+        Assert.Empty(sut.Vms);
+        Assert.True(sut.IsEmpty);
     }
 }
