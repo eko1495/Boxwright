@@ -9,4 +9,7 @@
     <Project Path="tests/Boxwright.Core.Tests/Boxwright.Core.Tests.csproj" />
     <Project Path="tests/Boxwright.Qmp.Tests/Boxwright.Qmp.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Boxwright.E2E/Boxwright.E2E.csproj" />
+  </Folder>
 </Solution>

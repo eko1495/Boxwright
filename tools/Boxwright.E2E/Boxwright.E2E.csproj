@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Manual, on-demand end-to-end harness (NOT run by 'dotnet test').
+    Drives Boxwright.Core against a REAL QEMU install. See README.md.
+    Built by 'dotnet build' so it cannot silently rot, but never executed
+    automatically. Run on demand with dotnet run (see README.md).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Boxwright.Core\Boxwright.Core.csproj" />
+  </ItemGroup>
+
+</Project>
