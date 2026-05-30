@@ -16,16 +16,19 @@ public sealed partial class VmListViewModel : ObservableObject
     private readonly VmRepository _repository;
     private readonly IVmLauncher _launcher;
     private readonly IUiDispatcher _dispatcher;
+    private readonly IFilePicker _filePicker;
 
-    public VmListViewModel(VmRepository repository, IVmLauncher launcher, IUiDispatcher dispatcher)
+    public VmListViewModel(VmRepository repository, IVmLauncher launcher, IUiDispatcher dispatcher, IFilePicker filePicker)
     {
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(filePicker);
 
         _repository = repository;
         _launcher = launcher;
         _dispatcher = dispatcher;
+        _filePicker = filePicker;
     }
 
     /// <summary>The loaded VMs, sorted by name.</summary>
@@ -57,8 +60,7 @@ public sealed partial class VmListViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(vm);
 
-        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher);
-        item.Deleted += OnItemDeleted;
+        VmListItemViewModel item = CreateItem(vm);
 
         int index = 0;
         while (index < Vms.Count &&
@@ -92,6 +94,13 @@ public sealed partial class VmListViewModel : ObservableObject
         }
     }
 
+    private VmListItemViewModel CreateItem(Vm vm)
+    {
+        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker);
+        item.Deleted += OnItemDeleted;
+        return item;
+    }
+
     private void MergeInto(IReadOnlyList<Vm> loaded)
     {
         string? selectedId = SelectedVm?.Vm.Config.Id;
@@ -111,9 +120,7 @@ public sealed partial class VmListViewModel : ObservableObject
             }
             else
             {
-                var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher);
-                item.Deleted += OnItemDeleted;
-                ordered.Add(item);
+                ordered.Add(CreateItem(vm));
             }
         }
 

@@ -13,6 +13,7 @@ public sealed class VmListItemViewModelTests : IDisposable
     private readonly string _root;
     private readonly VmRepository _repository;
     private readonly ImmediateUiDispatcher _dispatcher = new();
+    private readonly FakeFilePicker _filePicker = new();
 
     public VmListItemViewModelTests()
     {
@@ -33,7 +34,8 @@ public sealed class VmListItemViewModelTests : IDisposable
     }
 
     private VmListItemViewModel NewItem(IVmLauncher launcher, Vm? vm = null) =>
-        new(vm ?? new Vm(Path.Combine(_root, "x"), new VmConfig { Id = "x", Name = "Test" }), launcher, _repository, _dispatcher);
+        new(vm ?? new Vm(Path.Combine(_root, "x"), new VmConfig { Id = "x", Name = "Test" }),
+            launcher, _repository, _dispatcher, _filePicker);
 
     [Fact]
     public async Task Start_TransitionsToRunning_AndSurfacesAcceleratorHonesty()
@@ -136,5 +138,67 @@ public sealed class VmListItemViewModelTests : IDisposable
         await item.StartCommand.ExecuteAsync(null);
 
         Assert.False(item.DeleteCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task ChooseIso_RecordsCdromMedia_AndSetsCdFirstBoot()
+    {
+        Vm vm = await _repository.CreateAsync(new VmConfig { Name = "iso-test" });
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), vm);
+        _filePicker.IsoToReturn = Path.Combine(_root, "ubuntu.iso");
+
+        await item.ChooseIsoCommand.ExecuteAsync(null);
+
+        Assert.True(item.HasIso);
+        Assert.Equal(_filePicker.IsoToReturn, item.IsoPath);
+
+        VmConfig reloaded = (await _repository.ListAsync()).Single().Config;
+        RemovableMediaConfig media = Assert.Single(reloaded.RemovableMedia);
+        Assert.True(media.Attached);
+        Assert.Equal("cdrom", media.Type);
+        Assert.Equal("dc", reloaded.Boot.Order);
+    }
+
+    [Fact]
+    public async Task ChooseIso_WhenCancelled_LeavesConfigUnchanged()
+    {
+        Vm vm = await _repository.CreateAsync(new VmConfig { Name = "iso-cancel" });
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), vm);
+        _filePicker.IsoToReturn = null;
+
+        await item.ChooseIsoCommand.ExecuteAsync(null);
+
+        Assert.False(item.HasIso);
+        Assert.Empty((await _repository.ListAsync()).Single().Config.RemovableMedia);
+    }
+
+    [Fact]
+    public async Task RemoveIso_DetachesIso_AndBootsFromDisk()
+    {
+        Vm vm = await _repository.CreateAsync(new VmConfig
+        {
+            Name = "iso-remove",
+            RemovableMedia = [new RemovableMediaConfig { Type = "cdrom", File = "ubuntu.iso", Attached = true }],
+            Boot = new BootConfig { Order = "dc" },
+        });
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), vm);
+        Assert.True(item.HasIso);
+
+        await item.RemoveIsoCommand.ExecuteAsync(null);
+
+        Assert.False(item.HasIso);
+        VmConfig reloaded = (await _repository.ListAsync()).Single().Config;
+        Assert.Empty(reloaded.RemovableMedia);
+        Assert.Equal("c", reloaded.Boot.Order);
+    }
+
+    [Fact]
+    public async Task IsoCommands_AreDisabledWhileRunning()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
+        await item.StartCommand.ExecuteAsync(null);
+
+        Assert.False(item.ChooseIsoCommand.CanExecute(null));
+        Assert.False(item.RemoveIsoCommand.CanExecute(null));
     }
 }

@@ -106,3 +106,11 @@ internal sealed class FakeDiskService : IDiskService
     public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException();
 }
+
+/// <summary>A fake file picker returning a preset path (or null to simulate cancellation).</summary>
+internal sealed class FakeFilePicker : IFilePicker
+{
+    public string? IsoToReturn { get; set; }
+
+    public Task<string?> PickIsoAsync() => Task.FromResult(IsoToReturn);
+}

@@ -25,33 +25,41 @@ public enum VmStatus
 }
 
 /// <summary>
-/// A stateful row in the VM list: display info plus the power controls (start, stop,
-/// pause/resume, reset, delete) wired to <see cref="IVmLauncher"/> / <see cref="IRunningVm"/>.
-/// Holds the live session while the VM runs, reflects the resulting state, and is honest
-/// about acceleration (Directive 9). Delete is two-step to guard the destructive action.
+/// A stateful row in the VM list: display info, power controls (start/stop/pause/
+/// resume/reset/delete) wired to <see cref="IVmLauncher"/> / <see cref="IRunningVm"/>,
+/// and installer-ISO attach/remove with boot-order handling. Holds the live session
+/// while running, reflects state, and is honest about acceleration (Directive 9).
 /// </summary>
 public sealed partial class VmListItemViewModel : ObservableObject
 {
     private readonly IVmLauncher _launcher;
     private readonly VmRepository _repository;
     private readonly IUiDispatcher _dispatcher;
+    private readonly IFilePicker _filePicker;
     private IRunningVm? _session;
 
-    public VmListItemViewModel(Vm vm, IVmLauncher launcher, VmRepository repository, IUiDispatcher dispatcher)
+    public VmListItemViewModel(
+        Vm vm,
+        IVmLauncher launcher,
+        VmRepository repository,
+        IUiDispatcher dispatcher,
+        IFilePicker filePicker)
     {
         ArgumentNullException.ThrowIfNull(vm);
         ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(filePicker);
 
         Vm = vm;
         _launcher = launcher;
         _repository = repository;
         _dispatcher = dispatcher;
+        _filePicker = filePicker;
     }
 
-    /// <summary>The underlying domain VM.</summary>
-    public Vm Vm { get; }
+    /// <summary>The underlying domain VM (replaced when its config is edited).</summary>
+    public Vm Vm { get; private set; }
 
     /// <summary>Display name, with a fallback when the config has no name.</summary>
     public string Name => string.IsNullOrWhiteSpace(Vm.Config.Name) ? "(unnamed VM)" : Vm.Config.Name;
@@ -67,10 +75,24 @@ public sealed partial class VmListItemViewModel : ObservableObject
         }
     }
 
+    /// <summary>Path of the attached installer ISO, or null when none is attached.</summary>
+    public string? IsoPath =>
+        Vm.Config.RemovableMedia
+            .FirstOrDefault(m => string.Equals(m.Type, "cdrom", StringComparison.OrdinalIgnoreCase) && m.Attached)?.File;
+
+    /// <summary>True when an installer ISO is attached.</summary>
+    public bool HasIso => !string.IsNullOrEmpty(IsoPath);
+
+    /// <summary>A friendly description of the configured boot order.</summary>
+    public string BootSummary => Vm.Config.Boot.Order.StartsWith('d')
+        ? "Boots from CD/ISO first, then disk."
+        : "Boots from disk.";
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusText))]
     [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(StopCommand), nameof(PauseCommand),
-        nameof(ResumeCommand), nameof(ResetCommand), nameof(DeleteCommand))]
+        nameof(ResumeCommand), nameof(ResetCommand), nameof(DeleteCommand),
+        nameof(ChooseIsoCommand), nameof(RemoveIsoCommand))]
     private VmStatus _status = VmStatus.Stopped;
 
     [ObservableProperty]
@@ -197,6 +219,44 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
     [RelayCommand]
     private void CancelDelete() => IsConfirmingDelete = false;
+
+    [RelayCommand(CanExecute = nameof(CanEditMedia))]
+    private async Task ChooseIsoAsync()
+    {
+        string? iso = await _filePicker.PickIsoAsync();
+        if (string.IsNullOrEmpty(iso))
+        {
+            return; // Cancelled.
+        }
+
+        // Attaching an installer implies booting from it first, then falling back to disk.
+        await UpdateConfigAsync(config => config with
+        {
+            RemovableMedia = [new RemovableMediaConfig { Type = "cdrom", File = iso, Attached = true }],
+            Boot = config.Boot with { Order = "dc" },
+        });
+    }
+
+    [RelayCommand(CanExecute = nameof(CanEditMedia))]
+    private Task RemoveIsoAsync() =>
+        UpdateConfigAsync(config => config with
+        {
+            RemovableMedia = [],
+            Boot = config.Boot with { Order = "c" },
+        });
+
+    // Boot media can only be changed while the VM is stopped.
+    private bool CanEditMedia() => Status == VmStatus.Stopped;
+
+    private async Task UpdateConfigAsync(Func<VmConfig, VmConfig> edit)
+    {
+        VmConfig updated = edit(Vm.Config);
+        await _repository.SaveAsync(updated);
+        Vm = Vm with { Config = updated };
+        OnPropertyChanged(nameof(IsoPath));
+        OnPropertyChanged(nameof(HasIso));
+        OnPropertyChanged(nameof(BootSummary));
+    }
 
     private async Task TeardownSessionAsync()
     {

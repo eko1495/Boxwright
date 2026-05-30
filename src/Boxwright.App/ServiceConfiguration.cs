@@ -35,6 +35,9 @@ internal static class ServiceConfiguration
         // UI-thread marshalling for background callbacks (VM process exit).
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
 
+        // File selection (installer ISOs) via Avalonia's storage provider.
+        services.AddSingleton<IFilePicker, AvaloniaFilePicker>();
+
         // View models.
         services.AddTransient<VmListViewModel>();
         services.AddTransient<MainWindowViewModel>();

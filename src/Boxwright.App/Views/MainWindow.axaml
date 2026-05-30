@@ -141,6 +141,22 @@
                                             <Button Content="Stop" Command="{Binding StopCommand}" Margin="0,0,8,8" />
                                         </WrapPanel>
 
+                                        <Border BorderThickness="0,1,0,0" BorderBrush="#22808080" Padding="0,10,0,0">
+                                            <StackPanel Spacing="6">
+                                                <TextBlock Text="Installer ISO" FontWeight="SemiBold" Opacity="0.8" />
+                                                <TextBlock Text="{Binding IsoPath}" IsVisible="{Binding HasIso}"
+                                                           TextWrapping="Wrap" FontSize="12" Opacity="0.7" />
+                                                <TextBlock Text="No ISO attached." IsVisible="{Binding !HasIso}"
+                                                           FontSize="12" Opacity="0.5" />
+                                                <TextBlock Text="{Binding BootSummary}" FontSize="12" Opacity="0.6" />
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <Button Content="Choose ISO…" Command="{Binding ChooseIsoCommand}" />
+                                                    <Button Content="Remove ISO" Command="{Binding RemoveIsoCommand}"
+                                                            IsVisible="{Binding HasIso}" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+
                                         <StackPanel>
                                             <Button Content="Delete…" Command="{Binding DeleteCommand}"
                                                     IsVisible="{Binding !IsConfirmingDelete}" />
