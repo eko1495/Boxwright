@@ -7,7 +7,7 @@ namespace Boxwright.Core;
 /// (ADR-0001/0005). qcow2 is the default format. Snapshots and conversion are
 /// later (Stage 2) work.
 /// </summary>
-public sealed class DiskService
+public sealed class DiskService : IDiskService
 {
     private static readonly JsonSerializerOptions InfoOptions = new() { PropertyNameCaseInsensitive = true };
 
