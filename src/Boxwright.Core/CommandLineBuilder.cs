@@ -150,8 +150,10 @@ public static class CommandLineBuilder
         }
         else if (string.Equals(config.Display.Protocol, "vnc", StringComparison.OrdinalIgnoreCase))
         {
+            // QEMU's -vnc takes a *display number* (listen port = 5900 + display), not a raw
+            // port. Convert the allocated port so QEMU actually listens on it.
             args.Add("-vnc");
-            args.Add($"127.0.0.1:{context.SpicePort}");
+            args.Add($"127.0.0.1:{context.SpicePort - 5900}");
         }
     }
 

@@ -19,12 +19,14 @@ public sealed class DisplayLauncher : IDisplayLauncher
         _locator = locator;
     }
 
-    /// <summary>Launches <c>remote-viewer</c> against the SPICE server at <paramref name="host"/>:<paramref name="spicePort"/>.</summary>
+    /// <summary>Launches <c>remote-viewer</c> against the display server at <paramref name="host"/>:<paramref name="port"/> using <paramref name="protocol"/> (<c>spice</c> or <c>vnc</c>).</summary>
     /// <exception cref="DisplayException"><c>remote-viewer</c> could not be found.</exception>
-    public void Launch(int spicePort, string host = "127.0.0.1")
+    public void Launch(int port, string protocol = "spice", string host = "127.0.0.1")
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(spicePort);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(port);
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
+
+        string scheme = string.Equals(protocol, "vnc", StringComparison.OrdinalIgnoreCase) ? "vnc" : "spice";
 
         string? viewer = _locator.Locate();
         if (viewer is null)
@@ -37,7 +39,7 @@ public sealed class DisplayLauncher : IDisplayLauncher
         using (_processLauncher.Start(new ProcessLaunchRequest
         {
             Executable = viewer,
-            Arguments = [$"spice://{host}:{spicePort}"],
+            Arguments = [$"{scheme}://{host}:{port}"],
         }))
         {
         }

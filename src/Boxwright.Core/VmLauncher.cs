@@ -62,7 +62,7 @@ public sealed class VmLauncher : IVmLauncher
                 () => process.State == QemuProcessState.Running,
                 cancellationToken);
 
-            var runningVm = new RunningVm(process, client, accelerator, spicePort);
+            var runningVm = new RunningVm(process, client, accelerator, spicePort, vm.Config.Display.Protocol);
             launched = true;
             return runningVm;
         }

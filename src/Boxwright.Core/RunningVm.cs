@@ -12,12 +12,13 @@ public sealed class RunningVm : IRunningVm
     private readonly QemuProcess _process;
     private readonly IQmpClient _client;
 
-    internal RunningVm(QemuProcess process, IQmpClient client, Accelerator accelerator, int spicePort)
+    internal RunningVm(QemuProcess process, IQmpClient client, Accelerator accelerator, int spicePort, string displayProtocol)
     {
         _process = process;
         _client = client;
         Accelerator = accelerator;
         SpicePort = spicePort;
+        DisplayProtocol = displayProtocol;
     }
 
     /// <summary>The accelerator resolved for this VM (for the UI to surface — ADR-0003).</summary>
@@ -25,6 +26,9 @@ public sealed class RunningVm : IRunningVm
 
     /// <summary>The SPICE display port (for the display launcher — CORE-10).</summary>
     public int SpicePort { get; }
+
+    /// <summary>The display protocol the VM was launched with (<c>spice</c> or <c>vnc</c>).</summary>
+    public string DisplayProtocol { get; }
 
     /// <summary>The process lifecycle state.</summary>
     public QemuProcessState State => _process.State;

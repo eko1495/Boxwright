@@ -32,6 +32,7 @@ public sealed partial class VmSettingsViewModel : ObservableObject
         _memoryMiB = _original.MemoryMiB;
         _cpuCores = _original.Cpu.Cores;
         _firmware = _original.Firmware;
+        _displayProtocol = _original.Display.Protocol;
         _displayGl = _original.Display.Gl;
         _bootMenu = _original.Boot.Menu;
 
@@ -59,6 +60,9 @@ public sealed partial class VmSettingsViewModel : ObservableObject
     private string _firmware;
 
     [ObservableProperty]
+    private string _displayProtocol;
+
+    [ObservableProperty]
     private bool _displayGl;
 
     [ObservableProperty]
@@ -76,6 +80,8 @@ public sealed partial class VmSettingsViewModel : ObservableObject
     public bool IsRunning { get; }
 
     public IReadOnlyList<string> FirmwareOptions { get; } = ["bios", "uefi"];
+
+    public IReadOnlyList<string> DisplayProtocolOptions { get; } = ["spice", "vnc"];
 
     /// <summary>Read-only summary of the VM's disks (disk editing is not part of this panel).</summary>
     public string DisksText { get; }
@@ -131,7 +137,7 @@ public sealed partial class VmSettingsViewModel : ObservableObject
             MemoryMiB = MemoryMiB,
             Cpu = _original.Cpu with { Cores = CpuCores },
             Firmware = Firmware,
-            Display = _original.Display with { Gl = DisplayGl },
+            Display = _original.Display with { Gl = DisplayGl, Protocol = DisplayProtocol },
             Boot = _original.Boot with { Menu = BootMenu },
         };
 

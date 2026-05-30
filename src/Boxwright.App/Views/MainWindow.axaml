@@ -147,6 +147,11 @@
                                             <ComboBox ItemsSource="{Binding FirmwareOptions}" SelectedItem="{Binding Firmware}"
                                                       Width="160" HorizontalAlignment="Left" />
                                         </StackPanel>
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Display protocol" Opacity="0.7" />
+                                            <ComboBox ItemsSource="{Binding DisplayProtocolOptions}" SelectedItem="{Binding DisplayProtocol}"
+                                                      Width="160" HorizontalAlignment="Left" />
+                                        </StackPanel>
                                         <CheckBox IsChecked="{Binding DisplayGl}" Content="Enable OpenGL acceleration (SPICE)" />
                                         <CheckBox IsChecked="{Binding BootMenu}" Content="Show the firmware boot menu" />
 

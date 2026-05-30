@@ -218,7 +218,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
         try
         {
-            _displayLauncher.Launch(_session.SpicePort);
+            _displayLauncher.Launch(_session.SpicePort, _session.DisplayProtocol);
         }
         catch (DisplayException ex)
         {

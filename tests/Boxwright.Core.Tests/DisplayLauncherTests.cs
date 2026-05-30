@@ -19,6 +19,17 @@ public class DisplayLauncherTests
     }
 
     [Fact]
+    public void Launch_WithVncProtocol_StartsRemoteViewerWithVncUri()
+    {
+        var launcher = new FakeProcessLauncher();
+        var display = new DisplayLauncher(launcher, new FakeRemoteViewerLocator("/usr/bin/remote-viewer"));
+
+        display.Launch(5930, "vnc");
+
+        Assert.Equal("vnc://127.0.0.1:5930", Assert.Single(launcher.LastRequest!.Arguments));
+    }
+
+    [Fact]
     public void Launch_WhenViewerNotFound_ThrowsDisplayException()
     {
         var display = new DisplayLauncher(new FakeProcessLauncher(), new FakeRemoteViewerLocator(null));

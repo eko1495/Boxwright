@@ -208,6 +208,7 @@ builds bundle QEMU per platform — see ADR-0007.
 - Why Avalonia → `docs/adr/0002-avalonia-ui.md`
 - Process & acceleration model → `docs/adr/0003-process-per-vm.md`
 - Display strategy → `docs/adr/0004-display-via-remote-viewer.md`
+- Display protocol & viewer plan → `docs/adr/0008-display-protocol-and-viewer.md`
 - License hygiene → `docs/adr/0005-gpl-hygiene-subprocess.md`
 - VM config format → `docs/adr/0006-json-vm-config.md`
 - Bundling QEMU & the QMP library → `docs/adr/0007-bundled-qemu-and-qmp-library.md`

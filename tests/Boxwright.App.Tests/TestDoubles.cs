@@ -16,6 +16,8 @@ internal sealed class FakeRunningVm : IRunningVm
 
     public int SpicePort { get; init; } = 5900;
 
+    public string DisplayProtocol { get; init; } = "spice";
+
     public QemuProcessState State { get; private set; } = QemuProcessState.Running;
 
     public List<string> Calls { get; } = [];
@@ -118,17 +120,17 @@ internal sealed class FakeFilePicker : IFilePicker
 /// <summary>A fake display launcher that records SPICE ports (or fails to simulate a missing viewer).</summary>
 internal sealed class FakeDisplayLauncher : IDisplayLauncher
 {
-    public List<int> LaunchedPorts { get; } = [];
+    public List<(int Port, string Protocol)> Launches { get; } = [];
 
     public DisplayException? FailWith { get; set; }
 
-    public void Launch(int spicePort, string host = "127.0.0.1")
+    public void Launch(int port, string protocol = "spice", string host = "127.0.0.1")
     {
         if (FailWith is not null)
         {
             throw FailWith;
         }
 
-        LaunchedPorts.Add(spicePort);
+        Launches.Add((port, protocol));
     }
 }

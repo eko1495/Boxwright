@@ -211,7 +211,18 @@ public sealed class VmListItemViewModelTests : IDisposable
 
         item.OpenDisplayCommand.Execute(null);
 
-        Assert.Equal(5905, Assert.Single(_display.LaunchedPorts));
+        Assert.Equal((5905, "spice"), Assert.Single(_display.Launches));
+    }
+
+    [Fact]
+    public async Task OpenDisplay_UsesTheSessionsProtocol()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm { SpicePort = 5950, DisplayProtocol = "vnc" }));
+        await item.StartCommand.ExecuteAsync(null);
+
+        item.OpenDisplayCommand.Execute(null);
+
+        Assert.Equal((5950, "vnc"), Assert.Single(_display.Launches));
     }
 
     [Fact]

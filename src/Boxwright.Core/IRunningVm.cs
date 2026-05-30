@@ -13,6 +13,9 @@ public interface IRunningVm : IAsyncDisposable
     /// <summary>The SPICE display port (for the display launcher — CORE-10).</summary>
     int SpicePort { get; }
 
+    /// <summary>The display protocol the VM was launched with (<c>spice</c> or <c>vnc</c>).</summary>
+    string DisplayProtocol { get; }
+
     /// <summary>The process lifecycle state.</summary>
     QemuProcessState State { get; }
 

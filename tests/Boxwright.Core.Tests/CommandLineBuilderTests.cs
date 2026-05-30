@@ -76,6 +76,19 @@ public class CommandLineBuilderTests
     }
 
     [Fact]
+    public void Build_VncProtocol_UsesDisplayNumberNotRawPort()
+    {
+        // QEMU's -vnc takes a display number (listen port = 5900 + display); the allocated
+        // port 5930 is display 30. The old code passed the raw port and never bound.
+        VmConfig config = CanonicalConfig() with { Display = new DisplayConfig { Protocol = "vnc" } };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext(5930));
+
+        Assert.Equal("127.0.0.1:30", ArgValue(args, "-vnc"));
+        Assert.DoesNotContain("-spice", args);
+    }
+
+    [Fact]
     public void Build_Whpx_UsesKernelIrqchipOff()
     {
         IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Whpx, TcpContext());

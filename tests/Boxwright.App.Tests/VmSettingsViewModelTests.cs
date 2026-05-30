@@ -53,6 +53,7 @@ public sealed class VmSettingsViewModelTests : IDisposable
         Assert.Equal(2048, form.MemoryMiB);
         Assert.Equal(2, form.CpuCores);
         Assert.Equal("bios", form.Firmware);
+        Assert.Equal("spice", form.DisplayProtocol);
         Assert.Null(form.ValidationError);
         Assert.True(form.SaveCommand.CanExecute(null));
     }
@@ -66,6 +67,7 @@ public sealed class VmSettingsViewModelTests : IDisposable
         form.MemoryMiB = 8192;
         form.CpuCores = 4;
         form.Firmware = "uefi";
+        form.DisplayProtocol = "vnc";
         form.DisplayGl = true;
         form.BootMenu = true;
         VmConfig? saved = null;
@@ -79,6 +81,7 @@ public sealed class VmSettingsViewModelTests : IDisposable
         Assert.Equal(8192, reloaded.MemoryMiB);
         Assert.Equal(4, reloaded.Cpu.Cores);
         Assert.Equal("uefi", reloaded.Firmware);
+        Assert.Equal("vnc", reloaded.Display.Protocol);
         Assert.True(reloaded.Display.Gl);
         Assert.True(reloaded.Boot.Menu);
 

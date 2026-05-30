@@ -36,3 +36,4 @@ What we rejected and why.
 | [0005](0005-gpl-hygiene-subprocess.md) | Keep QEMU at arm's length as a subprocess (GPL hygiene) | Accepted |
 | [0006](0006-json-vm-config.md) | One VM = one folder + one JSON config; no daemon | Accepted |
 | [0007](0007-bundled-qemu-and-qmp-library.md) | Bundle QEMU per platform; ship QMP as a standalone library | Accepted |
+| [0008](0008-display-protocol-and-viewer.md) | Per-VM display protocol (SPICE/VNC); viewer external until embedded VNC | Accepted |
