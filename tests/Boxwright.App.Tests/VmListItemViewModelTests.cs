@@ -227,13 +227,36 @@ public sealed class VmListItemViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task IsoCommands_AreDisabledWhileRunning()
+    public async Task WhileRunning_AttachIsoIsDisabled_ButRemoveIsoIsAllowed()
     {
         var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
         await item.StartCommand.ExecuteAsync(null);
 
-        Assert.False(item.ChooseIsoCommand.CanExecute(null));
-        Assert.False(item.RemoveIsoCommand.CanExecute(null));
+        Assert.False(item.ChooseIsoCommand.CanExecute(null)); // attaching/swapping is stopped-only
+        Assert.True(item.RemoveIsoCommand.CanExecute(null));  // removal works live (QMP eject)
+    }
+
+    [Fact]
+    public async Task RemoveIso_WhileRunning_EjectsFromGuest_AndPersistsDetach()
+    {
+        Vm vm = await _repository.CreateAsync(new VmConfig
+        {
+            Name = "iso-live-eject",
+            RemovableMedia = [new RemovableMediaConfig { Type = "cdrom", File = "ubuntu.iso", Attached = true }],
+            Boot = new BootConfig { Order = "dc" },
+        });
+        var session = new FakeRunningVm();
+        var item = NewItem(new FakeVmLauncher(session), vm);
+        await item.StartCommand.ExecuteAsync(null);
+        Assert.True(item.HasIso);
+
+        await item.RemoveIsoCommand.ExecuteAsync(null);
+
+        Assert.Contains("eject", session.Calls); // live QMP eject from the running guest
+        Assert.False(item.HasIso);               // and the detach is persisted
+        VmConfig reloaded = (await _repository.ListAsync()).Single().Config;
+        Assert.Empty(reloaded.RemovableMedia);
+        Assert.Equal("c", reloaded.Boot.Order);
     }
 
     [Fact]

@@ -32,6 +32,8 @@ internal sealed class FakeRunningVm : IRunningVm
 
     public Task ResetAsync(CancellationToken cancellationToken = default) => Record("reset");
 
+    public Task EjectIsoAsync(CancellationToken cancellationToken = default) => Record("eject");
+
     public void ForceStop()
     {
         Calls.Add("forcestop");

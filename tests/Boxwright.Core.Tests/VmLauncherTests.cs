@@ -49,6 +49,16 @@ public class VmLauncherTests
     }
 
     [Fact]
+    public async Task EjectIsoAsync_IssuesQmpEject()
+    {
+        await WithStartedVmAsync(async (running, _, recording) =>
+        {
+            await running.EjectIsoAsync();
+            Assert.Contains("eject", recording.Commands);
+        });
+    }
+
+    [Fact]
     public async Task ForceStop_TerminatesProcess()
     {
         await WithStartedVmAsync((running, _, _) =>

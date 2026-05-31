@@ -56,6 +56,10 @@ public sealed class RunningVm : IRunningVm
     public Task ResetAsync(CancellationToken cancellationToken = default) =>
         _client.ExecuteAsync("system_reset", arguments: null, cancellationToken);
 
+    /// <summary>Ejects the installer ISO from the running guest (QMP <c>eject</c>, forced past a guest lock).</summary>
+    public Task EjectIsoAsync(CancellationToken cancellationToken = default) =>
+        _client.ExecuteAsync("eject", new { device = CommandLineBuilder.CdromDriveId, force = true }, cancellationToken);
+
     /// <summary>Forcibly terminates the VM process (pulls the plug).</summary>
     public void ForceStop() => _process.Kill();
 

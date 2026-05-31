@@ -45,7 +45,7 @@ public class CommandLineBuilderTests
             "-smp", "sockets=1,cores=4,threads=1",
             "-m", "4096",
             "-drive", "file=disk.qcow2,format=qcow2,if=virtio",
-            "-drive", "file=ubuntu.iso,media=cdrom",
+            "-drive", "file=ubuntu.iso,media=cdrom,id=boxwright-cd0",
             "-netdev", "user,id=net0,hostfwd=tcp::2222-:22",
             "-device", "virtio-net,netdev=net0",
             "-usb",

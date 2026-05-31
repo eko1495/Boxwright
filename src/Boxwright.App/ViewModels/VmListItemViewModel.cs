@@ -285,7 +285,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     [RelayCommand]
     private void CancelDelete() => IsConfirmingDelete = false;
 
-    [RelayCommand(CanExecute = nameof(CanEditMedia))]
+    [RelayCommand(CanExecute = nameof(CanAttachIso))]
     private async Task ChooseIsoAsync()
     {
         string? iso = await _filePicker.PickIsoAsync();
@@ -302,16 +302,35 @@ public sealed partial class VmListItemViewModel : ObservableObject
         });
     }
 
-    [RelayCommand(CanExecute = nameof(CanEditMedia))]
-    private Task RemoveIsoAsync() =>
-        UpdateConfigAsync(config => config with
+    [RelayCommand(CanExecute = nameof(CanRemoveIso))]
+    private async Task RemoveIsoAsync()
+    {
+        // If the VM is running, eject from the live guest first (VirtualBox-style) so the
+        // medium is gone now — e.g. the post-install "remove the installation medium" prompt.
+        if (_session is not null)
+        {
+            try
+            {
+                await _session.EjectIsoAsync();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                StatusMessage = $"Couldn't eject the ISO from the running VM: {ex.Message}";
+            }
+        }
+
+        // Persist the detach (and disk-first boot) so the next launch is clean too.
+        await UpdateConfigAsync(config => config with
         {
             RemovableMedia = [],
             Boot = config.Boot with { Order = "c" },
         });
+    }
 
-    // Boot media can only be changed while the VM is stopped.
-    private bool CanEditMedia() => Status == VmStatus.Stopped;
+    // Attaching/swapping media is stopped-only; removal also works live (QMP eject).
+    private bool CanAttachIso() => Status == VmStatus.Stopped;
+
+    private bool CanRemoveIso() => Status is VmStatus.Stopped or VmStatus.Running or VmStatus.Paused;
 
     private async Task UpdateConfigAsync(Func<VmConfig, VmConfig> edit)
     {

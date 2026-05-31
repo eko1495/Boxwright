@@ -16,6 +16,13 @@ namespace Boxwright.Core;
 /// </remarks>
 public static class CommandLineBuilder
 {
+    /// <summary>
+    /// The QMP drive id given to the first attached optical medium, so it can be ejected
+    /// live (VirtualBox-style) via the <c>eject</c> command while the VM runs — see
+    /// <see cref="RunningVm.EjectIsoAsync"/>.
+    /// </summary>
+    public const string CdromDriveId = "boxwright-cd0";
+
     /// <summary>Builds the ordered QEMU argument list for the given VM.</summary>
     /// <exception cref="ArgumentException">The config uses UEFI but no firmware path was supplied.</exception>
     public static IReadOnlyList<string> Build(VmConfig config, Accelerator accelerator, QemuLaunchContext context)
@@ -95,6 +102,7 @@ public static class CommandLineBuilder
 
     private static void AppendRemovableMedia(List<string> args, VmConfig config)
     {
+        int index = 0;
         foreach (RemovableMediaConfig media in config.RemovableMedia)
         {
             if (!media.Attached || string.IsNullOrEmpty(media.File))
@@ -102,8 +110,13 @@ public static class CommandLineBuilder
                 continue;
             }
 
+            // A stable drive id so the medium can be ejected live via QMP (the install-finish
+            // "remove the installation medium" step). The first cdrom uses CdromDriveId, which
+            // is what the live eject targets; any extras get distinct ids to avoid collisions.
+            string id = index == 0 ? CdromDriveId : $"boxwright-cd{index}";
             args.Add("-drive");
-            args.Add($"file={media.File},media=cdrom");
+            args.Add($"file={media.File},media=cdrom,id={id}");
+            index++;
         }
     }
 

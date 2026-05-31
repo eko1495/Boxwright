@@ -34,6 +34,13 @@ public interface IRunningVm : IAsyncDisposable
     /// <summary>Resets the guest (QMP <c>system_reset</c>).</summary>
     Task ResetAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Ejects the optical medium (installer ISO) from the running guest via QMP — a
+    /// VirtualBox-style live eject, e.g. for the post-install "remove the installation
+    /// medium" prompt. No-op-safe targets the drive launched as <see cref="CommandLineBuilder.CdromDriveId"/>.
+    /// </summary>
+    Task EjectIsoAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Forcibly terminates the VM process (pulls the plug).</summary>
     void ForceStop();
 
