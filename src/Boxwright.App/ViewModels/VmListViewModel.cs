@@ -67,6 +67,18 @@ public sealed partial class VmListViewModel : ObservableObject
     /// <summary>True when a VM is selected (drives the detail/actions panel).</summary>
     public bool HasSelection => SelectedVm is not null;
 
+    /// <summary>The VMs with a live QEMU session (running/paused) — drives the app-close prompt.</summary>
+    public IReadOnlyList<VmListItemViewModel> RunningVms => Vms.Where(v => v.IsLive).ToList();
+
+    /// <summary>True when any VM still has a live session (e.g. to confirm before the app closes).</summary>
+    public bool HasRunningVms => Vms.Any(v => v.IsLive);
+
+    /// <summary>Gracefully shuts down every live VM (ACPI power-down, force after the grace period).</summary>
+    public Task ShutDownAllAsync() => Task.WhenAll(RunningVms.Select(v => v.ShutDownAsync()));
+
+    /// <summary>Immediately force-stops every live VM (pulls the plug on each).</summary>
+    public Task ForceOffAllAsync() => Task.WhenAll(RunningVms.Select(v => v.ForceOffAsync()));
+
     /// <summary>Inserts a freshly created VM into the list (kept sorted) and selects it.</summary>
     public void AddCreated(Vm vm)
     {

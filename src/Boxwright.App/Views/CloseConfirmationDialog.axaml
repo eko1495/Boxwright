@@ -1,0 +1,15 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Boxwright.App.Views.CloseConfirmationDialog"
+        Title="Close Boxwright?"
+        SizeToContent="WidthAndHeight" CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <StackPanel Margin="20" Spacing="16" Width="440">
+        <TextBlock x:Name="MessageText" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Shut down" Click="OnShutDown" IsDefault="True" />
+            <Button Content="Force off" Click="OnForceOff" />
+            <Button Content="Cancel" Click="OnCancel" IsCancel="True" />
+        </StackPanel>
+    </StackPanel>
+</Window>

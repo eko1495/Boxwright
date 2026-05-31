@@ -65,6 +65,38 @@ public sealed class VmListItemViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task ShutDown_GracefullyStopsAndTearsDownSession()
+    {
+        var session = new FakeRunningVm();
+        var item = NewItem(new FakeVmLauncher(session));
+        await item.StartCommand.ExecuteAsync(null);
+        Assert.True(item.IsLive);
+
+        await item.ShutDownAsync();
+
+        Assert.False(item.IsLive);
+        Assert.Equal(VmStatus.Stopped, item.Status);
+        Assert.Contains("stop", session.Calls);            // ACPI power-down, not a hard kill
+        Assert.DoesNotContain("forcestop", session.Calls);
+        Assert.Contains("dispose", session.Calls);
+    }
+
+    [Fact]
+    public async Task ForceOff_KillsAndTearsDownSession()
+    {
+        var session = new FakeRunningVm();
+        var item = NewItem(new FakeVmLauncher(session));
+        await item.StartCommand.ExecuteAsync(null);
+
+        await item.ForceOffAsync();
+
+        Assert.False(item.IsLive);
+        Assert.Equal(VmStatus.Stopped, item.Status);
+        Assert.Contains("forcestop", session.Calls);
+        Assert.Contains("dispose", session.Calls);
+    }
+
+    [Fact]
     public async Task PauseResumeReset_DriveSessionAndStatus()
     {
         var session = new FakeRunningVm();

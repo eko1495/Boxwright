@@ -52,6 +52,25 @@ public sealed class VmListViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task HasRunningVms_ReflectsLiveSessions_AndShutDownAllStopsThem()
+    {
+        VmRepository repo = NewRepository();
+        await repo.CreateAsync(new VmConfig { Name = "vm1" });
+        var sut = NewSut(repo);
+        await sut.RefreshCommand.ExecuteAsync(null);
+        Assert.False(sut.HasRunningVms);
+
+        await sut.Vms.Single().StartCommand.ExecuteAsync(null);
+        Assert.True(sut.HasRunningVms);
+        Assert.Single(sut.RunningVms);
+
+        await sut.ShutDownAllAsync();
+
+        Assert.False(sut.HasRunningVms);
+        Assert.Empty(sut.RunningVms);
+    }
+
+    [Fact]
     public async Task Refresh_LoadsSavedVms_SortedByNameCaseInsensitively()
     {
         VmRepository repo = NewRepository();

@@ -160,15 +160,29 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
     private bool CanStart() => Status == VmStatus.Stopped;
 
+    // A guest needs more than a few seconds to finish an ACPI shutdown; too short a grace
+    // turns Stop into a hard kill, which risks corrupting the guest filesystem. 60s is a
+    // VirtualBox-like default. The same path serves the Stop button and the app-close prompt.
+    private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(60);
+
+    /// <summary>True while a live QEMU session is attached (the VM is running, paused, or stopping).</summary>
+    internal bool IsLive => _session is not null;
+
     [RelayCommand(CanExecute = nameof(CanControlRunning))]
-    private async Task StopAsync()
+    private Task StopAsync() => ShutDownAsync();
+
+    /// <summary>
+    /// Graceful shutdown: ACPI power-down, then force-stop if the guest overstays the grace
+    /// period. Shared by the Stop button and the app-close prompt.
+    /// </summary>
+    internal async Task ShutDownAsync()
     {
         Status = VmStatus.Stopping;
         try
         {
             if (_session is not null)
             {
-                await _session.StopAsync(TimeSpan.FromSeconds(5));
+                await _session.StopAsync(ShutdownGrace);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -182,6 +196,16 @@ public sealed partial class VmListItemViewModel : ObservableObject
             Status = VmStatus.Stopped;
             await RefreshLogAsync();
         }
+    }
+
+    /// <summary>Immediately force-stops the VM (pulls the plug) and tears down the session — the app-close "Force off" path.</summary>
+    internal async Task ForceOffAsync()
+    {
+        Status = VmStatus.Stopping;
+        _session?.ForceStop();
+        await TeardownSessionAsync();
+        Status = VmStatus.Stopped;
+        await RefreshLogAsync();
     }
 
     private bool CanControlRunning() => Status is VmStatus.Running or VmStatus.Paused;

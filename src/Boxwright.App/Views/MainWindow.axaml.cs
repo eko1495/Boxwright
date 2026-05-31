@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Boxwright.App.ViewModels;
 
@@ -6,6 +7,8 @@ namespace Boxwright.App.Views;
 
 public partial class MainWindow : Window
 {
+    private bool _shutdownHandled;
+
     public MainWindow() => InitializeComponent();
 
     // Populate the list once the window is shown. Keeping the load in the view
@@ -18,5 +21,45 @@ public partial class MainWindow : Window
         {
             viewModel.Vms.RefreshCommand.Execute(null);
         }
+    }
+
+    // Don't let the app close out from under a running guest: confirm first, then shut the
+    // VMs down (or force them off) before actually closing. A hard exit while a VM runs can
+    // corrupt the guest filesystem, so the destructive choice is explicit (VirtualBox-style).
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        base.OnClosing(e);
+        if (_shutdownHandled || e.Cancel)
+        {
+            return;
+        }
+
+        if (DataContext is not MainWindowViewModel viewModel || !viewModel.Vms.HasRunningVms)
+        {
+            return; // Nothing running — close normally.
+        }
+
+        e.Cancel = true; // Hold the close while we ask and shut down.
+        _ = HandleCloseAsync(viewModel.Vms);
+    }
+
+    private async Task HandleCloseAsync(VmListViewModel vms)
+    {
+        var dialog = new CloseConfirmationDialog(vms.RunningVms.Count);
+        CloseChoice choice = await dialog.ShowDialog<CloseChoice>(this);
+        switch (choice)
+        {
+            case CloseChoice.ShutDown:
+                await vms.ShutDownAllAsync();
+                break;
+            case CloseChoice.ForceOff:
+                await vms.ForceOffAllAsync();
+                break;
+            default:
+                return; // Cancelled — keep the app open.
+        }
+
+        _shutdownHandled = true;
+        Close();
     }
 }
