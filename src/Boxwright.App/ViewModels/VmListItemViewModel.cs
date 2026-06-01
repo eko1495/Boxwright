@@ -40,6 +40,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     private readonly IDisplayLauncher _displayLauncher;
     private readonly ILogReader _logReader;
     private readonly ISnapshotService _snapshotService;
+    private readonly IVmCloneService _cloneService;
     private IRunningVm? _session;
 
     public VmListItemViewModel(
@@ -50,7 +51,8 @@ public sealed partial class VmListItemViewModel : ObservableObject
         IFilePicker filePicker,
         IDisplayLauncher displayLauncher,
         ILogReader logReader,
-        ISnapshotService snapshotService)
+        ISnapshotService snapshotService,
+        IVmCloneService cloneService)
     {
         ArgumentNullException.ThrowIfNull(vm);
         ArgumentNullException.ThrowIfNull(launcher);
@@ -60,6 +62,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(displayLauncher);
         ArgumentNullException.ThrowIfNull(logReader);
         ArgumentNullException.ThrowIfNull(snapshotService);
+        ArgumentNullException.ThrowIfNull(cloneService);
 
         Vm = vm;
         _launcher = launcher;
@@ -69,6 +72,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         _displayLauncher = displayLauncher;
         _logReader = logReader;
         _snapshotService = snapshotService;
+        _cloneService = cloneService;
     }
 
     /// <summary>The underlying domain VM (replaced when its config is edited).</summary>
@@ -102,7 +106,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         : "Boots from disk.";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText), nameof(CanManageSnapshots))]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(CanManageSnapshots), nameof(CanClone))]
     [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(StopCommand), nameof(PauseCommand),
         nameof(ResumeCommand), nameof(ResetCommand), nameof(DeleteCommand),
         nameof(ChooseIsoCommand), nameof(RemoveIsoCommand), nameof(OpenDisplayCommand))]
@@ -138,6 +142,9 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
     /// <summary>Raised after the VM is deleted from disk, so the list can drop this item.</summary>
     public event EventHandler? Deleted;
+
+    /// <summary>Raised after this VM is cloned, carrying the new VM so the list can add it.</summary>
+    public event EventHandler<Vm>? Cloned;
 
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task StartAsync()
@@ -401,6 +408,43 @@ public sealed partial class VmListItemViewModel : ObservableObject
         catch (DiskException ex)
         {
             StatusMessage = $"Couldn't delete the snapshot: {ex.Message}";
+        }
+    }
+
+    // ---- Clone (stopped-only) ----
+
+    [ObservableProperty]
+    private string? _cloneName;
+
+    /// <summary>A VM can only be cloned while stopped (its disks must be quiescent).</summary>
+    public bool CanClone => Status == VmStatus.Stopped;
+
+    [RelayCommand]
+    private Task FullCloneAsync() => CloneAsync(CloneMode.Full);
+
+    [RelayCommand]
+    private Task LinkedCloneAsync() => CloneAsync(CloneMode.Linked);
+
+    private async Task CloneAsync(CloneMode mode)
+    {
+        if (!CanClone)
+        {
+            return;
+        }
+
+        string name = string.IsNullOrWhiteSpace(CloneName) ? $"{Name} (clone)" : CloneName.Trim();
+        try
+        {
+            Vm clone = await _cloneService.CloneAsync(Vm, name, mode);
+            CloneName = null;
+            StatusMessage = mode == CloneMode.Linked
+                ? $"Created linked clone '{name}'. Don't modify or delete this VM while the clone exists."
+                : $"Created clone '{name}'.";
+            Cloned?.Invoke(this, clone);
+        }
+        catch (Exception ex) when (ex is DiskException or IOException or VmConfigException)
+        {
+            StatusMessage = $"Couldn't clone the VM: {ex.Message}";
         }
     }
 

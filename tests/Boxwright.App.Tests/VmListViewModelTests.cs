@@ -16,6 +16,7 @@ public sealed class VmListViewModelTests : IDisposable
     private readonly FakeDisplayLauncher _display = new();
     private readonly FakeLogReader _logReader = new();
     private readonly FakeSnapshotService _snapshots = new();
+    private readonly FakeVmCloneService _clone = new();
 
     public VmListViewModelTests()
     {
@@ -37,7 +38,7 @@ public sealed class VmListViewModelTests : IDisposable
     private VmRepository NewRepository() => new(_root);
 
     private VmListViewModel NewSut(VmRepository repository) =>
-        new(repository, new FakeVmLauncher(new FakeRunningVm()), _dispatcher, _filePicker, _display, _logReader, _snapshots);
+        new(repository, new FakeVmLauncher(new FakeRunningVm()), _dispatcher, _filePicker, _display, _logReader, _snapshots, _clone);
 
     [Fact]
     public async Task Refresh_WithNoVms_LeavesListEmptyAndFlagsEmpty()
@@ -69,6 +70,26 @@ public sealed class VmListViewModelTests : IDisposable
 
         Assert.False(sut.HasRunningVms);
         Assert.Empty(sut.RunningVms);
+    }
+
+    [Fact]
+    public async Task CloningAnItem_AddsTheCloneToTheList()
+    {
+        VmRepository repo = NewRepository();
+        await repo.CreateAsync(new VmConfig
+        {
+            Name = "base",
+            Disks = [new DiskConfig { File = "disk.qcow2", Format = "qcow2", Interface = "virtio" }],
+        });
+        var sut = NewSut(repo);
+        await sut.RefreshCommand.ExecuteAsync(null);
+        VmListItemViewModel item = sut.Vms.Single();
+
+        item.CloneName = "copy";
+        await item.FullCloneCommand.ExecuteAsync(null);
+
+        Assert.Equal(2, sut.Vms.Count);
+        Assert.Contains(sut.Vms, v => v.Name == "copy");
     }
 
     [Fact]

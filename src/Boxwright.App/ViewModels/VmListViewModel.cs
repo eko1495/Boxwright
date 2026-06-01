@@ -20,6 +20,7 @@ public sealed partial class VmListViewModel : ObservableObject
     private readonly IDisplayLauncher _displayLauncher;
     private readonly ILogReader _logReader;
     private readonly ISnapshotService _snapshotService;
+    private readonly IVmCloneService _cloneService;
 
     public VmListViewModel(
         VmRepository repository,
@@ -28,7 +29,8 @@ public sealed partial class VmListViewModel : ObservableObject
         IFilePicker filePicker,
         IDisplayLauncher displayLauncher,
         ILogReader logReader,
-        ISnapshotService snapshotService)
+        ISnapshotService snapshotService,
+        IVmCloneService cloneService)
     {
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(launcher);
@@ -37,6 +39,7 @@ public sealed partial class VmListViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(displayLauncher);
         ArgumentNullException.ThrowIfNull(logReader);
         ArgumentNullException.ThrowIfNull(snapshotService);
+        ArgumentNullException.ThrowIfNull(cloneService);
 
         _repository = repository;
         _launcher = launcher;
@@ -45,6 +48,7 @@ public sealed partial class VmListViewModel : ObservableObject
         _displayLauncher = displayLauncher;
         _logReader = logReader;
         _snapshotService = snapshotService;
+        _cloneService = cloneService;
     }
 
     /// <summary>The loaded VMs, sorted by name.</summary>
@@ -127,8 +131,9 @@ public sealed partial class VmListViewModel : ObservableObject
 
     private VmListItemViewModel CreateItem(Vm vm)
     {
-        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _logReader, _snapshotService);
+        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _logReader, _snapshotService, _cloneService);
         item.Deleted += OnItemDeleted;
+        item.Cloned += OnItemCloned;
         return item;
     }
 
@@ -159,6 +164,7 @@ public sealed partial class VmListViewModel : ObservableObject
         foreach (VmListItemViewModel removed in existing.Values)
         {
             removed.Deleted -= OnItemDeleted;
+            removed.Cloned -= OnItemCloned;
         }
 
         Vms.Clear();
@@ -181,6 +187,7 @@ public sealed partial class VmListViewModel : ObservableObject
         }
 
         item.Deleted -= OnItemDeleted;
+        item.Cloned -= OnItemCloned;
         if (ReferenceEquals(SelectedVm, item))
         {
             SelectedVm = null;
@@ -189,4 +196,7 @@ public sealed partial class VmListViewModel : ObservableObject
         Vms.Remove(item);
         OnPropertyChanged(nameof(IsEmpty));
     }
+
+    // A clone produced a brand-new VM — insert it into the list (sorted) and select it.
+    private void OnItemCloned(object? sender, Vm clone) => AddCreated(clone);
 }

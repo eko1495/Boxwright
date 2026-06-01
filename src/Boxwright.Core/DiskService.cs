@@ -70,4 +70,40 @@ public sealed class DiskService : IDiskService
             throw new DiskException("Could not parse qemu-img info output.", ex);
         }
     }
+
+    /// <inheritdoc />
+    public async Task CopyAsync(string sourcePath, string destinationPath, string format = "qcow2", CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(format);
+
+        // convert flattens any backing chain, so the copy is fully independent.
+        ProcessResult result = await _processRunner.RunAsync(
+            _locator.ResolveImageTool(),
+            ["convert", "-O", format, sourcePath, destinationPath],
+            cancellationToken);
+
+        if (result.ExitCode != 0)
+        {
+            throw new DiskException($"qemu-img convert failed (exit {result.ExitCode}): {result.StandardError.Trim()}");
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task CreateOverlayAsync(string backingPath, string overlayPath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(backingPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(overlayPath);
+
+        ProcessResult result = await _processRunner.RunAsync(
+            _locator.ResolveImageTool(),
+            ["create", "-f", "qcow2", "-b", backingPath, "-F", "qcow2", overlayPath],
+            cancellationToken);
+
+        if (result.ExitCode != 0)
+        {
+            throw new DiskException($"qemu-img create overlay failed (exit {result.ExitCode}): {result.StandardError.Trim()}");
+        }
+    }
 }

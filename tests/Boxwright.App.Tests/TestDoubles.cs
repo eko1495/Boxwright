@@ -109,6 +109,12 @@ internal sealed class FakeDiskService : IDiskService
 
     public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException();
+
+    public Task CopyAsync(string sourcePath, string destinationPath, string format = "qcow2", CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+
+    public Task CreateOverlayAsync(string backingPath, string overlayPath, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
 }
 
 /// <summary>A fake file picker returning a preset path (or null to simulate cancellation).</summary>
@@ -176,6 +182,26 @@ internal sealed class FakeSnapshotService : ISnapshotService
         Calls.Add($"delete:{tag}");
         Snapshots.RemoveAll(s => s.Name == tag);
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>A fake clone service: records the request and returns a synthesized clone VM (or fails on demand).</summary>
+internal sealed class FakeVmCloneService : IVmCloneService
+{
+    public List<(string Name, CloneMode Mode)> Clones { get; } = [];
+
+    public DiskException? FailWith { get; init; }
+
+    public Task<Vm> CloneAsync(Vm source, string newName, CloneMode mode, CancellationToken cancellationToken = default)
+    {
+        if (FailWith is not null)
+        {
+            return Task.FromException<Vm>(FailWith);
+        }
+
+        Clones.Add((newName, mode));
+        VmConfig config = source.Config with { Id = $"clone-{newName}", Name = newName };
+        return Task.FromResult(new Vm(Path.Combine(Path.GetTempPath(), config.Id), config));
     }
 }
 

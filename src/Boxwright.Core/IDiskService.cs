@@ -14,4 +14,12 @@ public interface IDiskService
     /// <summary>Inspects a disk image, returning its parsed metadata.</summary>
     /// <exception cref="DiskException">The <c>qemu-img info</c> invocation failed or could not be parsed.</exception>
     Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default);
+
+    /// <summary>Copies a disk image to <paramref name="destinationPath"/> as a standalone image (full clone), preserving <paramref name="format"/>.</summary>
+    /// <exception cref="DiskException">The <c>qemu-img convert</c> invocation failed.</exception>
+    Task CopyAsync(string sourcePath, string destinationPath, string format = "qcow2", CancellationToken cancellationToken = default);
+
+    /// <summary>Creates a qcow2 overlay at <paramref name="overlayPath"/> backed by <paramref name="backingPath"/> (linked clone — shares the backing image).</summary>
+    /// <exception cref="DiskException">The <c>qemu-img create</c> invocation failed.</exception>
+    Task CreateOverlayAsync(string backingPath, string overlayPath, CancellationToken cancellationToken = default);
 }

@@ -48,7 +48,8 @@ public sealed class MainWindowViewModelTests : IDisposable
             new FakeFilePicker(),
             new FakeDisplayLauncher(),
             new FakeLogReader(),
-            new FakeSnapshotService());
+            new FakeSnapshotService(),
+            new FakeVmCloneService());
         return new MainWindowViewModel(vms, AcceleratorDetector.CreateDefault(), repository, new FakeDiskService(), opener);
     }
 }

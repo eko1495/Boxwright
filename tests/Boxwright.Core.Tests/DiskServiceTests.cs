@@ -79,6 +79,36 @@ public class DiskServiceTests
         });
     }
 
+    [Fact]
+    public async Task CopyAsync_InvokesQemuImgConvert()
+    {
+        await WithStubQemuImgAsync(async locator =>
+        {
+            var fake = new FakeProcessRunner(exitCode: 0);
+            var service = new DiskService(fake, locator);
+
+            await service.CopyAsync("src.qcow2", "dst.qcow2");
+
+            (string FileName, IReadOnlyList<string> Arguments) invocation = Assert.Single(fake.Invocations);
+            Assert.Equal("convert -O qcow2 src.qcow2 dst.qcow2", string.Join(' ', invocation.Arguments));
+        });
+    }
+
+    [Fact]
+    public async Task CreateOverlayAsync_InvokesQemuImgCreateWithBacking()
+    {
+        await WithStubQemuImgAsync(async locator =>
+        {
+            var fake = new FakeProcessRunner(exitCode: 0);
+            var service = new DiskService(fake, locator);
+
+            await service.CreateOverlayAsync("base.qcow2", "overlay.qcow2");
+
+            (string FileName, IReadOnlyList<string> Arguments) invocation = Assert.Single(fake.Invocations);
+            Assert.Equal("create -f qcow2 -b base.qcow2 -F qcow2 overlay.qcow2", string.Join(' ', invocation.Arguments));
+        });
+    }
+
     private static async Task WithStubQemuImgAsync(Func<QemuLocator, Task> body)
     {
         string dir = Path.Combine(Path.GetTempPath(), $"boxwright-disk-{Guid.NewGuid():N}");

@@ -17,6 +17,7 @@ public sealed class VmListItemViewModelTests : IDisposable
     private readonly FakeDisplayLauncher _display = new();
     private readonly FakeLogReader _logReader = new();
     private readonly FakeSnapshotService _snapshots = new();
+    private readonly FakeVmCloneService _clone = new();
 
     public VmListItemViewModelTests()
     {
@@ -38,7 +39,7 @@ public sealed class VmListItemViewModelTests : IDisposable
 
     private VmListItemViewModel NewItem(IVmLauncher launcher, Vm? vm = null) =>
         new(vm ?? new Vm(Path.Combine(_root, "x"), new VmConfig { Id = "x", Name = "Test" }),
-            launcher, _repository, _dispatcher, _filePicker, _display, _logReader, _snapshots);
+            launcher, _repository, _dispatcher, _filePicker, _display, _logReader, _snapshots, _clone);
 
     private Vm SnapshottableVm() =>
         new(Path.Combine(_root, "x"), new VmConfig
@@ -86,6 +87,39 @@ public sealed class VmListItemViewModelTests : IDisposable
         await item.StartCommand.ExecuteAsync(null);
 
         Assert.False(item.CanManageSnapshots);
+    }
+
+    [Fact]
+    public async Task FullClone_InvokesCloneService_AndRaisesClonedWithTheNewVm()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), SnapshottableVm());
+        item.CloneName = "my-copy";
+        Vm? cloned = null;
+        item.Cloned += (_, vm) => cloned = vm;
+
+        await item.FullCloneCommand.ExecuteAsync(null);
+
+        Assert.Contains(("my-copy", CloneMode.Full), _clone.Clones);
+        Assert.Equal("my-copy", cloned?.Config.Name);
+    }
+
+    [Fact]
+    public async Task LinkedClone_WithNoName_DefaultsToSourceNamePlusClone()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), SnapshottableVm()); // Name = "Snap"
+
+        await item.LinkedCloneCommand.ExecuteAsync(null);
+
+        Assert.Contains(("Snap (clone)", CloneMode.Linked), _clone.Clones);
+    }
+
+    [Fact]
+    public async Task Clone_IsDisabledWhileRunning()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), SnapshottableVm());
+        await item.StartCommand.ExecuteAsync(null);
+
+        Assert.False(item.CanClone);
     }
 
     [Fact]
