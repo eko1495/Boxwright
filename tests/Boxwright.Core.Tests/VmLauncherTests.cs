@@ -59,6 +59,21 @@ public class VmLauncherTests
     }
 
     [Fact]
+    public async Task SaveLoadDeleteState_BridgeToTheHumanMonitor()
+    {
+        await WithStartedVmAsync(async (running, _, recording) =>
+        {
+            await running.SaveStateAsync("boxwright-saved-state");
+            await running.LoadStateAsync("boxwright-saved-state");
+            await running.DeleteStateAsync("boxwright-saved-state");
+
+            Assert.Equal(
+                "savevm boxwright-saved-state loadvm boxwright-saved-state delvm boxwright-saved-state",
+                string.Join(' ', recording.MonitorCommands));
+        });
+    }
+
+    [Fact]
     public async Task ForceStop_TerminatesProcess()
     {
         await WithStartedVmAsync((running, _, _) =>
@@ -135,6 +150,8 @@ public class VmLauncherTests
     {
         public List<string> Commands { get; } = [];
 
+        public List<string> MonitorCommands { get; } = [];
+
         public bool IsConnected => true;
 
         public IObservable<QmpEvent> Events => throw new NotSupportedException();
@@ -148,8 +165,16 @@ public class VmLauncherTests
             return Task.FromResult(empty.RootElement.Clone());
         }
 
-        public Task<TResult> ExecuteAsync<TResult>(string command, object? arguments = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
+        public Task<TResult> ExecuteAsync<TResult>(string command, object? arguments = null, CancellationToken cancellationToken = default)
+        {
+            Commands.Add(command);
+            if (arguments is IDictionary<string, object> args && args.TryGetValue("command-line", out object? line))
+            {
+                MonitorCommands.Add(line?.ToString() ?? string.Empty);
+            }
+
+            return Task.FromResult(default(TResult)!); // empty/null monitor output = success
+        }
 
         public Task<QmpSchema> GetSchemaAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
 

@@ -41,6 +41,15 @@ public interface IRunningVm : IAsyncDisposable
     /// </summary>
     Task EjectIsoAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Saves the full VM state (RAM + devices + disk) into a qcow2 internal snapshot named <paramref name="tag"/> (QMP <c>savevm</c>) — the suspend half of save/resume.</summary>
+    Task SaveStateAsync(string tag, CancellationToken cancellationToken = default);
+
+    /// <summary>Restores the VM from the <paramref name="tag"/> saved state (QMP <c>loadvm</c>). Runs on a freshly-launched process with the same config.</summary>
+    Task LoadStateAsync(string tag, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes the <paramref name="tag"/> saved-state snapshot from within the running VM (QMP <c>delvm</c>) — best-effort, to consume a resumed state.</summary>
+    Task DeleteStateAsync(string tag, CancellationToken cancellationToken = default);
+
     /// <summary>Forcibly terminates the VM process (pulls the plug).</summary>
     void ForceStop();
 

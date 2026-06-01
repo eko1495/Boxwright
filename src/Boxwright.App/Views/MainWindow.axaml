@@ -199,12 +199,23 @@
                                             <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12" />
                                         </Border>
 
+                                        <Border IsVisible="{Binding HasSavedState}" Background="#3322AACC"
+                                                CornerRadius="4" Padding="10">
+                                            <StackPanel Spacing="6">
+                                                <TextBlock TextWrapping="Wrap" FontSize="12"
+                                                           Text="This VM has a saved state — Start resumes it where you left off." />
+                                                <Button Content="Discard saved state" Command="{Binding DiscardSavedStateCommand}"
+                                                        HorizontalAlignment="Left" />
+                                            </StackPanel>
+                                        </Border>
+
                                         <WrapPanel>
                                             <Button Content="Start" Command="{Binding StartCommand}" Margin="0,0,8,8" />
                                             <Button Content="Open display" Command="{Binding OpenDisplayCommand}" Margin="0,0,8,8" />
                                             <Button Content="Pause" Command="{Binding PauseCommand}" Margin="0,0,8,8" />
                                             <Button Content="Resume" Command="{Binding ResumeCommand}" Margin="0,0,8,8" />
                                             <Button Content="Reset" Command="{Binding ResetCommand}" Margin="0,0,8,8" />
+                                            <Button Content="Save state" Command="{Binding SaveStateCommand}" Margin="0,0,8,8" />
                                             <Button Content="Stop" Command="{Binding StopCommand}" Margin="0,0,8,8" />
                                         </WrapPanel>
 

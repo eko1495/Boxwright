@@ -106,10 +106,10 @@ public sealed partial class VmListItemViewModel : ObservableObject
         : "Boots from disk.";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText), nameof(CanManageSnapshots), nameof(CanClone))]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(CanManageSnapshots), nameof(CanClone), nameof(CanSaveState))]
     [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(StopCommand), nameof(PauseCommand),
         nameof(ResumeCommand), nameof(ResetCommand), nameof(DeleteCommand),
-        nameof(ChooseIsoCommand), nameof(RemoveIsoCommand), nameof(OpenDisplayCommand))]
+        nameof(ChooseIsoCommand), nameof(RemoveIsoCommand), nameof(OpenDisplayCommand), nameof(SaveStateCommand))]
     private VmStatus _status = VmStatus.Stopped;
 
     [ObservableProperty]
@@ -158,6 +158,22 @@ public sealed partial class VmListItemViewModel : ObservableObject
             _session = session;
             Status = VmStatus.Running;
             StatusMessage = DescribeAccelerator(session.Accelerator);
+
+            // A cold boot just happened; if a saved state exists, jump to it and consume it.
+            if (HasSavedState)
+            {
+                try
+                {
+                    await session.LoadStateAsync(SavedStateTag);
+                    await session.DeleteStateAsync(SavedStateTag);
+                    HasSavedState = false;
+                    StatusMessage = "Resumed from the saved state.";
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    StatusMessage = $"Couldn't resume the saved state; started fresh instead. {ex.Message}";
+                }
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -318,13 +334,21 @@ public sealed partial class VmListItemViewModel : ObservableObject
     private async Task RefreshSnapshotsAsync()
     {
         Snapshots.Clear();
+        bool savedState = false;
         if (CanManageSnapshots && PrimaryDiskPath is { } disk)
         {
             try
             {
                 foreach (VmSnapshot snapshot in await _snapshotService.ListAsync(disk))
                 {
-                    Snapshots.Add(snapshot);
+                    if (string.Equals(snapshot.Name, SavedStateTag, StringComparison.Ordinal))
+                    {
+                        savedState = true; // the reserved suspend snapshot — surfaced as "saved state", not a user snapshot
+                    }
+                    else
+                    {
+                        Snapshots.Add(snapshot);
+                    }
                 }
             }
             catch (DiskException ex)
@@ -333,6 +357,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
             }
         }
 
+        HasSavedState = savedState;
         OnPropertyChanged(nameof(HasSnapshots));
     }
 
@@ -408,6 +433,64 @@ public sealed partial class VmListItemViewModel : ObservableObject
         catch (DiskException ex)
         {
             StatusMessage = $"Couldn't delete the snapshot: {ex.Message}";
+        }
+    }
+
+    // ---- Saved state (suspend/resume via savevm/loadvm) ----
+
+    private const string SavedStateTag = "boxwright-saved-state";
+
+    /// <summary>True when this VM has a suspended state on disk; Start resumes it.</summary>
+    [ObservableProperty]
+    private bool _hasSavedState;
+
+    /// <summary>State can be saved only while running, and only for a VM with a qcow2 disk.</summary>
+    public bool CanSaveState => Status == VmStatus.Running && PrimaryDiskPath is not null;
+
+    [RelayCommand(CanExecute = nameof(CanSaveState))]
+    private async Task SaveStateAsync()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        Status = VmStatus.Stopping;
+        try
+        {
+            await _session.SaveStateAsync(SavedStateTag);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            StatusMessage = $"Couldn't save the VM state: {ex.Message}";
+            Status = VmStatus.Running; // the save failed — the VM is still running
+            return;
+        }
+
+        // The state is on disk; power off. Next Start resumes from it.
+        _session.ForceStop();
+        await TeardownSessionAsync();
+        Status = VmStatus.Stopped;
+        await RefreshSnapshotsAsync();
+    }
+
+    [RelayCommand]
+    private async Task DiscardSavedStateAsync()
+    {
+        if (!HasSavedState || PrimaryDiskPath is not { } disk)
+        {
+            return;
+        }
+
+        try
+        {
+            await _snapshotService.DeleteAsync(disk, SavedStateTag);
+            HasSavedState = false;
+            await RefreshSnapshotsAsync();
+        }
+        catch (DiskException ex)
+        {
+            StatusMessage = $"Couldn't discard the saved state: {ex.Message}";
         }
     }
 

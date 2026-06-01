@@ -34,6 +34,12 @@ internal sealed class FakeRunningVm : IRunningVm
 
     public Task EjectIsoAsync(CancellationToken cancellationToken = default) => Record("eject");
 
+    public Task SaveStateAsync(string tag, CancellationToken cancellationToken = default) => Record("savestate");
+
+    public Task LoadStateAsync(string tag, CancellationToken cancellationToken = default) => Record("loadstate");
+
+    public Task DeleteStateAsync(string tag, CancellationToken cancellationToken = default) => Record("deletestate");
+
     public void ForceStop()
     {
         Calls.Add("forcestop");

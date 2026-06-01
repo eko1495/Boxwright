@@ -60,6 +60,38 @@ public sealed class RunningVm : IRunningVm
     public Task EjectIsoAsync(CancellationToken cancellationToken = default) =>
         _client.ExecuteAsync("eject", new { device = CommandLineBuilder.CdromDriveId, force = true }, cancellationToken);
 
+    /// <summary>Saves the VM state into a qcow2 internal snapshot (QMP-bridged <c>savevm</c>).</summary>
+    public async Task SaveStateAsync(string tag, CancellationToken cancellationToken = default)
+    {
+        string output = await RunMonitorAsync($"savevm {tag}", cancellationToken);
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            throw new InvalidOperationException($"Saving VM state failed: {output.Trim()}");
+        }
+    }
+
+    /// <summary>Restores the VM from a saved state (QMP-bridged <c>loadvm</c>).</summary>
+    public async Task LoadStateAsync(string tag, CancellationToken cancellationToken = default)
+    {
+        string output = await RunMonitorAsync($"loadvm {tag}", cancellationToken);
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            throw new InvalidOperationException($"Resuming saved state failed: {output.Trim()}");
+        }
+    }
+
+    /// <summary>Deletes a saved-state snapshot from within the running VM (QMP-bridged <c>delvm</c>) — best-effort.</summary>
+    public Task DeleteStateAsync(string tag, CancellationToken cancellationToken = default) =>
+        RunMonitorAsync($"delvm {tag}", cancellationToken);
+
+    // savevm/loadvm/delvm have no native QMP form, so they go through the human monitor.
+    // The reply is the monitor's text output: empty on success, an error message otherwise.
+    private Task<string> RunMonitorAsync(string commandLine, CancellationToken cancellationToken) =>
+        _client.ExecuteAsync<string>(
+            "human-monitor-command",
+            new Dictionary<string, object> { ["command-line"] = commandLine },
+            cancellationToken);
+
     /// <summary>Forcibly terminates the VM process (pulls the plug).</summary>
     public void ForceStop() => _process.Kill();
 

@@ -123,6 +123,65 @@ public sealed class VmListItemViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveState_SavesViaSession_ThenPowersOff()
+    {
+        var session = new FakeRunningVm();
+        var item = NewItem(new FakeVmLauncher(session), SnapshottableVm());
+        await item.StartCommand.ExecuteAsync(null);
+
+        await item.SaveStateCommand.ExecuteAsync(null);
+
+        Assert.Contains("savestate", session.Calls);
+        Assert.Contains("forcestop", session.Calls);
+        Assert.Equal(VmStatus.Stopped, item.Status);
+    }
+
+    [Fact]
+    public async Task Start_WithSavedState_ResumesAndConsumesIt()
+    {
+        var session = new FakeRunningVm();
+        var item = NewItem(new FakeVmLauncher(session), SnapshottableVm());
+        _snapshots.Snapshots.Add(new VmSnapshot { Name = "boxwright-saved-state" });
+        await item.RefreshSnapshotsCommand.ExecuteAsync(null);
+        Assert.True(item.HasSavedState);
+
+        await item.StartCommand.ExecuteAsync(null);
+
+        Assert.Contains("loadstate", session.Calls);    // resumed
+        Assert.Contains("deletestate", session.Calls);  // and consumed
+        Assert.False(item.HasSavedState);
+        Assert.Equal(VmStatus.Running, item.Status);
+    }
+
+    [Fact]
+    public async Task RefreshSnapshots_SurfacesSavedStateSeparately_FromUserSnapshots()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), SnapshottableVm());
+        _snapshots.Snapshots.Add(new VmSnapshot { Name = "boxwright-saved-state" });
+        _snapshots.Snapshots.Add(new VmSnapshot { Name = "user-snap" });
+
+        await item.RefreshSnapshotsCommand.ExecuteAsync(null);
+
+        Assert.True(item.HasSavedState);
+        Assert.DoesNotContain(item.Snapshots, s => s.Name == "boxwright-saved-state");
+        Assert.Contains(item.Snapshots, s => s.Name == "user-snap");
+    }
+
+    [Fact]
+    public async Task DiscardSavedState_DeletesTheReservedSnapshot()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), SnapshottableVm());
+        _snapshots.Snapshots.Add(new VmSnapshot { Name = "boxwright-saved-state" });
+        await item.RefreshSnapshotsCommand.ExecuteAsync(null);
+        Assert.True(item.HasSavedState);
+
+        await item.DiscardSavedStateCommand.ExecuteAsync(null);
+
+        Assert.Contains("delete:boxwright-saved-state", _snapshots.Calls);
+        Assert.False(item.HasSavedState);
+    }
+
+    [Fact]
     public async Task Start_TransitionsToRunning_AndSurfacesAcceleratorHonesty()
     {
         var item = NewItem(new FakeVmLauncher(new FakeRunningVm { Accelerator = Accelerator.Tcg }));
