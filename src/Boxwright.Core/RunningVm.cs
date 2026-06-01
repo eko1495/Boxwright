@@ -11,14 +11,25 @@ public sealed class RunningVm : IRunningVm
 {
     private readonly QemuProcess _process;
     private readonly IQmpClient _client;
+    private readonly IQgaConnector _qgaConnector;
+    private readonly int _guestAgentPort;
 
-    internal RunningVm(QemuProcess process, IQmpClient client, Accelerator accelerator, int spicePort, string displayProtocol)
+    internal RunningVm(
+        QemuProcess process,
+        IQmpClient client,
+        Accelerator accelerator,
+        int spicePort,
+        string displayProtocol,
+        IQgaConnector qgaConnector,
+        int guestAgentPort)
     {
         _process = process;
         _client = client;
         Accelerator = accelerator;
         SpicePort = spicePort;
         DisplayProtocol = displayProtocol;
+        _qgaConnector = qgaConnector;
+        _guestAgentPort = guestAgentPort;
     }
 
     /// <summary>The accelerator resolved for this VM (for the UI to surface — ADR-0003).</summary>
@@ -84,6 +95,26 @@ public sealed class RunningVm : IRunningVm
     public Task DeleteStateAsync(string tag, CancellationToken cancellationToken = default) =>
         RunMonitorAsync($"delvm {tag}", cancellationToken);
 
+    /// <summary>Returns the guest's IP addresses via the guest agent (empty when no agent is present).</summary>
+    public async Task<IReadOnlyList<string>> GetGuestAddressesAsync(CancellationToken cancellationToken = default)
+    {
+        await using IQgaClient? agent = await _qgaConnector.TryConnectAsync(_guestAgentPort, cancellationToken);
+        return agent is null ? [] : await agent.GetIpAddressesAsync(cancellationToken);
+    }
+
+    // Tries the guest agent's clean shutdown; false when no agent is present (caller falls back to ACPI).
+    private async Task<bool> TryAgentShutdownAsync(CancellationToken cancellationToken)
+    {
+        await using IQgaClient? agent = await _qgaConnector.TryConnectAsync(_guestAgentPort, cancellationToken);
+        if (agent is null)
+        {
+            return false;
+        }
+
+        await agent.ShutdownAsync(cancellationToken);
+        return true;
+    }
+
     // savevm/loadvm/delvm have no native QMP form, so they go through the human monitor.
     // The reply is the monitor's text output: empty on success, an error message otherwise.
     private Task<string> RunMonitorAsync(string commandLine, CancellationToken cancellationToken) =>
@@ -101,7 +132,12 @@ public sealed class RunningVm : IRunningVm
     /// </summary>
     public async Task StopAsync(TimeSpan gracePeriod, CancellationToken cancellationToken = default)
     {
-        await _client.ExecuteAsync("system_powerdown", arguments: null, cancellationToken);
+        // Prefer the guest agent's clean shutdown (it works even when the guest ignores the
+        // ACPI power button); fall back to the ACPI power button when no agent is present.
+        if (!await TryAgentShutdownAsync(cancellationToken))
+        {
+            await _client.ExecuteAsync("system_powerdown", arguments: null, cancellationToken);
+        }
 
         using var graceCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         graceCts.CancelAfter(gracePeriod);

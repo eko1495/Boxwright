@@ -109,7 +109,8 @@ public sealed partial class VmListItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(StatusText), nameof(CanManageSnapshots), nameof(CanClone), nameof(CanSaveState))]
     [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(StopCommand), nameof(PauseCommand),
         nameof(ResumeCommand), nameof(ResetCommand), nameof(DeleteCommand),
-        nameof(ChooseIsoCommand), nameof(RemoveIsoCommand), nameof(OpenDisplayCommand), nameof(SaveStateCommand))]
+        nameof(ChooseIsoCommand), nameof(RemoveIsoCommand), nameof(OpenDisplayCommand), nameof(SaveStateCommand),
+        nameof(RefreshGuestIpCommand))]
     private VmStatus _status = VmStatus.Stopped;
 
     [ObservableProperty]
@@ -297,6 +298,37 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
     [RelayCommand]
     private async Task RefreshLogAsync() => LogContent = await _logReader.ReadAsync(Vm.LogPath);
+
+    /// <summary>The guest's IP addresses (via the guest agent), shown when known.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasGuestAddresses))]
+    private string? _guestAddresses;
+
+    /// <summary>True once the guest agent has reported at least one address.</summary>
+    public bool HasGuestAddresses => !string.IsNullOrEmpty(GuestAddresses);
+
+    [RelayCommand(CanExecute = nameof(CanControlRunning))]
+    private async Task RefreshGuestIpAsync()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        try
+        {
+            IReadOnlyList<string> addresses = await _session.GetGuestAddressesAsync();
+            GuestAddresses = addresses.Count == 0 ? null : string.Join(", ", addresses);
+            if (!HasGuestAddresses)
+            {
+                StatusMessage = "No guest IP yet — is qemu-guest-agent installed and the guest booted?";
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            StatusMessage = $"Couldn't read the guest IP: {ex.Message}";
+        }
+    }
 
     // ---- Snapshots (qcow2 internal; stopped-only) ----
 
@@ -620,6 +652,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
     private async Task TeardownSessionAsync()
     {
+        GuestAddresses = null; // don't show a stale IP once the VM is gone
         IRunningVm? session = _session;
         _session = null;
         if (session is not null)

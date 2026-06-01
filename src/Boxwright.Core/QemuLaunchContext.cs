@@ -15,6 +15,9 @@ public sealed record QemuLaunchContext
     /// <summary>The display server port (SPICE, or VNC).</summary>
     public int SpicePort { get; init; }
 
+    /// <summary>The QEMU Guest Agent channel port (TCP, loopback), allocated per launch.</summary>
+    public int GuestAgentPort { get; init; }
+
     /// <summary>Path to the UEFI firmware image; required when the config uses UEFI.</summary>
     public string? UefiFirmwarePath { get; init; }
 }

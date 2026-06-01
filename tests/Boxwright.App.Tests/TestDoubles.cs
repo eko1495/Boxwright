@@ -40,6 +40,11 @@ internal sealed class FakeRunningVm : IRunningVm
 
     public Task DeleteStateAsync(string tag, CancellationToken cancellationToken = default) => Record("deletestate");
 
+    public List<string> GuestAddresses { get; } = [];
+
+    public Task<IReadOnlyList<string>> GetGuestAddressesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<string>>(GuestAddresses.ToList());
+
     public void ForceStop()
     {
         Calls.Add("forcestop");

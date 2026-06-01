@@ -34,6 +34,7 @@ internal static class ServiceConfiguration
         services.AddSingleton<IProcessLauncher, ProcessLauncher>();
         services.AddSingleton<IEndpointAllocator, QmpEndpointAllocator>();
         services.AddSingleton<IQmpConnector, DefaultQmpConnector>();
+        services.AddSingleton<IQgaConnector, DefaultQgaConnector>();
         services.AddSingleton<IRemoteViewerLocator>(_ => new RemoteViewerLocator());
         services.AddSingleton(_ => new QemuLocator());
         services.AddSingleton(_ => AcceleratorDetector.CreateDefault());

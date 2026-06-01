@@ -182,6 +182,20 @@ public sealed class VmListItemViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task RefreshGuestIp_PopulatesAddressesFromTheSession()
+    {
+        var session = new FakeRunningVm();
+        session.GuestAddresses.Add("10.0.2.15");
+        var item = NewItem(new FakeVmLauncher(session), SnapshottableVm());
+        await item.StartCommand.ExecuteAsync(null);
+
+        await item.RefreshGuestIpCommand.ExecuteAsync(null);
+
+        Assert.Equal("10.0.2.15", item.GuestAddresses);
+        Assert.True(item.HasGuestAddresses);
+    }
+
+    [Fact]
     public async Task Start_TransitionsToRunning_AndSurfacesAcceleratorHonesty()
     {
         var item = NewItem(new FakeVmLauncher(new FakeRunningVm { Accelerator = Accelerator.Tcg }));

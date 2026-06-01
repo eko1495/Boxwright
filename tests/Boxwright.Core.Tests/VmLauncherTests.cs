@@ -114,6 +114,7 @@ public class VmLauncherTests
             launcher,
             new QmpEndpointAllocator(),
             new FakeQmpConnector(recording),
+            new FakeQgaConnector(),
             new AcceleratorDetector(new TcgProbe()),
             new QemuLocator(qemuDir),
             NullLogger<VmLauncher>.Instance);
@@ -144,6 +145,13 @@ public class VmLauncherTests
     {
         public Task<IQmpClient> ConnectAsync(QmpEndpoint endpoint, Func<bool> isProcessAlive, CancellationToken cancellationToken = default) =>
             Task.FromResult(client);
+    }
+
+    // No guest agent in unit tests -> StopAsync falls back to ACPI system_powerdown.
+    private sealed class FakeQgaConnector : IQgaConnector
+    {
+        public Task<IQgaClient?> TryConnectAsync(int port, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IQgaClient?>(null);
     }
 
     private sealed class RecordingQmpClient : IQmpClient

@@ -47,6 +47,7 @@ public static class CommandLineBuilder
         AppendNetworking(args, config);
         AppendInput(args);
         AppendDisplay(args, config, context);
+        AppendGuestChannels(args, config, context);
 
         args.Add("-qmp");
         args.Add(QmpArgument(context.QmpEndpoint));
@@ -160,7 +161,6 @@ public static class CommandLineBuilder
 
             args.Add("-spice");
             args.Add(spice);
-            AppendSpiceAgent(args);
         }
         else if (string.Equals(config.Display.Protocol, "vnc", StringComparison.OrdinalIgnoreCase))
         {
@@ -171,18 +171,27 @@ public static class CommandLineBuilder
         }
     }
 
-    // The SPICE vdagent channel: host<->guest clipboard sharing and dynamic resolution
-    // (the guest desktop auto-resizes to the viewer window) in remote-viewer. Needs
-    // spice-vdagent in the guest — Ubuntu desktop and spice-guest-tools ship it; harmless
-    // if absent. VNC has no equivalent agent channel, so this is SPICE-only.
-    private static void AppendSpiceAgent(List<string> args)
+    // Agent channels share one virtio-serial bus: the QEMU Guest Agent (clean shutdown +
+    // guest IP, always wired) and, for SPICE displays, the spice-vdagent (clipboard +
+    // auto-resize). Each needs its in-guest agent installed; the channels are harmless when
+    // absent. The guest-agent channel is TCP on loopback — uniform across OSes, like QMP on Windows.
+    private static void AppendGuestChannels(List<string> args, VmConfig config, QemuLaunchContext context)
     {
         args.Add("-device");
         args.Add("virtio-serial-pci");
+
         args.Add("-chardev");
-        args.Add("spicevmc,id=spicechannel0,name=vdagent");
+        args.Add($"socket,host=127.0.0.1,port={context.GuestAgentPort},server=on,wait=off,id=qga0");
         args.Add("-device");
-        args.Add("virtserialport,chardev=spicechannel0,name=com.redhat.spice.0");
+        args.Add("virtserialport,chardev=qga0,name=org.qemu.guest_agent.0");
+
+        if (string.Equals(config.Display.Protocol, "spice", StringComparison.OrdinalIgnoreCase))
+        {
+            args.Add("-chardev");
+            args.Add("spicevmc,id=spicechannel0,name=vdagent");
+            args.Add("-device");
+            args.Add("virtserialport,chardev=spicechannel0,name=com.redhat.spice.0");
+        }
     }
 
     private static string QmpArgument(QmpEndpoint endpoint) => endpoint.Transport switch

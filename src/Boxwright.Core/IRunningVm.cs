@@ -50,6 +50,9 @@ public interface IRunningVm : IAsyncDisposable
     /// <summary>Deletes the <paramref name="tag"/> saved-state snapshot from within the running VM (QMP <c>delvm</c>) — best-effort, to consume a resumed state.</summary>
     Task DeleteStateAsync(string tag, CancellationToken cancellationToken = default);
 
+    /// <summary>Returns the guest's IP addresses via the guest agent, or an empty list when no agent is present.</summary>
+    Task<IReadOnlyList<string>> GetGuestAddressesAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Forcibly terminates the VM process (pulls the plug).</summary>
     void ForceStop();
 

@@ -13,6 +13,7 @@ public sealed class VmLauncher : IVmLauncher
     private readonly IProcessLauncher _processLauncher;
     private readonly IEndpointAllocator _endpointAllocator;
     private readonly IQmpConnector _qmpConnector;
+    private readonly IQgaConnector _qgaConnector;
     private readonly AcceleratorDetector _acceleratorDetector;
     private readonly QemuLocator _locator;
     private readonly ILogger<VmLauncher> _logger;
@@ -22,6 +23,7 @@ public sealed class VmLauncher : IVmLauncher
         IProcessLauncher processLauncher,
         IEndpointAllocator endpointAllocator,
         IQmpConnector qmpConnector,
+        IQgaConnector qgaConnector,
         AcceleratorDetector acceleratorDetector,
         QemuLocator locator,
         ILogger<VmLauncher> logger)
@@ -29,6 +31,7 @@ public sealed class VmLauncher : IVmLauncher
         ArgumentNullException.ThrowIfNull(processLauncher);
         ArgumentNullException.ThrowIfNull(endpointAllocator);
         ArgumentNullException.ThrowIfNull(qmpConnector);
+        ArgumentNullException.ThrowIfNull(qgaConnector);
         ArgumentNullException.ThrowIfNull(acceleratorDetector);
         ArgumentNullException.ThrowIfNull(locator);
         ArgumentNullException.ThrowIfNull(logger);
@@ -36,6 +39,7 @@ public sealed class VmLauncher : IVmLauncher
         _processLauncher = processLauncher;
         _endpointAllocator = endpointAllocator;
         _qmpConnector = qmpConnector;
+        _qgaConnector = qgaConnector;
         _acceleratorDetector = acceleratorDetector;
         _locator = locator;
         _logger = logger;
@@ -49,8 +53,9 @@ public sealed class VmLauncher : IVmLauncher
         Accelerator accelerator = _acceleratorDetector.Detect();
         QmpEndpoint qmpEndpoint = _endpointAllocator.AllocateQmpEndpoint();
         int spicePort = _endpointAllocator.AllocateFreeTcpPort();
+        int guestAgentPort = _endpointAllocator.AllocateFreeTcpPort();
 
-        var context = new QemuLaunchContext { QmpEndpoint = qmpEndpoint, SpicePort = spicePort };
+        var context = new QemuLaunchContext { QmpEndpoint = qmpEndpoint, SpicePort = spicePort, GuestAgentPort = guestAgentPort };
         IReadOnlyList<string> arguments = CommandLineBuilder.Build(vm.Config, accelerator, context);
         string executable = _locator.ResolveSystemEmulator(vm.Config.Arch);
         _logger.LogInformation(
@@ -66,7 +71,7 @@ public sealed class VmLauncher : IVmLauncher
                 () => process.State == QemuProcessState.Running,
                 cancellationToken);
 
-            var runningVm = new RunningVm(process, client, accelerator, spicePort, vm.Config.Display.Protocol);
+            var runningVm = new RunningVm(process, client, accelerator, spicePort, vm.Config.Display.Protocol, _qgaConnector, guestAgentPort);
             launched = true;
             _logger.LogInformation("VM '{Name}' started; SPICE port {Port}.", vm.Config.Name, spicePort);
             return runningVm;

@@ -29,6 +29,7 @@ public class CommandLineBuilderTests
     {
         QmpEndpoint = QmpEndpoint.Tcp("127.0.0.1", 4444),
         SpicePort = spicePort,
+        GuestAgentPort = 5931,
     };
 
     [Fact]
@@ -53,6 +54,8 @@ public class CommandLineBuilderTests
             "-vga", "qxl",
             "-spice", "port=5930,addr=127.0.0.1,disable-ticketing=on",
             "-device", "virtio-serial-pci",
+            "-chardev", "socket,host=127.0.0.1,port=5931,server=on,wait=off,id=qga0",
+            "-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0",
             "-chardev", "spicevmc,id=spicechannel0,name=vdagent",
             "-device", "virtserialport,chardev=spicechannel0,name=com.redhat.spice.0",
             "-qmp", "tcp:127.0.0.1:4444,server,nowait",
@@ -99,6 +102,25 @@ public class CommandLineBuilderTests
 
         Assert.Contains("spicevmc,id=spicechannel0,name=vdagent", args);
         Assert.Contains("virtserialport,chardev=spicechannel0,name=com.redhat.spice.0", args);
+    }
+
+    [Fact]
+    public void Build_IncludesGuestAgentChannel_ForCleanShutdownAndIp()
+    {
+        IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());
+
+        Assert.Contains("socket,host=127.0.0.1,port=5931,server=on,wait=off,id=qga0", args);
+        Assert.Contains("virtserialport,chardev=qga0,name=org.qemu.guest_agent.0", args);
+    }
+
+    [Fact]
+    public void Build_Vnc_StillIncludesGuestAgentChannel()
+    {
+        VmConfig config = CanonicalConfig() with { Display = new DisplayConfig { Protocol = "vnc" } };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Contains("virtserialport,chardev=qga0,name=org.qemu.guest_agent.0", args); // QGA isn't display-specific
     }
 
     [Fact]
