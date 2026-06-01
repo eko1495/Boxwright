@@ -82,14 +82,17 @@ public static class CommandLineBuilder
             return; // "bios" (default) uses QEMU's built-in firmware; no argument needed.
         }
 
-        if (string.IsNullOrWhiteSpace(context.UefiFirmwarePath))
+        if (string.IsNullOrWhiteSpace(context.UefiCodePath) || string.IsNullOrWhiteSpace(context.UefiVarsPath))
         {
             throw new ArgumentException(
-                "UEFI firmware requires a firmware path (QemuLaunchContext.UefiFirmwarePath).", nameof(context));
+                "UEFI firmware requires resolved CODE and VARS paths (QemuLaunchContext.UefiCodePath/UefiVarsPath).", nameof(context));
         }
 
-        args.Add("-bios");
-        args.Add(context.UefiFirmwarePath);
+        // Split OVMF: read-only firmware CODE (unit 0) + a writable per-VM VARS/NVRAM (unit 1), via pflash.
+        args.Add("-drive");
+        args.Add($"if=pflash,format=raw,unit=0,readonly=on,file={context.UefiCodePath}");
+        args.Add("-drive");
+        args.Add($"if=pflash,format=raw,unit=1,file={context.UefiVarsPath}");
     }
 
     private static void AppendDisks(List<string> args, VmConfig config)

@@ -18,6 +18,9 @@ public sealed record QemuLaunchContext
     /// <summary>The QEMU Guest Agent channel port (TCP, loopback), allocated per launch.</summary>
     public int GuestAgentPort { get; init; }
 
-    /// <summary>Path to the UEFI firmware image; required when the config uses UEFI.</summary>
-    public string? UefiFirmwarePath { get; init; }
+    /// <summary>Read-only UEFI firmware CODE image (OVMF); required when the config uses UEFI.</summary>
+    public string? UefiCodePath { get; init; }
+
+    /// <summary>Writable per-VM UEFI VARS (NVRAM) image; required when the config uses UEFI.</summary>
+    public string? UefiVarsPath { get; init; }
 }

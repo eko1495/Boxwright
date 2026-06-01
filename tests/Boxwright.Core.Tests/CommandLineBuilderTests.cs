@@ -172,23 +172,27 @@ public class CommandLineBuilderTests
     }
 
     [Fact]
-    public void Build_Uefi_WithFirmwarePath_EmitsBios()
+    public void Build_Uefi_EmitsPflashCodeAndVars()
     {
         VmConfig config = CanonicalConfig() with { Firmware = "uefi" };
         var context = new QemuLaunchContext
         {
             QmpEndpoint = QmpEndpoint.Tcp("127.0.0.1", 4444),
             SpicePort = 5930,
-            UefiFirmwarePath = "/firmware/OVMF.fd",
+            GuestAgentPort = 5931,
+            UefiCodePath = "/fw/edk2-x86_64-code.fd",
+            UefiVarsPath = "/vm/uefi-vars.fd",
         };
 
         IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, context);
 
-        Assert.Equal("/firmware/OVMF.fd", ArgValue(args, "-bios"));
+        Assert.Contains("if=pflash,format=raw,unit=0,readonly=on,file=/fw/edk2-x86_64-code.fd", args);
+        Assert.Contains("if=pflash,format=raw,unit=1,file=/vm/uefi-vars.fd", args);
+        Assert.DoesNotContain("-bios", args); // pflash, not the unified -bios
     }
 
     [Fact]
-    public void Build_Uefi_WithoutFirmwarePath_Throws()
+    public void Build_Uefi_WithoutFirmwarePaths_Throws()
     {
         VmConfig config = CanonicalConfig() with { Firmware = "uefi" };
 

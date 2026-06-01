@@ -62,6 +62,30 @@ public class QemuLocatorTests
         Assert.ThrowsAny<ArgumentException>(() => locator.ResolveSystemEmulator(""));
     }
 
+    [Fact]
+    public void ResolveUefiFirmware_FindsCodeAndVarsInTheShareFolder()
+    {
+        string bundled = CreateTempDir();
+        string share = Path.Combine(bundled, "share");
+        Directory.CreateDirectory(share);
+        try
+        {
+            File.WriteAllText(Path.Combine(bundled, ExeName("qemu-system-x86_64")), "stub");
+            File.WriteAllText(Path.Combine(share, "edk2-x86_64-code.fd"), "code");
+            File.WriteAllText(Path.Combine(share, "edk2-i386-vars.fd"), "vars");
+            var locator = new QemuLocator(bundled);
+
+            UefiFirmware firmware = locator.ResolveUefiFirmware("x86_64");
+
+            Assert.Equal(Path.Combine(share, "edk2-x86_64-code.fd"), firmware.CodePath);
+            Assert.Equal(Path.Combine(share, "edk2-i386-vars.fd"), firmware.VarsTemplatePath);
+        }
+        finally
+        {
+            Directory.Delete(bundled, recursive: true);
+        }
+    }
+
     private static string ExeName(string baseName) =>
         OperatingSystem.IsWindows() ? baseName + ".exe" : baseName;
 

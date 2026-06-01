@@ -26,7 +26,7 @@ public sealed record VmConfig
     /// <summary>QEMU machine type, e.g. <c>q35</c>.</summary>
     public string Machine { get; init; } = "q35";
 
-    /// <summary>Firmware: <c>bios</c> (the MVP default — simplest first boot) or <c>uefi</c> (requires a firmware path; UEFI/OVMF resolution is deferred).</summary>
+    /// <summary>Firmware: <c>bios</c> (the MVP default — simplest first boot) or <c>uefi</c> (OVMF firmware located by <see cref="QemuLocator.ResolveUefiFirmware"/>, with a per-VM NVRAM copy).</summary>
     public string Firmware { get; init; } = "bios";
 
     /// <summary>CPU model and topology.</summary>

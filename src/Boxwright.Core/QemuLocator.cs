@@ -25,6 +25,69 @@ public sealed class QemuLocator
     /// <exception cref="QemuNotFoundException">The binary could not be found.</exception>
     public string ResolveImageTool() => Resolve("qemu-img");
 
+    /// <summary>
+    /// Resolves the split OVMF/edk2 UEFI firmware (read-only CODE + a VARS/NVRAM template) for
+    /// <paramref name="arch"/>, searching beside the QEMU binary and in common system locations.
+    /// </summary>
+    /// <exception cref="QemuNotFoundException">No UEFI firmware was found.</exception>
+    public UefiFirmware ResolveUefiFirmware(string arch)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(arch);
+        string emulator = ResolveSystemEmulator(arch);
+        (string[] codeNames, string[] varsNames) = FirmwareNames(arch);
+
+        foreach (string directory in FirmwareSearchDirectories(emulator))
+        {
+            if (!Directory.Exists(directory))
+            {
+                continue;
+            }
+
+            string? code = codeNames.Select(name => Path.Combine(directory, name)).FirstOrDefault(File.Exists);
+            string? vars = varsNames.Select(name => Path.Combine(directory, name)).FirstOrDefault(File.Exists);
+            if (code is not null && vars is not null)
+            {
+                return new UefiFirmware(code, vars);
+            }
+        }
+
+        throw new QemuNotFoundException(
+            $"Could not locate UEFI firmware (OVMF) for '{arch}'. Looked next to the QEMU binary and in common system locations.");
+    }
+
+    // x86_64's edk2 CODE pairs with the i386 VARS template (QEMU's edk2 packaging); OVMF_* are
+    // the Linux distro names. aarch64 has its own pair. Others fall back to the x86_64 set.
+    private static (string[] Code, string[] Vars) FirmwareNames(string arch) => arch switch
+    {
+        "aarch64" => (["edk2-aarch64-code.fd"], ["edk2-arm-vars.fd"]),
+        _ => (
+            ["edk2-x86_64-code.fd", "OVMF_CODE_4M.fd", "OVMF_CODE.fd"],
+            ["edk2-i386-vars.fd", "OVMF_VARS_4M.fd", "OVMF_VARS.fd"]),
+    };
+
+    private IEnumerable<string> FirmwareSearchDirectories(string emulatorPath)
+    {
+        string? emulatorDir = Path.GetDirectoryName(emulatorPath);
+        if (emulatorDir is not null)
+        {
+            yield return Path.Combine(emulatorDir, "share");                 // Windows/weilnetz + bundled layout
+            yield return Path.Combine(emulatorDir, "..", "share", "qemu");    // some *nix install layouts
+        }
+
+        if (_bundledDirectory is not null)
+        {
+            yield return Path.Combine(_bundledDirectory, "share");
+        }
+
+        // Common system locations (Linux distros, Homebrew on macOS).
+        yield return "/usr/share/OVMF";
+        yield return "/usr/share/edk2/ovmf";
+        yield return "/usr/share/edk2/x64";
+        yield return "/usr/share/qemu";
+        yield return "/opt/homebrew/share/qemu";
+        yield return "/usr/local/share/qemu";
+    }
+
     private string Resolve(string baseName)
     {
         string executable = OperatingSystem.IsWindows() ? baseName + ".exe" : baseName;
@@ -76,3 +139,6 @@ public sealed class QemuLocator
         return null;
     }
 }
+
+/// <summary>Located UEFI firmware: a read-only <paramref name="CodePath"/> and a VARS/NVRAM <paramref name="VarsTemplatePath"/> to copy per VM.</summary>
+public sealed record UefiFirmware(string CodePath, string VarsTemplatePath);

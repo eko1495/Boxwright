@@ -97,16 +97,37 @@ public class VmLauncherTests
         });
     }
 
+    [Fact]
+    public async Task StartAsync_UefiVm_UsesPflashFirmware_AndCreatesPerVmVars()
+    {
+        await WithStartedVmAsync(
+            (running, launcher, _) =>
+            {
+                Assert.Equal(QemuProcessState.Running, running.State);
+                IReadOnlyList<string> args = launcher.LastRequest!.Arguments;
+                Assert.Contains(args, a => a.StartsWith("if=pflash,format=raw,unit=0,readonly=on", StringComparison.Ordinal));
+
+                string varsArg = args.First(a => a.Contains("unit=1", StringComparison.Ordinal));
+                string varsPath = varsArg["if=pflash,format=raw,unit=1,file=".Length..];
+                Assert.True(File.Exists(varsPath)); // the per-VM NVRAM copy was created
+                return Task.CompletedTask;
+            },
+            firmware: "uefi");
+    }
+
     private static string ExeName(string baseName) => OperatingSystem.IsWindows() ? baseName + ".exe" : baseName;
 
-    private static async Task WithStartedVmAsync(Func<IRunningVm, FakeProcessLauncher, RecordingQmpClient, Task> body)
+    private static async Task WithStartedVmAsync(Func<IRunningVm, FakeProcessLauncher, RecordingQmpClient, Task> body, string firmware = "bios")
     {
         string root = Path.Combine(Path.GetTempPath(), $"boxwright-launch-{Guid.NewGuid():N}");
         string vmFolder = Path.Combine(root, "vm");
         string qemuDir = Path.Combine(root, "qemu");
+        string shareDir = Path.Combine(qemuDir, "share");
         Directory.CreateDirectory(vmFolder);
-        Directory.CreateDirectory(qemuDir);
+        Directory.CreateDirectory(shareDir);
         await File.WriteAllTextAsync(Path.Combine(qemuDir, ExeName("qemu-system-x86_64")), "stub");
+        await File.WriteAllTextAsync(Path.Combine(shareDir, "edk2-x86_64-code.fd"), "code"); // stub OVMF for UEFI tests
+        await File.WriteAllTextAsync(Path.Combine(shareDir, "edk2-i386-vars.fd"), "vars");
 
         var launcher = new FakeProcessLauncher();
         var recording = new RecordingQmpClient();
@@ -118,7 +139,7 @@ public class VmLauncherTests
             new AcceleratorDetector(new TcgProbe()),
             new QemuLocator(qemuDir),
             NullLogger<VmLauncher>.Instance);
-        var vm = new Vm(vmFolder, new VmConfig { Name = "Test", Firmware = "bios" });
+        var vm = new Vm(vmFolder, new VmConfig { Name = "Test", Firmware = firmware });
 
         try
         {

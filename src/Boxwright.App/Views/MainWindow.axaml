@@ -155,7 +155,6 @@
                                             <ComboBox ItemsSource="{Binding DisplayProtocolOptions}" SelectedItem="{Binding DisplayProtocol}"
                                                       Width="160" HorizontalAlignment="Left" />
                                         </StackPanel>
-                                        <CheckBox IsChecked="{Binding DisplayGl}" Content="Enable OpenGL acceleration (SPICE)" />
                                         <CheckBox IsChecked="{Binding BootMenu}" Content="Show the firmware boot menu" />
 
                                         <StackPanel Spacing="4">

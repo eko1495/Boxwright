@@ -54,8 +54,16 @@ public sealed class VmLauncher : IVmLauncher
         QmpEndpoint qmpEndpoint = _endpointAllocator.AllocateQmpEndpoint();
         int spicePort = _endpointAllocator.AllocateFreeTcpPort();
         int guestAgentPort = _endpointAllocator.AllocateFreeTcpPort();
+        (string? uefiCode, string? uefiVars) = PrepareUefiFirmware(vm);
 
-        var context = new QemuLaunchContext { QmpEndpoint = qmpEndpoint, SpicePort = spicePort, GuestAgentPort = guestAgentPort };
+        var context = new QemuLaunchContext
+        {
+            QmpEndpoint = qmpEndpoint,
+            SpicePort = spicePort,
+            GuestAgentPort = guestAgentPort,
+            UefiCodePath = uefiCode,
+            UefiVarsPath = uefiVars,
+        };
         IReadOnlyList<string> arguments = CommandLineBuilder.Build(vm.Config, accelerator, context);
         string executable = _locator.ResolveSystemEmulator(vm.Config.Arch);
         _logger.LogInformation(
@@ -88,6 +96,25 @@ public sealed class VmLauncher : IVmLauncher
                 process.Dispose();
             }
         }
+    }
+
+    // For UEFI VMs, resolve the OVMF firmware and ensure a writable per-VM VARS (NVRAM) copy
+    // exists in the VM folder (Directive 6: VM state stays per-VM). BIOS VMs need nothing.
+    private (string? Code, string? Vars) PrepareUefiFirmware(Vm vm)
+    {
+        if (!string.Equals(vm.Config.Firmware, "uefi", StringComparison.OrdinalIgnoreCase))
+        {
+            return (null, null);
+        }
+
+        UefiFirmware firmware = _locator.ResolveUefiFirmware(vm.Config.Arch);
+        string varsPath = Path.Combine(vm.FolderPath, "uefi-vars.fd");
+        if (!File.Exists(varsPath))
+        {
+            File.Copy(firmware.VarsTemplatePath, varsPath);
+        }
+
+        return (firmware.CodePath, varsPath);
     }
 
     // Logs the failure via the exception filter (returns false so the exception still
