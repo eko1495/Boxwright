@@ -52,6 +52,9 @@ public class CommandLineBuilderTests
             "-device", "usb-tablet",
             "-vga", "qxl",
             "-spice", "port=5930,addr=127.0.0.1,disable-ticketing=on",
+            "-device", "virtio-serial-pci",
+            "-chardev", "spicevmc,id=spicechannel0,name=vdagent",
+            "-device", "virtserialport,chardev=spicechannel0,name=com.redhat.spice.0",
             "-qmp", "tcp:127.0.0.1:4444,server,nowait",
             "-boot", "order=cd,menu=off",
         ];
@@ -86,6 +89,16 @@ public class CommandLineBuilderTests
 
         Assert.Equal("127.0.0.1:30", ArgValue(args, "-vnc"));
         Assert.DoesNotContain("-spice", args);
+        Assert.DoesNotContain("spicevmc,id=spicechannel0,name=vdagent", args); // vdagent is SPICE-only
+    }
+
+    [Fact]
+    public void Build_Spice_IncludesVdagentChannel_ForClipboardAndAutoResize()
+    {
+        IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());
+
+        Assert.Contains("spicevmc,id=spicechannel0,name=vdagent", args);
+        Assert.Contains("virtserialport,chardev=spicechannel0,name=com.redhat.spice.0", args);
     }
 
     [Fact]

@@ -160,6 +160,7 @@ public static class CommandLineBuilder
 
             args.Add("-spice");
             args.Add(spice);
+            AppendSpiceAgent(args);
         }
         else if (string.Equals(config.Display.Protocol, "vnc", StringComparison.OrdinalIgnoreCase))
         {
@@ -168,6 +169,20 @@ public static class CommandLineBuilder
             args.Add("-vnc");
             args.Add($"127.0.0.1:{context.SpicePort - 5900}");
         }
+    }
+
+    // The SPICE vdagent channel: host<->guest clipboard sharing and dynamic resolution
+    // (the guest desktop auto-resizes to the viewer window) in remote-viewer. Needs
+    // spice-vdagent in the guest — Ubuntu desktop and spice-guest-tools ship it; harmless
+    // if absent. VNC has no equivalent agent channel, so this is SPICE-only.
+    private static void AppendSpiceAgent(List<string> args)
+    {
+        args.Add("-device");
+        args.Add("virtio-serial-pci");
+        args.Add("-chardev");
+        args.Add("spicevmc,id=spicechannel0,name=vdagent");
+        args.Add("-device");
+        args.Add("virtserialport,chardev=spicechannel0,name=com.redhat.spice.0");
     }
 
     private static string QmpArgument(QmpEndpoint endpoint) => endpoint.Transport switch
