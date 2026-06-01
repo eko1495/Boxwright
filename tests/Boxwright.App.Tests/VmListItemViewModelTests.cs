@@ -137,6 +137,16 @@ public sealed class VmListItemViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveState_IsUnavailable_UnderWhpx()
+    {
+        // WHPX can't serialize VM state, so Save state must be gated off (not fail at runtime).
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm { Accelerator = Accelerator.Whpx }), SnapshottableVm());
+        await item.StartCommand.ExecuteAsync(null);
+
+        Assert.False(item.CanSaveState);
+    }
+
+    [Fact]
     public async Task Start_WithSavedState_ResumesAndConsumesIt()
     {
         var session = new FakeRunningVm();

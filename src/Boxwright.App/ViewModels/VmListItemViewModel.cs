@@ -476,8 +476,15 @@ public sealed partial class VmListItemViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasSavedState;
 
-    /// <summary>State can be saved only while running, and only for a VM with a qcow2 disk.</summary>
-    public bool CanSaveState => Status == VmStatus.Running && PrimaryDiskPath is not null;
+    /// <summary>
+    /// State can be saved only while running, for a VM with a qcow2 disk, and under an accelerator
+    /// that can serialize VM state — KVM or TCG. WHPX (Windows) and HVF (macOS) block <c>savevm</c>
+    /// ("state blocked due to non-migratable CPUID/XSAVE support"), so the action is gated off there.
+    /// </summary>
+    public bool CanSaveState =>
+        Status == VmStatus.Running &&
+        PrimaryDiskPath is not null &&
+        _session is { Accelerator: Accelerator.Kvm or Accelerator.Tcg };
 
     [RelayCommand(CanExecute = nameof(CanSaveState))]
     private async Task SaveStateAsync()

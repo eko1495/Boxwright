@@ -218,7 +218,8 @@
                                             <Button Content="Pause" Command="{Binding PauseCommand}" Margin="0,0,8,8" />
                                             <Button Content="Resume" Command="{Binding ResumeCommand}" Margin="0,0,8,8" />
                                             <Button Content="Reset" Command="{Binding ResetCommand}" Margin="0,0,8,8" />
-                                            <Button Content="Save state" Command="{Binding SaveStateCommand}" Margin="0,0,8,8" />
+                                            <Button Content="Save state" Command="{Binding SaveStateCommand}" Margin="0,0,8,8"
+                                                    ToolTip.Tip="Suspend the VM to disk and resume on next Start. Needs the KVM or TCG accelerator — WHPX (Windows) and HVF (macOS) can't serialize VM state." />
                                             <Button Content="Refresh IP" Command="{Binding RefreshGuestIpCommand}" Margin="0,0,8,8" />
                                             <Button Content="Stop" Command="{Binding StopCommand}" Margin="0,0,8,8" />
                                         </WrapPanel>
