@@ -1,27 +1,68 @@
 # Boxwright.Qmp
 
-A standalone, cross-platform C# client for the **QEMU Machine Protocol (QMP)**.
+A small, **dependency-free** C# client for the **QEMU Machine Protocol (QMP)** and the
+**QEMU Guest Agent (QGA)**. It talks to a running `qemu-system-*` over a TCP or
+Unix-domain socket — connect, run correlated commands, observe events — using only
+`System.Text.Json` and the base class library (no third-party packages, no UI framework).
 
-This library is the protocol layer of [Boxwright](../../README.md) but is
-designed to stand on its own and is published to NuGet as `Boxwright.Qmp`.
+It's the protocol layer of [Boxwright](https://github.com/eko1495/Boxwright), a
+cross-platform QEMU GUI, and is designed to stand on its own.
 
-**Hard rule:** this project references **nothing** else in the repo and **no
-UI framework**. It depends only on the .NET BCL (`System.Text.Json`, sockets).
-Keep it that way — see [ADR-0007](../../docs/adr/0007-bundled-qemu-and-qmp-library.md).
+## Install
+
+```
+dotnet add package Boxwright.Qmp
+```
+
+## QMP — connect and run a command
+
+```csharp
+using System.Text.Json;
+using Boxwright.Qmp;
+
+await using var client = new QmpClient();
+
+// Performs the greeting + qmp_capabilities handshake.
+await client.ConnectAsync(QmpEndpoint.Tcp("127.0.0.1", 4444));
+
+// Correlated request/response.
+JsonElement status = await client.ExecuteAsync("query-status");
+Console.WriteLine(status.GetProperty("status").GetString()); // e.g. "running"
+
+// Asynchronous events are exposed as IObservable<QmpEvent> on client.Events.
+```
+
+Launch QEMU with a QMP server, e.g.:
+
+```
+qemu-system-x86_64 ... -qmp tcp:127.0.0.1:4444,server,nowait
+```
+
+## QEMU Guest Agent
+
+```csharp
+using Boxwright.Qmp;
+
+await using var agent = new QgaClient();
+await agent.ConnectAsync("127.0.0.1", 4445);
+if (await agent.PingAsync())
+{
+    foreach (string ip in await agent.GetIpAddressesAsync())
+        Console.WriteLine(ip);
+}
+```
 
 ## Scope
 
-- Connect to a QMP endpoint (TCP or Unix socket) and run the `qmp_capabilities`
-  handshake.
+- Connect to a QMP endpoint (TCP or Unix socket) and run the `qmp_capabilities` handshake.
 - Send `execute` commands with correlated, awaitable replies.
 - Surface asynchronous QMP events (`SHUTDOWN`, `RESET`, `STOP`, …) as a stream.
 - Probe `query-qmp-schema` for capability detection.
+- A minimal QEMU Guest Agent client (ping, shutdown, guest IP addresses).
 
-No retry/policy logic lives here — that belongs to `Boxwright.Core`.
+Connection retry/policy logic lives in the consuming application, not here. Tested against
+an in-memory loopback fake server — no live QEMU required.
 
-See the interface sketch in [`docs/architecture.md` §4](../../docs/architecture.md).
+## License
 
-## Testing
-
-Driven against an in-memory/loopback fake QMP server — **no live QEMU required**.
-See `tests/Boxwright.Qmp.Tests`.
+MIT.

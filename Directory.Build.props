@@ -12,6 +12,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <InvariantGlobalization>true</InvariantGlobalization>
 
+    <!-- Only Boxwright.Qmp is published to NuGet (it opts back in). Everything else
+         (Core, App, tests, tools) is never packed. -->
+    <IsPackable>false</IsPackable>
+
     <!-- Quality gates -->
     <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
@@ -35,9 +39,9 @@
     <Authors>Krzysztof Krak</Authors>
     <Copyright>Copyright (c) 2026 Krzysztof Krak</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/your-org/boxwright</RepositoryUrl>
+    <RepositoryUrl>https://github.com/eko1495/Boxwright</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageProjectUrl>https://github.com/your-org/boxwright</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/eko1495/Boxwright</PackageProjectUrl>
   </PropertyGroup>
 
 </Project>

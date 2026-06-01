@@ -6,10 +6,20 @@
     MUST NOT reference Avalonia or any other Boxwright project.
   -->
   <PropertyGroup>
+    <!-- Multi-target for reach: .NET 8 is the LTS floor (roadmap), .NET 10 the current LTS.
+         Override the repo-wide single TargetFramework from Directory.Build.props. -->
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+
     <PackageId>Boxwright.Qmp</PackageId>
-    <Description>A cross-platform C# client for the QEMU Machine Protocol (QMP).</Description>
+    <Version>0.1.0</Version>
+    <Description>A small, dependency-free cross-platform C# client for the QEMU Machine Protocol (QMP) and the QEMU Guest Agent (QGA): connect over TCP or a Unix socket, run correlated commands, and observe events. Built on System.Text.Json; no third-party dependencies.</Description>
+    <PackageTags>qemu;qmp;qga;guest-agent;virtualization;vm;qcow2</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>Initial public release: QMP client (connect + handshake, correlated execute, event stream, schema probe) and a minimal QEMU Guest Agent client.</PackageReleaseNotes>
     <IsPackable>true</IsPackable>
-    <PackageTags>qemu;qmp;virtualization;vm</PackageTags>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <!-- No package references needed: System.Text.Json and sockets ship in the BCL. -->
@@ -17,6 +27,9 @@
   <ItemGroup>
     <!-- Expose the internal wire-protocol envelopes to the test project only. -->
     <InternalsVisibleTo Include="Boxwright.Qmp.Tests" />
+
+    <!-- The NuGet page README. -->
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
