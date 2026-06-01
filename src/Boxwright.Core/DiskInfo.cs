@@ -22,4 +22,8 @@ public sealed record DiskInfo
     /// <summary>The on-disk (actual) size in bytes.</summary>
     [JsonPropertyName("actual-size")]
     public long ActualSize { get; init; }
+
+    /// <summary>Internal snapshots stored in the image (empty when there are none).</summary>
+    [JsonPropertyName("snapshots")]
+    public IReadOnlyList<VmSnapshot> Snapshots { get; init; } = [];
 }

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Boxwright.App.Services;
 using Boxwright.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -38,6 +39,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     private readonly IFilePicker _filePicker;
     private readonly IDisplayLauncher _displayLauncher;
     private readonly ILogReader _logReader;
+    private readonly ISnapshotService _snapshotService;
     private IRunningVm? _session;
 
     public VmListItemViewModel(
@@ -47,7 +49,8 @@ public sealed partial class VmListItemViewModel : ObservableObject
         IUiDispatcher dispatcher,
         IFilePicker filePicker,
         IDisplayLauncher displayLauncher,
-        ILogReader logReader)
+        ILogReader logReader,
+        ISnapshotService snapshotService)
     {
         ArgumentNullException.ThrowIfNull(vm);
         ArgumentNullException.ThrowIfNull(launcher);
@@ -56,6 +59,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(filePicker);
         ArgumentNullException.ThrowIfNull(displayLauncher);
         ArgumentNullException.ThrowIfNull(logReader);
+        ArgumentNullException.ThrowIfNull(snapshotService);
 
         Vm = vm;
         _launcher = launcher;
@@ -64,6 +68,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         _filePicker = filePicker;
         _displayLauncher = displayLauncher;
         _logReader = logReader;
+        _snapshotService = snapshotService;
     }
 
     /// <summary>The underlying domain VM (replaced when its config is edited).</summary>
@@ -97,7 +102,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         : "Boots from disk.";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(CanManageSnapshots))]
     [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(StopCommand), nameof(PauseCommand),
         nameof(ResumeCommand), nameof(ResetCommand), nameof(DeleteCommand),
         nameof(ChooseIsoCommand), nameof(RemoveIsoCommand), nameof(OpenDisplayCommand))]
@@ -195,6 +200,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
             await TeardownSessionAsync();
             Status = VmStatus.Stopped;
             await RefreshLogAsync();
+            await RefreshSnapshotsAsync(); // snapshots are now manageable again
         }
     }
 
@@ -268,6 +274,135 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
     [RelayCommand]
     private async Task RefreshLogAsync() => LogContent = await _logReader.ReadAsync(Vm.LogPath);
+
+    // ---- Snapshots (qcow2 internal; stopped-only) ----
+
+    /// <summary>Snapshots of this VM's primary qcow2 disk (loaded on demand).</summary>
+    public ObservableCollection<VmSnapshot> Snapshots { get; } = [];
+
+    [ObservableProperty]
+    private string? _newSnapshotName;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsConfirmingRestore))]
+    private VmSnapshot? _snapshotPendingRestore;
+
+    /// <summary>True while a snapshot restore awaits confirmation (it discards the current disk state).</summary>
+    public bool IsConfirmingRestore => SnapshotPendingRestore is not null;
+
+    /// <summary>True when there are snapshots to show.</summary>
+    public bool HasSnapshots => Snapshots.Count > 0;
+
+    /// <summary>Snapshots can only be managed while the VM is stopped and has a qcow2 disk (offline access).</summary>
+    public bool CanManageSnapshots => Status == VmStatus.Stopped && PrimaryDiskPath is not null;
+
+    // qcow2 internal snapshots operate on the first qcow2 disk (the common single-disk case).
+    private string? PrimaryDiskPath
+    {
+        get
+        {
+            DiskConfig? disk = Vm.Config.Disks
+                .FirstOrDefault(d => string.Equals(d.Format, "qcow2", StringComparison.OrdinalIgnoreCase));
+            return disk is null ? null : Path.Combine(Vm.FolderPath, disk.File);
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshSnapshotsAsync()
+    {
+        Snapshots.Clear();
+        if (CanManageSnapshots && PrimaryDiskPath is { } disk)
+        {
+            try
+            {
+                foreach (VmSnapshot snapshot in await _snapshotService.ListAsync(disk))
+                {
+                    Snapshots.Add(snapshot);
+                }
+            }
+            catch (DiskException ex)
+            {
+                StatusMessage = $"Couldn't list snapshots: {ex.Message}";
+            }
+        }
+
+        OnPropertyChanged(nameof(HasSnapshots));
+    }
+
+    [RelayCommand]
+    private async Task TakeSnapshotAsync()
+    {
+        string tag = (NewSnapshotName ?? string.Empty).Trim();
+        if (tag.Length == 0 || tag.Any(char.IsWhiteSpace))
+        {
+            StatusMessage = "Enter a snapshot name with no spaces.";
+            return;
+        }
+
+        if (!CanManageSnapshots || PrimaryDiskPath is not { } disk)
+        {
+            return;
+        }
+
+        try
+        {
+            await _snapshotService.CreateAsync(disk, tag);
+            NewSnapshotName = null;
+            await RefreshSnapshotsAsync();
+        }
+        catch (DiskException ex)
+        {
+            StatusMessage = $"Couldn't create the snapshot: {ex.Message}";
+        }
+    }
+
+    // Restoring overwrites the current disk state, so it asks first.
+    [RelayCommand]
+    private void RestoreSnapshot(VmSnapshot snapshot) => SnapshotPendingRestore = snapshot;
+
+    [RelayCommand]
+    private void CancelRestoreSnapshot() => SnapshotPendingRestore = null;
+
+    [RelayCommand]
+    private async Task ConfirmRestoreSnapshotAsync()
+    {
+        VmSnapshot? snapshot = SnapshotPendingRestore;
+        SnapshotPendingRestore = null;
+        if (snapshot is null || !CanManageSnapshots || PrimaryDiskPath is not { } disk)
+        {
+            return;
+        }
+
+        try
+        {
+            await _snapshotService.RestoreAsync(disk, snapshot.Name);
+            StatusMessage = $"Restored snapshot '{snapshot.Name}'.";
+            await RefreshSnapshotsAsync();
+        }
+        catch (DiskException ex)
+        {
+            StatusMessage = $"Couldn't restore the snapshot: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteSnapshotAsync(VmSnapshot snapshot)
+    {
+        if (!CanManageSnapshots || PrimaryDiskPath is not { } disk)
+        {
+            return;
+        }
+
+        try
+        {
+            await _snapshotService.DeleteAsync(disk, snapshot.Name);
+            await RefreshSnapshotsAsync();
+        }
+        catch (DiskException ex)
+        {
+            StatusMessage = $"Couldn't delete the snapshot: {ex.Message}";
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanDelete))]
     private void Delete() => IsConfirmingDelete = true;

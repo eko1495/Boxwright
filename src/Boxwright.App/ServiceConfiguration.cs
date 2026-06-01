@@ -40,6 +40,7 @@ internal static class ServiceConfiguration
 
         // Core services (orchestration).
         services.AddSingleton<IDiskService, DiskService>();
+        services.AddSingleton<ISnapshotService, SnapshotService>();
         services.AddSingleton<IDisplayLauncher, DisplayLauncher>();
         services.AddSingleton<IVmLauncher, VmLauncher>();
         services.AddSingleton(_ => new VmRepository(VmRepository.DefaultRootDirectory));

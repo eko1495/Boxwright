@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Boxwright.App.ViewModels"
+        xmlns:core="using:Boxwright.Core"
         x:Class="Boxwright.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Width="960" Height="640"
@@ -238,6 +239,58 @@
                                                          FontFamily="Consolas,Menlo,monospace" FontSize="11" MaxHeight="260"
                                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
                                                          ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+                                            </StackPanel>
+                                        </Expander>
+
+                                        <Expander Header="Snapshots">
+                                            <StackPanel Spacing="8">
+                                                <TextBlock IsVisible="{Binding !CanManageSnapshots}" FontSize="12"
+                                                           Opacity="0.55" TextWrapping="Wrap"
+                                                           Text="Stop the VM to take or restore snapshots — qcow2 snapshots need the disk offline." />
+
+                                                <StackPanel IsVisible="{Binding CanManageSnapshots}" Spacing="8">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <TextBox Text="{Binding NewSnapshotName}" Watermark="New snapshot name"
+                                                                 Width="220" VerticalAlignment="Center" />
+                                                        <Button Content="Take snapshot" Command="{Binding TakeSnapshotCommand}" />
+                                                        <Button Content="Refresh" Command="{Binding RefreshSnapshotsCommand}" />
+                                                    </StackPanel>
+
+                                                    <Border IsVisible="{Binding IsConfirmingRestore}" Background="#33CC8800"
+                                                            CornerRadius="4" Padding="10">
+                                                        <StackPanel Spacing="6">
+                                                            <TextBlock TextWrapping="Wrap" FontSize="12"
+                                                                       Text="{Binding SnapshotPendingRestore.Name, StringFormat='Restore {0}? This discards the current disk state.'}" />
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <Button Content="Restore" Command="{Binding ConfirmRestoreSnapshotCommand}" />
+                                                                <Button Content="Cancel" Command="{Binding CancelRestoreSnapshotCommand}" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <TextBlock IsVisible="{Binding !HasSnapshots}" FontSize="12" Opacity="0.5"
+                                                               Text="No snapshots yet." />
+
+                                                    <ItemsControl ItemsSource="{Binding Snapshots}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="core:VmSnapshot">
+                                                                <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2">
+                                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" />
+                                                                        <TextBlock Text="{Binding Created, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
+                                                                                   Opacity="0.5" FontSize="11" />
+                                                                    </StackPanel>
+                                                                    <Button Grid.Column="1" Content="Restore" Margin="0,0,6,0"
+                                                                            Command="{Binding $parent[ItemsControl].((vm:VmListItemViewModel)DataContext).RestoreSnapshotCommand}"
+                                                                            CommandParameter="{Binding}" />
+                                                                    <Button Grid.Column="2" Content="Delete"
+                                                                            Command="{Binding $parent[ItemsControl].((vm:VmListItemViewModel)DataContext).DeleteSnapshotCommand}"
+                                                                            CommandParameter="{Binding}" />
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
                                             </StackPanel>
                                         </Expander>
 

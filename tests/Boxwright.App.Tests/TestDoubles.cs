@@ -145,6 +145,40 @@ internal sealed class FakeFolderOpener : IFolderOpener
     public void OpenFolder(string path) => LastPath = path;
 }
 
+/// <summary>A fake snapshot service: records operations and keeps an in-memory list, instead of invoking qemu-img.</summary>
+internal sealed class FakeSnapshotService : ISnapshotService
+{
+    public List<string> Calls { get; } = [];
+
+    public List<VmSnapshot> Snapshots { get; } = [];
+
+    public Task<IReadOnlyList<VmSnapshot>> ListAsync(string diskPath, CancellationToken cancellationToken = default)
+    {
+        Calls.Add($"list:{diskPath}");
+        return Task.FromResult<IReadOnlyList<VmSnapshot>>(Snapshots.ToList());
+    }
+
+    public Task CreateAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    {
+        Calls.Add($"create:{tag}");
+        Snapshots.Add(new VmSnapshot { Name = tag });
+        return Task.CompletedTask;
+    }
+
+    public Task RestoreAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    {
+        Calls.Add($"restore:{tag}");
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    {
+        Calls.Add($"delete:{tag}");
+        Snapshots.RemoveAll(s => s.Name == tag);
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>A fake log reader returning preset content and recording the path it was asked for.</summary>
 internal sealed class FakeLogReader : ILogReader
 {

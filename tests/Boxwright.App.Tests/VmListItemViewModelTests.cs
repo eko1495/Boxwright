@@ -16,6 +16,7 @@ public sealed class VmListItemViewModelTests : IDisposable
     private readonly FakeFilePicker _filePicker = new();
     private readonly FakeDisplayLauncher _display = new();
     private readonly FakeLogReader _logReader = new();
+    private readonly FakeSnapshotService _snapshots = new();
 
     public VmListItemViewModelTests()
     {
@@ -37,7 +38,55 @@ public sealed class VmListItemViewModelTests : IDisposable
 
     private VmListItemViewModel NewItem(IVmLauncher launcher, Vm? vm = null) =>
         new(vm ?? new Vm(Path.Combine(_root, "x"), new VmConfig { Id = "x", Name = "Test" }),
-            launcher, _repository, _dispatcher, _filePicker, _display, _logReader);
+            launcher, _repository, _dispatcher, _filePicker, _display, _logReader, _snapshots);
+
+    private Vm SnapshottableVm() =>
+        new(Path.Combine(_root, "x"), new VmConfig
+        {
+            Id = "x",
+            Name = "Snap",
+            Disks = [new DiskConfig { File = "disk.qcow2", Format = "qcow2", Interface = "virtio" }],
+        });
+
+    [Fact]
+    public async Task TakeSnapshot_CreatesViaService_AndItAppearsInTheList()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), SnapshottableVm());
+        item.NewSnapshotName = "before-update";
+
+        await item.TakeSnapshotCommand.ExecuteAsync(null);
+
+        Assert.Contains("create:before-update", _snapshots.Calls);
+        Assert.Contains(item.Snapshots, s => s.Name == "before-update");
+        Assert.True(item.HasSnapshots);
+    }
+
+    [Fact]
+    public async Task RestoreSnapshot_AsksForConfirmation_ThenRestoresViaService()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), SnapshottableVm());
+        var snapshot = new VmSnapshot { Name = "snap1" };
+
+        item.RestoreSnapshotCommand.Execute(snapshot);
+        Assert.True(item.IsConfirmingRestore);
+        Assert.Equal(snapshot, item.SnapshotPendingRestore);
+
+        await item.ConfirmRestoreSnapshotCommand.ExecuteAsync(null);
+
+        Assert.False(item.IsConfirmingRestore);
+        Assert.Contains("restore:snap1", _snapshots.Calls);
+    }
+
+    [Fact]
+    public async Task Snapshots_CannotBeManaged_WhileRunning()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), SnapshottableVm());
+        Assert.True(item.CanManageSnapshots);
+
+        await item.StartCommand.ExecuteAsync(null);
+
+        Assert.False(item.CanManageSnapshots);
+    }
 
     [Fact]
     public async Task Start_TransitionsToRunning_AndSurfacesAcceleratorHonesty()

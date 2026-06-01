@@ -19,6 +19,7 @@ public sealed partial class VmListViewModel : ObservableObject
     private readonly IFilePicker _filePicker;
     private readonly IDisplayLauncher _displayLauncher;
     private readonly ILogReader _logReader;
+    private readonly ISnapshotService _snapshotService;
 
     public VmListViewModel(
         VmRepository repository,
@@ -26,7 +27,8 @@ public sealed partial class VmListViewModel : ObservableObject
         IUiDispatcher dispatcher,
         IFilePicker filePicker,
         IDisplayLauncher displayLauncher,
-        ILogReader logReader)
+        ILogReader logReader,
+        ISnapshotService snapshotService)
     {
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(launcher);
@@ -34,6 +36,7 @@ public sealed partial class VmListViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(filePicker);
         ArgumentNullException.ThrowIfNull(displayLauncher);
         ArgumentNullException.ThrowIfNull(logReader);
+        ArgumentNullException.ThrowIfNull(snapshotService);
 
         _repository = repository;
         _launcher = launcher;
@@ -41,6 +44,7 @@ public sealed partial class VmListViewModel : ObservableObject
         _filePicker = filePicker;
         _displayLauncher = displayLauncher;
         _logReader = logReader;
+        _snapshotService = snapshotService;
     }
 
     /// <summary>The loaded VMs, sorted by name.</summary>
@@ -53,6 +57,9 @@ public sealed partial class VmListViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
     private VmListItemViewModel? _selectedVm;
+
+    // Load the newly-selected VM's snapshots — the detail panel only shows the selection.
+    partial void OnSelectedVmChanged(VmListItemViewModel? value) => value?.RefreshSnapshotsCommand.Execute(null);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -120,7 +127,7 @@ public sealed partial class VmListViewModel : ObservableObject
 
     private VmListItemViewModel CreateItem(Vm vm)
     {
-        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _logReader);
+        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _logReader, _snapshotService);
         item.Deleted += OnItemDeleted;
         return item;
     }
