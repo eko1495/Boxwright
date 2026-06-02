@@ -23,6 +23,9 @@ QEMU already exposes `-vnc` (`CommandLineBuilder`), and Directive 7 forbids embe
   space + keyboard focus.
 - **Auth: none** — QEMU's `-vnc` has no password (RFB security "None"); the client uses a
   no-credential handler that fails clearly if a guest ever demands auth.
+- **VNC guests use `-vga virtio`**, not the SPICE-tuned `qxl` (which pushes large, frequent updates
+  over VNC). virtio-gpu is VGA-compatible at boot — so it doesn't black-screen GNOME/Wayland the way
+  bare `-vga std` does — and is more efficient under VNC once the guest driver loads.
 - **MVP scope:** connect + render + keyboard/mouse + clean connect/disconnect. **Deferred:** clipboard,
   dynamic/desktop resize, TLS/password auth, an explicit embedded-vs-external toggle, and **embedded
   SPICE** (still the v1.0 target per ADR-0004/0008).
@@ -36,6 +39,11 @@ remains future work.
 - **Harder / accepted:** the first third-party *functional* dependency in `Boxwright.App` (beyond the
   Avalonia/FluentAvalonia/MVVM stack); embedded display only for VNC guests (SPICE keeps remote-viewer);
   the rendering path can't be exercised on headless CI — it's validated manually on a box with QEMU.
+- **Performance (honest — Directive 9):** VNC streams framebuffer *pixels*, so the embedded view is
+  **console-grade** — smooth for text/console and quick glances, but laggy for heavy graphical
+  interaction (window drags, animations), especially on Windows/WHPX. SPICE + remote-viewer remains the
+  smooth path for graphical work; **embedded SPICE (v1.0)** is the eventual in-app graphical solution.
+  Lowering the guest resolution noticeably reduces VNC lag.
 
 ## Alternatives considered
 - **DIY zero-dep `Boxwright.Vnc` RFB client** (parallel to `Boxwright.Qmp`): on-brand with the

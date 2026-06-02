@@ -51,8 +51,9 @@ on Windows *and* macOS *and* Linux.** That gap is what Boxwright aims at.
 - 🚧 One-click OS catalog (download & boot popular distros / Windows eval)
 - 🚧 Auto-attach virtio-win drivers for Windows guests
 - 🚧 Snapshots
-- ✅ Embedded display — render a VNC guest in-app (set a VM's display protocol to VNC);
-  🔜 embedded SPICE (clipboard / folder / USB sharing)
+- ✅ Embedded display — render a VNC guest in-app (set a VM's display protocol to VNC). Best as a
+  quick **console**; VNC is laggy for heavy graphical use, so SPICE + remote-viewer stays the smooth
+  option. 🔜 embedded SPICE (clipboard / folder / USB sharing)
 - 🔜 USB passthrough, bridged networking, performance graphs
 
 See [`docs/roadmap.md`](docs/roadmap.md) for the full plan.
