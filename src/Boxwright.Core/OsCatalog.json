@@ -42,6 +42,30 @@
       "recommended": { "memoryMiB": 2048, "cpuCores": 2, "diskGiB": 20, "firmware": "uefi" },
       "sourceName": "Debian · cdimage.debian.org",
       "notes": "Minimal network installer — needs an internet connection during installation."
+    },
+    {
+      "id": "fedora-44-workstation",
+      "name": "Fedora Workstation",
+      "version": "44",
+      "arch": "x86_64",
+      "isoUrl": "https://mirrors.edge.kernel.org/fedora/releases/44/Workstation/x86_64/iso/Fedora-Workstation-Live-44-1.7.x86_64.iso",
+      "sha256": "1620295f6a00c27c3208f0c00b8ece4eab1ec69b9002152d97488bf26a426ddf",
+      "sizeBytes": 2851612672,
+      "recommended": { "memoryMiB": 4096, "cpuCores": 2, "diskGiB": 25, "firmware": "uefi" },
+      "sourceName": "Fedora Project · mirrors.edge.kernel.org",
+      "requiresLicense": false
+    },
+    {
+      "id": "linuxmint-22.3-cinnamon",
+      "name": "Linux Mint (Cinnamon)",
+      "version": "22.3",
+      "arch": "x86_64",
+      "isoUrl": "https://mirrors.edge.kernel.org/linuxmint/stable/22.3/linuxmint-22.3-cinnamon-64bit.iso",
+      "sha256": "a081ab202cfda17f6924128dbd2de8b63518ac0531bcfe3f1a1b88097c459bd4",
+      "sizeBytes": 3091660800,
+      "recommended": { "memoryMiB": 4096, "cpuCores": 2, "diskGiB": 25, "firmware": "uefi" },
+      "sourceName": "Linux Mint · mirrors.edge.kernel.org",
+      "requiresLicense": false
     }
   ]
 }
