@@ -1,0 +1,89 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Boxwright.App.ViewModels"
+             xmlns:core="using:Boxwright.Core"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="Boxwright.App.Views.CatalogView"
+             x:DataType="vm:CatalogViewModel">
+
+    <ScrollViewer>
+        <StackPanel Spacing="14" MaxWidth="520" HorizontalAlignment="Left" Margin="0,0,0,8">
+            <TextBlock Text="Get an OS" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock Opacity="0.6" TextWrapping="Wrap"
+                       Text="Pick an OS — Boxwright downloads the official ISO, verifies it (SHA-256), and sets up a VM ready to boot the installer." />
+
+            <!-- Gallery -->
+            <ListBox Classes="vm-list" MaxHeight="280" ItemsSource="{Binding Entries}"
+                     SelectedItem="{Binding SelectedEntry}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="core:OsCatalogEntry">
+                        <Border Classes="card" Padding="12">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Version}" Opacity="0.6" FontSize="12" />
+                                <TextBlock Text="{Binding SourceName}" Opacity="0.5" FontSize="11" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- Provenance / notes / license for the selected OS -->
+            <ui:InfoBar IsOpen="{Binding HasSelection}" IsClosable="False" Severity="Informational"
+                        Message="{Binding ProvenanceText}" />
+            <ui:InfoBar IsOpen="{Binding HasNotes}" IsClosable="False" Severity="Informational"
+                        Message="{Binding NotesText}" />
+            <ui:InfoBar IsOpen="{Binding RequiresLicense}" IsClosable="False" Severity="Warning"
+                        Title="License required" Message="{Binding LicenseText}" />
+
+            <!-- Confirm: recommended specs (name editable) -->
+            <StackPanel IsVisible="{Binding HasSelection}" Spacing="12">
+                <Border Classes="card">
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Name" Opacity="0.7" />
+                            <TextBox Text="{Binding Name}" />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Memory (MiB)" Opacity="0.7" />
+                            <TextBox Text="{Binding MemoryMiB}" Width="160" HorizontalAlignment="Left" />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="CPU cores" Opacity="0.7" />
+                            <TextBox Text="{Binding CpuCores}" Width="160" HorizontalAlignment="Left" />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Disk size (GiB)" Opacity="0.7" />
+                            <TextBox Text="{Binding DiskSizeGiB}" Width="160" HorizontalAlignment="Left" />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Firmware" Opacity="0.7" />
+                            <ComboBox ItemsSource="{Binding FirmwareOptions}" SelectedItem="{Binding Firmware}"
+                                      Width="160" HorizontalAlignment="Left" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="{Binding ValidationError}" IsVisible="{Binding HasValidationError}"
+                           Foreground="#CC8800" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <ui:InfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Error"
+                        Message="{Binding ErrorMessage}" />
+
+            <!-- Download progress -->
+            <StackPanel IsVisible="{Binding IsDownloading}" Spacing="4">
+                <ProgressBar Value="{Binding ProgressPercent}" Minimum="0" Maximum="100" />
+                <TextBlock Text="{Binding ProgressText}" Opacity="0.7" FontSize="12" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Classes="accent" Content="Get it" Command="{Binding GetItCommand}" />
+                <Button Content="Cancel download" Command="{Binding CancelDownloadCommand}"
+                        IsVisible="{Binding IsDownloading}" />
+                <Button Content="Close" Command="{Binding CancelCommand}"
+                        IsVisible="{Binding !IsDownloading}" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

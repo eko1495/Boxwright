@@ -70,9 +70,16 @@
             <!-- Sidebar: prominent New VM + the VM cards -->
             <DockPanel Grid.Column="0" Margin="12,12,6,12">
                 <Button DockPanel.Dock="Top" Classes="accent" Command="{Binding BeginCreateCommand}"
-                        IsEnabled="{Binding !IsShowingForm}" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                        IsEnabled="{Binding !IsShowingForm}" HorizontalAlignment="Stretch" Margin="0,0,0,8">
                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                         <ui:SymbolIcon Symbol="Add" FontSize="16" /><TextBlock Text="New VM" />
+                    </StackPanel>
+                </Button>
+                <Button DockPanel.Dock="Top" Command="{Binding BeginBrowseCatalogCommand}"
+                        IsEnabled="{Binding !IsShowingForm}" HorizontalAlignment="Stretch" Margin="0,0,0,12"
+                        ToolTip.Tip="Download a ready-to-install OS and create a VM for it">
+                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Globe" FontSize="16" /><TextBlock Text="Get an OS" />
                     </StackPanel>
                 </Button>
 
@@ -128,6 +135,14 @@
                         <ContentControl.ContentTemplate>
                             <DataTemplate x:DataType="vm:VmSettingsViewModel">
                                 <views:VmSettingsView />
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+
+                    <ContentControl Content="{Binding Catalog}" IsVisible="{Binding IsBrowsingCatalog}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:CatalogViewModel">
+                                <views:CatalogView />
                             </DataTemplate>
                         </ContentControl.ContentTemplate>
                     </ContentControl>
