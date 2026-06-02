@@ -1,0 +1,47 @@
+{
+  // Curated OS catalog for the one-click "Get an OS" feature.
+  // Each entry pins a direct ISO URL and its official SHA-256 (lowercase hex), verified
+  // against the project's published checksums when authored. Point releases rotate URLs
+  // and checksums, so entries are best-effort and may need updating (a future remote
+  // catalog source can refresh these without an app release). Adding an entry = append a
+  // verified object below. https URLs only.
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "ubuntu-24.04-desktop",
+      "name": "Ubuntu Desktop",
+      "version": "24.04.4 LTS",
+      "arch": "x86_64",
+      "isoUrl": "https://releases.ubuntu.com/24.04/ubuntu-24.04.4-desktop-amd64.iso",
+      "sha256": "3a4c9877b483ab46d7c3fbe165a0db275e1ae3cfe56a5657e5a47c2f99a99d1e",
+      "sizeBytes": 6308233216,
+      "recommended": { "memoryMiB": 4096, "cpuCores": 2, "diskGiB": 25, "firmware": "uefi" },
+      "sourceName": "Canonical · releases.ubuntu.com",
+      "requiresLicense": false
+    },
+    {
+      "id": "ubuntu-24.04-server",
+      "name": "Ubuntu Server",
+      "version": "24.04.4 LTS",
+      "arch": "x86_64",
+      "isoUrl": "https://releases.ubuntu.com/24.04/ubuntu-24.04.4-live-server-amd64.iso",
+      "sha256": "e907d92eeec9df64163a7e454cbc8d7755e8ddc7ed42f99dbc80c40f1a138433",
+      "sizeBytes": 3113851904,
+      "recommended": { "memoryMiB": 2048, "cpuCores": 2, "diskGiB": 20, "firmware": "uefi" },
+      "sourceName": "Canonical · releases.ubuntu.com",
+      "requiresLicense": false
+    },
+    {
+      "id": "debian-13-netinst",
+      "name": "Debian",
+      "version": "13.5.0 (netinst)",
+      "arch": "x86_64",
+      "isoUrl": "https://cdimage.debian.org/debian-cd/13.5.0/amd64/iso-cd/debian-13.5.0-amd64-netinst.iso",
+      "sha256": "95838884f5ea6c82421dfe6baaa5a639dbbe6756c1e380f9fe7a7cb0c1949d2a",
+      "sizeBytes": 696254464,
+      "recommended": { "memoryMiB": 2048, "cpuCores": 2, "diskGiB": 20, "firmware": "uefi" },
+      "sourceName": "Debian · cdimage.debian.org",
+      "notes": "Minimal network installer — needs an internet connection during installation."
+    }
+  ]
+}

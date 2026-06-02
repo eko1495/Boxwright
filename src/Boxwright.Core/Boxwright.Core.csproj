@@ -14,6 +14,11 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Curated OS catalog (one-click "Get an OS"); loaded via GetManifestResourceStream. -->
+    <EmbeddedResource Include="OsCatalog.json" />
+  </ItemGroup>
+
   <!--
     Likely additions as the domain grows (keep them UI-free):
       CommandLineBuilder, AcceleratorDetector, QemuProcess,
