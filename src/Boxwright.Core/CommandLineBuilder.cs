@@ -149,10 +149,14 @@ public static class CommandLineBuilder
 
     private static void AppendDisplay(List<string> args, VmConfig config, QemuLaunchContext context)
     {
-        // A real GPU so the guest desktop renders. QEMU's bare "std" VGA commonly leaves
-        // modern GNOME/Wayland on a black screen; QXL pairs with SPICE (and works under VNC).
+        bool isVnc = string.Equals(config.Display.Protocol, "vnc", StringComparison.OrdinalIgnoreCase);
+
+        // A real paravirtual GPU so the guest desktop renders — bare "std" VGA commonly leaves
+        // modern GNOME/Wayland on a black screen. QXL pairs with SPICE; over VNC it pushes large,
+        // frequent framebuffer updates (sluggish), so VNC guests get virtio-gpu instead: VGA-compatible
+        // at boot (no black screen) and efficient under VNC once the guest's virtio-gpu driver loads.
         args.Add("-vga");
-        args.Add("qxl");
+        args.Add(isVnc ? "virtio" : "qxl");
 
         if (string.Equals(config.Display.Protocol, "spice", StringComparison.OrdinalIgnoreCase))
         {
@@ -165,7 +169,7 @@ public static class CommandLineBuilder
             args.Add("-spice");
             args.Add(spice);
         }
-        else if (string.Equals(config.Display.Protocol, "vnc", StringComparison.OrdinalIgnoreCase))
+        else if (isVnc)
         {
             // QEMU's -vnc takes a *display number* (listen port = 5900 + display), not a raw
             // port. Convert the allocated port so QEMU actually listens on it.

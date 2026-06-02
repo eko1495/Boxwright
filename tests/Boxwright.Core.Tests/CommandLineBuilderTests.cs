@@ -96,6 +96,17 @@ public class CommandLineBuilderTests
     }
 
     [Fact]
+    public void Build_VncProtocol_UsesVirtioVga()
+    {
+        // QXL is SPICE-tuned and sluggish over VNC; VNC guests get virtio-gpu (still GNOME-safe).
+        VmConfig config = CanonicalConfig() with { Display = new DisplayConfig { Protocol = "vnc" } };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Equal("virtio", ArgValue(args, "-vga"));
+    }
+
+    [Fact]
     public void Build_Spice_IncludesVdagentChannel_ForClipboardAndAutoResize()
     {
         IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());
