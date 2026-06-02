@@ -12,11 +12,11 @@
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
 
     <PackageId>Boxwright.Qmp</PackageId>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Description>A small, dependency-free cross-platform C# client for the QEMU Machine Protocol (QMP) and the QEMU Guest Agent (QGA): connect over TCP or a Unix socket, run correlated commands, and observe events. Built on System.Text.Json; no third-party dependencies.</Description>
     <PackageTags>qemu;qmp;qga;guest-agent;virtualization;vm;qcow2</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>0.2.0 — version aligned with the Boxwright 0.2.0 release. No public QMP/QGA API changes since 0.1.0.</PackageReleaseNotes>
+    <PackageReleaseNotes>0.3.0 — version aligned with the Boxwright 0.3.0 release. No public QMP/QGA API changes since 0.1.0.</PackageReleaseNotes>
     <IsPackable>true</IsPackable>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
