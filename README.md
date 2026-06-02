@@ -56,9 +56,11 @@ on Windows *and* macOS *and* Linux.** That gap is what Boxwright aims at.
 
 See [`docs/roadmap.md`](docs/roadmap.md) for the full plan.
 
-## Download & install (Windows)
+## Download & install
 
-> Pre-release — expect rough edges.
+> Pre-release — expect rough edges. Not code-signed yet.
+
+### Windows
 
 1. Download the latest `Boxwright-<version>-win-x64.zip` from the
    [Releases](https://github.com/eko1495/Boxwright/releases) page.
@@ -69,8 +71,20 @@ See [`docs/roadmap.md`](docs/roadmap.md) for the full plan.
    [virt-manager.org/download](https://virt-manager.org/download/). VMs run without it;
    only the display window needs it.
 
-See [`packaging/README-FIRST.txt`](packaging/README-FIRST.txt) for the same notes. On Windows,
-QEMU is slower than VMware/VirtualBox — see the performance note below.
+### Linux
+
+1. Download the latest `Boxwright-<version>-x86_64.AppImage` from the
+   [Releases](https://github.com/eko1495/Boxwright/releases) page.
+2. Make it executable and run it: `chmod +x Boxwright-*.AppImage && ./Boxwright-*.AppImage`.
+   It is **self-contained** (no .NET install needed).
+3. **QEMU and the viewer aren't bundled** on Linux — install them once, e.g.
+   `sudo apt install qemu-system-x86 qemu-utils virt-viewer` (Debian/Ubuntu) or
+   `sudo dnf install qemu-system-x86 qemu-img virt-viewer` (Fedora). For KVM acceleration,
+   your user needs access to `/dev/kvm` (usually the `kvm` group).
+
+See [`packaging/README-FIRST.txt`](packaging/README-FIRST.txt) (Windows) and
+[`packaging/README-FIRST-linux.txt`](packaging/README-FIRST-linux.txt) (Linux) for the same
+notes. On Windows, QEMU is slower than VMware/VirtualBox — see the performance note below.
 
 ## Honest note on performance
 

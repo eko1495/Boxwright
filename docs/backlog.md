@@ -659,9 +659,11 @@ Ordered: build foundation → `Qmp` → `Core` → `App` → packaging → exit 
   QEMU per architecture §10.
 - **Acceptance criteria:**
   - [ ] A Linux user can install/run the artifact and boot a VM.
-  - [ ] QEMU resolution (system vs bundled) is documented and works.
-- **⚠ Risk / open question:** **AppImage vs Flatpak** is left open by the
-  architecture; they imply different QEMU-bundling stories. Pick one for MVP.
+  - [x] QEMU resolution (system vs bundled) is documented and works.
+- **✅ Resolved (ADR-0011):** **AppImage** (Flatpak's sandbox fights spawning QEMU + `/dev/kvm` +
+  remote-viewer) with **system QEMU** (not bundled — no GPL source-offer on Linux). Built by
+  `tools/package-linux.sh` + `.github/workflows/package-linux.yml`. Remaining: the clean-Linux boot
+  test (first criterion above).
 
 ### PKG-4 — macOS signed `.app` (hypervisor entitlement + notarization)
 - **Project:** cross-cutting/build

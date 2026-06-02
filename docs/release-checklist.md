@@ -1,6 +1,7 @@
 # Release checklist
 
-Gate before publishing a Windows artifact (PKG-5; enforces the GPL hygiene of ADR-0005 / ADR-0007).
+Gate before publishing a release artifact (PKG-5). The GPL section enforces ADR-0005 / ADR-0007 for the
+QEMU **bundled in the Windows ZIP**; the Linux AppImage bundles no QEMU (system QEMU, ADR-0011).
 
 ## GPL / bundled QEMU
 - [ ] Bundled QEMU is the pinned weilnetz build, **unmodified** (byte-for-byte from the installer).
@@ -18,5 +19,14 @@ Gate before publishing a Windows artifact (PKG-5; enforces the GPL hygiene of AD
 - [ ] `README-FIRST.txt` is present (SmartScreen + virt-viewer guidance).
 - [ ] README performance copy stays honest (Directive 9).
 
+## Linux (AppImage)
+- [ ] No bundled QEMU (system QEMU on Linux, ADR-0011) — so no GPL source-offer obligation;
+      `package-linux.sh` bundles only the app + .NET runtime.
+- [ ] The `appimagetool` pin (URL + SHA-256) in `tools/package-linux.sh` is verified at build time.
+- [ ] The `.AppImage` runs on a clean Linux desktop with system `qemu-system-x86` + `virt-viewer`:
+      create a VM, boot an ISO, reach the installer; the display opens via remote-viewer.
+- [ ] `README-FIRST-linux.txt` is present (qemu / virt-viewer / system-lib guidance).
+
 ## Versioning / release
-- [ ] Tag is `vMAJOR.MINOR.PATCH`; the `package-windows` workflow produced and attached the ZIP.
+- [ ] Tag is `vMAJOR.MINOR.PATCH`; the `package-windows` and `package-linux` workflows produced and
+      attached the ZIP + AppImage to the Release.

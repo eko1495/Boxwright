@@ -39,3 +39,4 @@ What we rejected and why.
 | [0008](0008-display-protocol-and-viewer.md) | Per-VM display protocol (SPICE/VNC); viewer external until embedded VNC | Accepted |
 | [0009](0009-windows-packaging.md) | Windows packaging: self-contained ZIP with bundled QEMU | Accepted |
 | [0010](0010-os-catalog.md) | One-click OS catalog: bundled JSON + verified ISO download to a shared cache | Accepted |
+| [0011](0011-linux-packaging.md) | Linux packaging: AppImage with system QEMU (not Flatpak, not bundled) | Accepted |
