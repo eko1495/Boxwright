@@ -1,0 +1,31 @@
+Boxwright - third-party notices
+===============================
+
+Boxwright's own source code is licensed under the MIT License (see LICENSE).
+
+This Windows package BUNDLES the QEMU emulator, UNMODIFIED, and invokes it only as a
+separate child process (never linked, never P/Invoked). QEMU is licensed under the GNU
+General Public License version 2 (some components are GPLv2-or-later or other compatible
+licenses). See Boxwright ADR-0005 (GPL hygiene) and ADR-0007 (bundling).
+
+Bundled QEMU build
+------------------
+  Distribution : QEMU for Windows (64-bit), by Stefan Weil
+  File         : qemu-w64-setup-20260501.exe
+  SHA-512      : 3d6b996bb904666f3b7ff62bed233b2d21dffe96f512af0a7151cfcc828bc5c8f9b62623cf2a9d363a3ae48111761f4630cce776eacb9b70d83e61e6ae50de47
+  Windows build: https://qemu.weilnetz.de/
+  QEMU project : https://www.qemu.org/
+
+Corresponding source (GPL obligation)
+-------------------------------------
+The complete corresponding source code for the bundled QEMU is available from:
+  https://www.qemu.org/download/#source
+and the Windows-build page:
+  https://qemu.weilnetz.de/
+
+WRITTEN OFFER: the corresponding source for the exact bundled build will also be made
+available on request for three years from the date of distribution. Open an issue at
+https://github.com/eko1495/Boxwright or contact the maintainer.
+
+The full GNU GPL v2 text is at https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+and a copy ships with the bundled QEMU (in the qemu\ folder).

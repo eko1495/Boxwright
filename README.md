@@ -56,6 +56,22 @@ on Windows *and* macOS *and* Linux.** That gap is what Boxwright aims at.
 
 See [`docs/roadmap.md`](docs/roadmap.md) for the full plan.
 
+## Download & install (Windows)
+
+> Pre-release — expect rough edges.
+
+1. Download the latest `Boxwright-<version>-win-x64.zip` from the
+   [Releases](https://github.com/eko1495/Boxwright/releases) page.
+2. Extract it anywhere and run `Boxwright.App.exe`. It is **self-contained** (no .NET
+   install needed) and **QEMU is bundled** (no QEMU install needed).
+3. It isn't code-signed yet, so SmartScreen may warn — click **More info → Run anyway**.
+4. To *view* a running VM, install **virt-viewer** once (it isn't bundled):
+   [virt-manager.org/download](https://virt-manager.org/download/). VMs run without it;
+   only the display window needs it.
+
+See [`packaging/README-FIRST.txt`](packaging/README-FIRST.txt) for the same notes. On Windows,
+QEMU is slower than VMware/VirtualBox — see the performance note below.
+
 ## Honest note on performance
 
 On **Linux** (KVM) and **Apple Silicon macOS** (HVF), QEMU is fast. On
@@ -70,8 +86,8 @@ Requires the .NET SDK (current LTS) and, for running VMs during development, a
 QEMU install on `PATH`.
 
 ```bash
-git clone https://github.com/<your-org>/boxwright.git
-cd boxwright
+git clone https://github.com/eko1495/Boxwright.git
+cd Boxwright
 
 # first-time solution scaffolding (until checked-in projects exist)
 dotnet new sln -n Boxwright
