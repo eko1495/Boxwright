@@ -1,0 +1,231 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Boxwright.App.ViewModels"
+             xmlns:core="using:Boxwright.Core"
+             xmlns:conv="using:Boxwright.App.Converters"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="Boxwright.App.Views.VmDetailView"
+             x:DataType="vm:VmListItemViewModel">
+
+    <ScrollViewer>
+        <StackPanel Spacing="12">
+
+            <!-- Header: name, status pill, spec, guest IP -->
+            <Border Classes="card">
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="24" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <Border Grid.Column="1" Classes="pill" VerticalAlignment="Center"
+                                Background="{Binding Status, Converter={x:Static conv:StatusToBrushConverter.Instance}}">
+                            <TextBlock Text="{Binding StatusText}" />
+                        </Border>
+                    </Grid>
+                    <TextBlock Text="{Binding Summary}" Opacity="0.6" />
+                    <TextBlock IsVisible="{Binding HasGuestAddresses}" FontSize="12" Opacity="0.7"
+                               Text="{Binding GuestAddresses, StringFormat='Guest IP: {0}'}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Power / control actions -->
+            <Border Classes="card">
+                <WrapPanel>
+                    <Button Classes="action accent" Command="{Binding StartCommand}" Margin="0,0,8,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:SymbolIcon Symbol="Play" FontSize="16" /><TextBlock Text="Start" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="action" Command="{Binding OpenDisplayCommand}" Margin="0,0,8,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:SymbolIcon Symbol="OpenLocal" FontSize="16" /><TextBlock Text="Open display" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="action" Command="{Binding PauseCommand}" Margin="0,0,8,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:SymbolIcon Symbol="Pause" FontSize="16" /><TextBlock Text="Pause" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="action" Command="{Binding ResumeCommand}" Margin="0,0,8,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:SymbolIcon Symbol="Play" FontSize="16" /><TextBlock Text="Resume" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="action" Command="{Binding ResetCommand}" Margin="0,0,8,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:SymbolIcon Symbol="RotateClockwise" FontSize="16" /><TextBlock Text="Reset" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="action" Command="{Binding SaveStateCommand}" Margin="0,0,8,8"
+                            ToolTip.Tip="Suspend the VM to disk and resume on next Start. Needs the KVM or TCG accelerator — WHPX (Windows) and HVF (macOS) can't serialize VM state.">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:SymbolIcon Symbol="SaveLocal" FontSize="16" /><TextBlock Text="Save state" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="action" Command="{Binding RefreshGuestIpCommand}" Margin="0,0,8,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:SymbolIcon Symbol="Sync" FontSize="16" /><TextBlock Text="Refresh IP" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="action" Command="{Binding StopCommand}" Margin="0,0,8,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:SymbolIcon Symbol="Stop" FontSize="16" /><TextBlock Text="Stop" />
+                        </StackPanel>
+                    </Button>
+                </WrapPanel>
+            </Border>
+
+            <!-- Status / honesty message -->
+            <ui:InfoBar IsOpen="{Binding HasStatusMessage}" IsClosable="False" Severity="Informational"
+                        Message="{Binding StatusMessage}" />
+
+            <!-- Saved state -->
+            <ui:InfoBar IsOpen="{Binding HasSavedState}" IsClosable="False" Severity="Informational"
+                        Title="Saved state"
+                        Message="This VM has a saved state — Start resumes it where you left off.">
+                <ui:InfoBar.ActionButton>
+                    <Button Content="Discard saved state" Command="{Binding DiscardSavedStateCommand}" />
+                </ui:InfoBar.ActionButton>
+            </ui:InfoBar>
+
+            <!-- Installer media -->
+            <Expander IsExpanded="True" HorizontalAlignment="Stretch">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ui:SymbolIcon Symbol="OpenFolder" /><TextBlock Text="Installer media" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Expander.Header>
+                <StackPanel Spacing="6">
+                    <TextBlock Text="{Binding IsoPath}" IsVisible="{Binding HasIso}"
+                               TextWrapping="Wrap" FontSize="12" Opacity="0.7" />
+                    <TextBlock Text="No ISO attached." IsVisible="{Binding !HasIso}"
+                               FontSize="12" Opacity="0.5" />
+                    <TextBlock Text="{Binding BootSummary}" FontSize="12" Opacity="0.6" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Choose ISO…" Command="{Binding ChooseIsoCommand}" />
+                        <Button Content="Remove ISO" Command="{Binding RemoveIsoCommand}"
+                                IsVisible="{Binding HasIso}" />
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- Snapshots -->
+            <Expander HorizontalAlignment="Stretch">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ui:SymbolIcon Symbol="Camera" /><TextBlock Text="Snapshots" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <TextBlock IsVisible="{Binding !CanManageSnapshots}" FontSize="12"
+                               Opacity="0.55" TextWrapping="Wrap"
+                               Text="Stop the VM to take or restore snapshots — qcow2 snapshots need the disk offline." />
+
+                    <StackPanel IsVisible="{Binding CanManageSnapshots}" Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox Text="{Binding NewSnapshotName}" Watermark="New snapshot name"
+                                     Width="220" VerticalAlignment="Center" />
+                            <Button Content="Take snapshot" Command="{Binding TakeSnapshotCommand}" />
+                            <Button Content="Refresh" Command="{Binding RefreshSnapshotsCommand}" />
+                        </StackPanel>
+
+                        <ui:InfoBar IsOpen="{Binding IsConfirmingRestore}" IsClosable="False" Severity="Warning"
+                                    Title="Restore snapshot?"
+                                    Message="{Binding SnapshotPendingRestore.Name, StringFormat='Restoring “{0}” discards the current disk state.'}">
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                                <Button Content="Restore" Command="{Binding ConfirmRestoreSnapshotCommand}" />
+                                <Button Content="Cancel" Command="{Binding CancelRestoreSnapshotCommand}" />
+                            </StackPanel>
+                        </ui:InfoBar>
+
+                        <TextBlock IsVisible="{Binding !HasSnapshots}" FontSize="12" Opacity="0.5"
+                                   Text="No snapshots yet." />
+
+                        <ItemsControl ItemsSource="{Binding Snapshots}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="core:VmSnapshot">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2">
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" />
+                                            <TextBlock Text="{Binding Created, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
+                                                       Opacity="0.5" FontSize="11" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="Restore" Margin="0,0,6,0"
+                                                Command="{Binding $parent[ItemsControl].((vm:VmListItemViewModel)DataContext).RestoreSnapshotCommand}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Grid.Column="2" Content="Delete"
+                                                Command="{Binding $parent[ItemsControl].((vm:VmListItemViewModel)DataContext).DeleteSnapshotCommand}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- Clone -->
+            <Expander HorizontalAlignment="Stretch">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ui:SymbolIcon Symbol="Copy" /><TextBlock Text="Clone" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <TextBlock IsVisible="{Binding !CanClone}" FontSize="12" Opacity="0.55"
+                               TextWrapping="Wrap" Text="Stop the VM to clone it." />
+
+                    <StackPanel IsVisible="{Binding CanClone}" Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox Text="{Binding CloneName}" Watermark="Clone name (optional)"
+                                     Width="220" VerticalAlignment="Center" />
+                            <Button Content="Full clone" Command="{Binding FullCloneCommand}" />
+                            <Button Content="Linked clone" Command="{Binding LinkedCloneCommand}" />
+                        </StackPanel>
+                        <TextBlock FontSize="11" Opacity="0.55" TextWrapping="Wrap"
+                                   Text="Full clone copies the disk (independent). Linked clone shares this VM's disk — instant and space-efficient, but don't modify or delete this VM while a linked clone exists." />
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- Logs -->
+            <Expander HorizontalAlignment="Stretch">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ui:SymbolIcon Symbol="Document" /><TextBlock Text="Logs" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Expander.Header>
+                <StackPanel Spacing="6">
+                    <Button Content="Refresh" Command="{Binding RefreshLogCommand}" HorizontalAlignment="Left" />
+                    <TextBlock Text="This VM hasn't been run yet — start it to capture a log."
+                               IsVisible="{Binding !HasLog}" FontSize="12" Opacity="0.5"
+                               TextWrapping="Wrap" />
+                    <TextBlock IsVisible="{Binding HasLog}" FontSize="11" Opacity="0.55"
+                               TextWrapping="Wrap"
+                               Text="This is QEMU's own output — the launch command plus any warnings or errors, which is usually brief. The guest's boot and console logs render in the display window, not here. To also capture the QMP control traffic, set the BOXWRIGHT_LOG_LEVEL=Debug environment variable and open the Logs folder (app log)." />
+                    <TextBox Text="{Binding LogContent, Mode=OneWay}" IsVisible="{Binding HasLog}"
+                             IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                             FontFamily="Consolas,Menlo,monospace" FontSize="11" MaxHeight="260"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+                </StackPanel>
+            </Expander>
+
+            <!-- Danger zone -->
+            <Border Classes="card" BorderBrush="#55CC3333">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Danger zone" FontWeight="SemiBold" Foreground="#CC3333" />
+                    <Button Content="Delete…" Command="{Binding DeleteCommand}"
+                            IsVisible="{Binding !IsConfirmingDelete}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8"
+                                IsVisible="{Binding IsConfirmingDelete}">
+                        <TextBlock Text="Delete this VM and its disks?" VerticalAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <Button Content="Delete" Command="{Binding ConfirmDeleteCommand}" />
+                        <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

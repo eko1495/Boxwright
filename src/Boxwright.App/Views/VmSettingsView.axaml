@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Boxwright.App.ViewModels"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="Boxwright.App.Views.VmSettingsView"
+             x:DataType="vm:VmSettingsViewModel">
+
+    <ScrollViewer>
+        <StackPanel Spacing="14" MaxWidth="460" HorizontalAlignment="Left" Margin="0,0,0,8">
+            <TextBlock Text="VM settings" FontSize="24" FontWeight="SemiBold" />
+
+            <ui:InfoBar IsOpen="True" IsClosable="False" Severity="Informational"
+                        Message="These are boot-time settings — they take effect the next time the VM starts." />
+            <ui:InfoBar IsOpen="{Binding IsRunning}" IsClosable="False" Severity="Warning"
+                        Message="The VM is running. Stop and restart it to apply these changes." />
+
+            <Border Classes="card">
+                <StackPanel Spacing="12">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Name" Opacity="0.7" />
+                        <TextBox Text="{Binding Name}" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Memory (MiB)" Opacity="0.7" />
+                        <TextBox Text="{Binding MemoryMiB}" Width="160" HorizontalAlignment="Left" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="CPU cores" Opacity="0.7" />
+                        <TextBox Text="{Binding CpuCores}" Width="160" HorizontalAlignment="Left" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Firmware" Opacity="0.7" />
+                        <ComboBox ItemsSource="{Binding FirmwareOptions}" SelectedItem="{Binding Firmware}"
+                                  Width="160" HorizontalAlignment="Left" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Display protocol" Opacity="0.7" />
+                        <ComboBox ItemsSource="{Binding DisplayProtocolOptions}" SelectedItem="{Binding DisplayProtocol}"
+                                  Width="160" HorizontalAlignment="Left" />
+                    </StackPanel>
+                    <CheckBox IsChecked="{Binding BootMenu}" Content="Show the firmware boot menu" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Disks (read-only)" Opacity="0.7" />
+                        <TextBlock Text="{Binding DisksText}" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="{Binding ValidationError}" IsVisible="{Binding HasValidationError}"
+                       Foreground="#CC8800" TextWrapping="Wrap" />
+            <ui:InfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Error"
+                        Message="{Binding ErrorMessage}" />
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Classes="accent" Content="Save" Command="{Binding SaveCommand}" />
+                <Button Content="Cancel" Command="{Binding CancelCommand}" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,41 +1,59 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Boxwright.App.ViewModels"
-        xmlns:core="using:Boxwright.Core"
         xmlns:conv="using:Boxwright.App.Converters"
+        xmlns:views="using:Boxwright.App.Views"
+        xmlns:ui="using:FluentAvalonia.UI.Controls"
         x:Class="Boxwright.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Width="960" Height="640"
-        MinWidth="700" MinHeight="460"
+        Width="980" Height="660"
+        MinWidth="720" MinHeight="480"
         WindowStartupLocation="CenterScreen"
         Title="{Binding Title}">
 
     <DockPanel>
 
-        <!-- Toolbar -->
-        <Border DockPanel.Dock="Top" Padding="16,10" BorderThickness="0,0,0,1" BorderBrush="#22808080">
+        <!-- Header / app bar -->
+        <Border DockPanel.Dock="Top" Padding="16,10" BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding Title}" FontSize="20" FontWeight="SemiBold"
                            VerticalAlignment="Center" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                    <Button Content="New VM" Command="{Binding BeginCreateCommand}" IsEnabled="{Binding !IsShowingForm}" />
-                    <Button Content="Settings" Command="{Binding BeginEditCommand}" IsEnabled="{Binding Vms.HasSelection}" />
-                    <Button Content="Refresh" Command="{Binding Vms.RefreshCommand}" IsEnabled="{Binding !Vms.IsLoading}" />
-                    <Button Content="Logs folder" Command="{Binding OpenLogsFolderCommand}"
-                            ToolTip.Tip="Open Boxwright's logs folder (app diagnostics) in your file manager" />
-                    <Button Content="Theme" Click="OnToggleTheme"
-                            ToolTip.Tip="Switch appearance: follow system → light → dark" />
+                    <Button Command="{Binding BeginEditCommand}" IsEnabled="{Binding Vms.HasSelection}"
+                            ToolTip.Tip="Edit the selected VM's settings">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:SymbolIcon Symbol="Settings" FontSize="16" /><TextBlock Text="Settings" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding Vms.RefreshCommand}" IsEnabled="{Binding !Vms.IsLoading}"
+                            ToolTip.Tip="Reload the VM list from disk">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:SymbolIcon Symbol="Refresh" FontSize="16" /><TextBlock Text="Refresh" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding OpenLogsFolderCommand}"
+                            ToolTip.Tip="Open Boxwright's logs folder (app diagnostics) in your file manager">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:SymbolIcon Symbol="Folder" FontSize="16" /><TextBlock Text="Logs" />
+                        </StackPanel>
+                    </Button>
+                    <Button Click="OnToggleTheme"
+                            ToolTip.Tip="Switch appearance: follow system → light → dark">
+                        <ui:SymbolIcon Symbol="DarkTheme" FontSize="16" />
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- Error banner (only when a load fails) -->
-        <Border DockPanel.Dock="Top" IsVisible="{Binding Vms.HasError}" Background="#33CC3333" Padding="16,8">
-            <TextBlock Text="{Binding Vms.ErrorMessage}" Foreground="#CC3333" TextWrapping="Wrap" />
-        </Border>
+        <ui:InfoBar DockPanel.Dock="Top" IsOpen="{Binding Vms.HasError}" IsClosable="False"
+                    Severity="Error" Title="Couldn't load VMs" Message="{Binding Vms.ErrorMessage}"
+                    Margin="16,8,16,0" />
 
         <!-- Status bar -->
-        <Border DockPanel.Dock="Bottom" Padding="16,6" BorderThickness="0,1,0,0" BorderBrush="#22808080">
+        <Border DockPanel.Dock="Bottom" Padding="16,6" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
             <Grid ColumnDefinitions="Auto,*">
                 <TextBlock Grid.Column="0" Text="{Binding Accelerator, StringFormat='Accelerator: {0}'}"
                            Opacity="0.7" FontSize="12" VerticalAlignment="Center" />
@@ -44,314 +62,88 @@
             </Grid>
         </Border>
 
-        <!-- Content: VM list (left) + detail / power controls / new-VM form (right) -->
+        <!-- Content: VM list (left) + detail / form (right) -->
         <Grid ColumnDefinitions="300,*">
 
-            <Panel Grid.Column="0" Margin="12,12,6,12">
-                <ListBox Classes="vm-list" ItemsSource="{Binding Vms.Vms}"
-                         SelectedItem="{Binding Vms.SelectedVm}"
-                         IsVisible="{Binding !Vms.IsEmpty}">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="vm:VmListItemViewModel">
-                            <Border Classes="card" Padding="12">
-                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Name}"
-                                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                                               VerticalAlignment="Center" />
-                                    <Border Grid.Row="0" Grid.Column="1" Classes="pill"
-                                            Background="{Binding Status, Converter={x:Static conv:StatusToBrushConverter.Instance}}">
-                                        <TextBlock Text="{Binding StatusText}" />
-                                    </Border>
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                                               Text="{Binding Summary}" Opacity="0.6" FontSize="12"
-                                               Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+            <!-- Sidebar: prominent New VM + the VM cards -->
+            <DockPanel Grid.Column="0" Margin="12,12,6,12">
+                <Button DockPanel.Dock="Top" Classes="accent" Command="{Binding BeginCreateCommand}"
+                        IsEnabled="{Binding !IsShowingForm}" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Add" FontSize="16" /><TextBlock Text="New VM" />
+                    </StackPanel>
+                </Button>
 
-                <StackPanel IsVisible="{Binding Vms.IsEmpty}" HorizontalAlignment="Center"
-                            VerticalAlignment="Center" Spacing="6" MaxWidth="240">
-                    <TextBlock Text="No VMs yet" FontSize="18" FontWeight="SemiBold"
-                               HorizontalAlignment="Center" />
-                    <TextBlock Text="Click “New VM” to create your first virtual machine."
-                               Opacity="0.6" HorizontalAlignment="Center" TextWrapping="Wrap"
-                               TextAlignment="Center" />
-                </StackPanel>
-            </Panel>
+                <Panel>
+                    <ListBox Classes="vm-list" ItemsSource="{Binding Vms.Vms}"
+                             SelectedItem="{Binding Vms.SelectedVm}"
+                             IsVisible="{Binding !Vms.IsEmpty}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:VmListItemViewModel">
+                                <Border Classes="card" Padding="12">
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Name}"
+                                                   FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
+                                        <Border Grid.Row="0" Grid.Column="1" Classes="pill"
+                                                Background="{Binding Status, Converter={x:Static conv:StatusToBrushConverter.Instance}}">
+                                            <TextBlock Text="{Binding StatusText}" />
+                                        </Border>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                                   Text="{Binding Summary}" Opacity="0.6" FontSize="12"
+                                                   Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
 
-            <Border Grid.Column="1" BorderThickness="1,0,0,0" BorderBrush="#22808080" Padding="20">
+                    <StackPanel IsVisible="{Binding Vms.IsEmpty}" HorizontalAlignment="Center"
+                                VerticalAlignment="Center" Spacing="6" MaxWidth="240">
+                        <TextBlock Text="No VMs yet" FontSize="18" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="Click “New VM” to create your first virtual machine."
+                                   Opacity="0.6" HorizontalAlignment="Center" TextWrapping="Wrap"
+                                   TextAlignment="Center" />
+                    </StackPanel>
+                </Panel>
+            </DockPanel>
+
+            <!-- Right pane: new-VM form / settings form / detail / placeholder -->
+            <Border Grid.Column="1" BorderThickness="1,0,0,0"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" Padding="16">
                 <Panel>
 
-                    <!-- New-VM form -->
                     <ContentControl Content="{Binding Creation}" IsVisible="{Binding IsCreating}">
                         <ContentControl.ContentTemplate>
                             <DataTemplate x:DataType="vm:NewVmViewModel">
-                                <ScrollViewer>
-                                    <StackPanel Spacing="10" MaxWidth="420" HorizontalAlignment="Left">
-                                        <TextBlock Text="New VM" FontSize="22" FontWeight="SemiBold" />
-
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="Name" Opacity="0.7" />
-                                            <TextBox Text="{Binding Name}" Watermark="e.g. Ubuntu 24.04" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="Memory (MiB)" Opacity="0.7" />
-                                            <TextBox Text="{Binding MemoryMiB}" Width="160" HorizontalAlignment="Left" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="CPU cores" Opacity="0.7" />
-                                            <TextBox Text="{Binding CpuCores}" Width="160" HorizontalAlignment="Left" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="Disk size (GiB)" Opacity="0.7" />
-                                            <TextBox Text="{Binding DiskSizeGiB}" Width="160" HorizontalAlignment="Left" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="Firmware" Opacity="0.7" />
-                                            <ComboBox ItemsSource="{Binding FirmwareOptions}" SelectedItem="{Binding Firmware}"
-                                                      Width="160" HorizontalAlignment="Left" />
-                                        </StackPanel>
-
-                                        <TextBlock Text="{Binding ValidationError}" IsVisible="{Binding HasValidationError}"
-                                                   Foreground="#CC8800" TextWrapping="Wrap" />
-                                        <Border IsVisible="{Binding HasErrorMessage}" Background="#33CC3333"
-                                                CornerRadius="4" Padding="10">
-                                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#CC3333" TextWrapping="Wrap" />
-                                        </Border>
-
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Button Content="Create" Command="{Binding CreateCommand}" />
-                                            <Button Content="Cancel" Command="{Binding CancelCommand}" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </ScrollViewer>
+                                <views:NewVmView />
                             </DataTemplate>
                         </ContentControl.ContentTemplate>
                     </ContentControl>
 
-                    <!-- Settings form -->
                     <ContentControl Content="{Binding Editing}" IsVisible="{Binding IsEditing}">
                         <ContentControl.ContentTemplate>
                             <DataTemplate x:DataType="vm:VmSettingsViewModel">
-                                <ScrollViewer>
-                                    <StackPanel Spacing="10" MaxWidth="420" HorizontalAlignment="Left">
-                                        <TextBlock Text="VM settings" FontSize="22" FontWeight="SemiBold" />
-                                        <Border Background="#22808080" CornerRadius="4" Padding="10">
-                                            <TextBlock TextWrapping="Wrap" FontSize="12"
-                                                       Text="These are boot-time settings — they take effect the next time the VM starts." />
-                                        </Border>
-                                        <TextBlock IsVisible="{Binding IsRunning}" Foreground="#CC8800" FontSize="12"
-                                                   TextWrapping="Wrap"
-                                                   Text="The VM is running. Stop and restart it to apply these changes." />
-
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="Name" Opacity="0.7" />
-                                            <TextBox Text="{Binding Name}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="Memory (MiB)" Opacity="0.7" />
-                                            <TextBox Text="{Binding MemoryMiB}" Width="160" HorizontalAlignment="Left" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="CPU cores" Opacity="0.7" />
-                                            <TextBox Text="{Binding CpuCores}" Width="160" HorizontalAlignment="Left" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="Firmware" Opacity="0.7" />
-                                            <ComboBox ItemsSource="{Binding FirmwareOptions}" SelectedItem="{Binding Firmware}"
-                                                      Width="160" HorizontalAlignment="Left" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="Display protocol" Opacity="0.7" />
-                                            <ComboBox ItemsSource="{Binding DisplayProtocolOptions}" SelectedItem="{Binding DisplayProtocol}"
-                                                      Width="160" HorizontalAlignment="Left" />
-                                        </StackPanel>
-                                        <CheckBox IsChecked="{Binding BootMenu}" Content="Show the firmware boot menu" />
-
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="Disks (read-only)" Opacity="0.7" />
-                                            <TextBlock Text="{Binding DisksText}" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
-                                        </StackPanel>
-
-                                        <TextBlock Text="{Binding ValidationError}" IsVisible="{Binding HasValidationError}"
-                                                   Foreground="#CC8800" TextWrapping="Wrap" />
-                                        <Border IsVisible="{Binding HasErrorMessage}" Background="#33CC3333"
-                                                CornerRadius="4" Padding="10">
-                                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#CC3333" TextWrapping="Wrap" />
-                                        </Border>
-
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Button Content="Save" Command="{Binding SaveCommand}" />
-                                            <Button Content="Cancel" Command="{Binding CancelCommand}" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </ScrollViewer>
+                                <views:VmSettingsView />
                             </DataTemplate>
                         </ContentControl.ContentTemplate>
                     </ContentControl>
 
-                    <!-- Detail / placeholder (hidden while a form is open) -->
                     <Panel IsVisible="{Binding !IsShowingForm}">
-                        <TextBlock Text="Select a VM to manage it." Opacity="0.5"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   IsVisible="{Binding !Vms.HasSelection}" />
+                        <StackPanel IsVisible="{Binding !Vms.HasSelection}" HorizontalAlignment="Center"
+                                    VerticalAlignment="Center" Spacing="6" MaxWidth="280">
+                            <TextBlock Text="Select a VM" FontSize="18" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="Pick a virtual machine from the list to manage it."
+                                       Opacity="0.5" HorizontalAlignment="Center" TextWrapping="Wrap"
+                                       TextAlignment="Center" />
+                        </StackPanel>
 
                         <ContentControl Content="{Binding Vms.SelectedVm}" IsVisible="{Binding Vms.HasSelection}">
                             <ContentControl.ContentTemplate>
                                 <DataTemplate x:DataType="vm:VmListItemViewModel">
-                                    <StackPanel Spacing="12">
-                                        <TextBlock Text="{Binding Name}" FontSize="22" FontWeight="SemiBold" />
-                                        <TextBlock Text="{Binding Summary}" Opacity="0.6" />
-                                        <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" />
-
-                                        <Border IsVisible="{Binding HasStatusMessage}" Background="#22808080"
-                                                CornerRadius="4" Padding="10">
-                                            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12" />
-                                        </Border>
-
-                                        <Border IsVisible="{Binding HasSavedState}" Background="#3322AACC"
-                                                CornerRadius="4" Padding="10">
-                                            <StackPanel Spacing="6">
-                                                <TextBlock TextWrapping="Wrap" FontSize="12"
-                                                           Text="This VM has a saved state — Start resumes it where you left off." />
-                                                <Button Content="Discard saved state" Command="{Binding DiscardSavedStateCommand}"
-                                                        HorizontalAlignment="Left" />
-                                            </StackPanel>
-                                        </Border>
-
-                                        <TextBlock IsVisible="{Binding HasGuestAddresses}" FontSize="12" Opacity="0.7"
-                                                   Text="{Binding GuestAddresses, StringFormat='Guest IP: {0}'}" />
-
-                                        <WrapPanel>
-                                            <Button Content="Start" Command="{Binding StartCommand}" Margin="0,0,8,8" />
-                                            <Button Content="Open display" Command="{Binding OpenDisplayCommand}" Margin="0,0,8,8" />
-                                            <Button Content="Pause" Command="{Binding PauseCommand}" Margin="0,0,8,8" />
-                                            <Button Content="Resume" Command="{Binding ResumeCommand}" Margin="0,0,8,8" />
-                                            <Button Content="Reset" Command="{Binding ResetCommand}" Margin="0,0,8,8" />
-                                            <Button Content="Save state" Command="{Binding SaveStateCommand}" Margin="0,0,8,8"
-                                                    ToolTip.Tip="Suspend the VM to disk and resume on next Start. Needs the KVM or TCG accelerator — WHPX (Windows) and HVF (macOS) can't serialize VM state." />
-                                            <Button Content="Refresh IP" Command="{Binding RefreshGuestIpCommand}" Margin="0,0,8,8" />
-                                            <Button Content="Stop" Command="{Binding StopCommand}" Margin="0,0,8,8" />
-                                        </WrapPanel>
-
-                                        <Border BorderThickness="0,1,0,0" BorderBrush="#22808080" Padding="0,10,0,0">
-                                            <StackPanel Spacing="6">
-                                                <TextBlock Text="Installer ISO" FontWeight="SemiBold" Opacity="0.8" />
-                                                <TextBlock Text="{Binding IsoPath}" IsVisible="{Binding HasIso}"
-                                                           TextWrapping="Wrap" FontSize="12" Opacity="0.7" />
-                                                <TextBlock Text="No ISO attached." IsVisible="{Binding !HasIso}"
-                                                           FontSize="12" Opacity="0.5" />
-                                                <TextBlock Text="{Binding BootSummary}" FontSize="12" Opacity="0.6" />
-                                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <Button Content="Choose ISO…" Command="{Binding ChooseIsoCommand}" />
-                                                    <Button Content="Remove ISO" Command="{Binding RemoveIsoCommand}"
-                                                            IsVisible="{Binding HasIso}" />
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Border>
-
-                                        <Expander Header="Logs">
-                                            <StackPanel Spacing="6">
-                                                <Button Content="Refresh" Command="{Binding RefreshLogCommand}"
-                                                        HorizontalAlignment="Left" />
-                                                <TextBlock Text="This VM hasn't been run yet — start it to capture a log."
-                                                           IsVisible="{Binding !HasLog}" FontSize="12" Opacity="0.5"
-                                                           TextWrapping="Wrap" />
-                                                <TextBlock IsVisible="{Binding HasLog}" FontSize="11" Opacity="0.55"
-                                                           TextWrapping="Wrap"
-                                                           Text="This is QEMU's own output — the launch command plus any warnings or errors, which is usually brief. The guest's boot and console logs render in the display window, not here. To also capture the QMP control traffic, set the BOXWRIGHT_LOG_LEVEL=Debug environment variable and open the Logs folder (app log)." />
-                                                <TextBox Text="{Binding LogContent, Mode=OneWay}" IsVisible="{Binding HasLog}"
-                                                         IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
-                                                         FontFamily="Consolas,Menlo,monospace" FontSize="11" MaxHeight="260"
-                                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                                         ScrollViewer.HorizontalScrollBarVisibility="Auto" />
-                                            </StackPanel>
-                                        </Expander>
-
-                                        <Expander Header="Snapshots">
-                                            <StackPanel Spacing="8">
-                                                <TextBlock IsVisible="{Binding !CanManageSnapshots}" FontSize="12"
-                                                           Opacity="0.55" TextWrapping="Wrap"
-                                                           Text="Stop the VM to take or restore snapshots — qcow2 snapshots need the disk offline." />
-
-                                                <StackPanel IsVisible="{Binding CanManageSnapshots}" Spacing="8">
-                                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                                        <TextBox Text="{Binding NewSnapshotName}" Watermark="New snapshot name"
-                                                                 Width="220" VerticalAlignment="Center" />
-                                                        <Button Content="Take snapshot" Command="{Binding TakeSnapshotCommand}" />
-                                                        <Button Content="Refresh" Command="{Binding RefreshSnapshotsCommand}" />
-                                                    </StackPanel>
-
-                                                    <Border IsVisible="{Binding IsConfirmingRestore}" Background="#33CC8800"
-                                                            CornerRadius="4" Padding="10">
-                                                        <StackPanel Spacing="6">
-                                                            <TextBlock TextWrapping="Wrap" FontSize="12"
-                                                                       Text="{Binding SnapshotPendingRestore.Name, StringFormat='Restore {0}? This discards the current disk state.'}" />
-                                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                                <Button Content="Restore" Command="{Binding ConfirmRestoreSnapshotCommand}" />
-                                                                <Button Content="Cancel" Command="{Binding CancelRestoreSnapshotCommand}" />
-                                                            </StackPanel>
-                                                        </StackPanel>
-                                                    </Border>
-
-                                                    <TextBlock IsVisible="{Binding !HasSnapshots}" FontSize="12" Opacity="0.5"
-                                                               Text="No snapshots yet." />
-
-                                                    <ItemsControl ItemsSource="{Binding Snapshots}">
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate x:DataType="core:VmSnapshot">
-                                                                <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2">
-                                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" />
-                                                                        <TextBlock Text="{Binding Created, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
-                                                                                   Opacity="0.5" FontSize="11" />
-                                                                    </StackPanel>
-                                                                    <Button Grid.Column="1" Content="Restore" Margin="0,0,6,0"
-                                                                            Command="{Binding $parent[ItemsControl].((vm:VmListItemViewModel)DataContext).RestoreSnapshotCommand}"
-                                                                            CommandParameter="{Binding}" />
-                                                                    <Button Grid.Column="2" Content="Delete"
-                                                                            Command="{Binding $parent[ItemsControl].((vm:VmListItemViewModel)DataContext).DeleteSnapshotCommand}"
-                                                                            CommandParameter="{Binding}" />
-                                                                </Grid>
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Expander>
-
-                                        <Expander Header="Clone">
-                                            <StackPanel Spacing="8">
-                                                <TextBlock IsVisible="{Binding !CanClone}" FontSize="12" Opacity="0.55"
-                                                           TextWrapping="Wrap" Text="Stop the VM to clone it." />
-
-                                                <StackPanel IsVisible="{Binding CanClone}" Spacing="8">
-                                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                                        <TextBox Text="{Binding CloneName}" Watermark="Clone name (optional)"
-                                                                 Width="220" VerticalAlignment="Center" />
-                                                        <Button Content="Full clone" Command="{Binding FullCloneCommand}" />
-                                                        <Button Content="Linked clone" Command="{Binding LinkedCloneCommand}" />
-                                                    </StackPanel>
-                                                    <TextBlock FontSize="11" Opacity="0.55" TextWrapping="Wrap"
-                                                               Text="Full clone copies the disk (independent). Linked clone shares this VM's disk — instant and space-efficient, but don't modify or delete this VM while a linked clone exists." />
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Expander>
-
-                                        <StackPanel>
-                                            <Button Content="Delete…" Command="{Binding DeleteCommand}"
-                                                    IsVisible="{Binding !IsConfirmingDelete}" />
-                                            <StackPanel Orientation="Horizontal" Spacing="8"
-                                                        IsVisible="{Binding IsConfirmingDelete}">
-                                                <TextBlock Text="Delete this VM and its disks?" VerticalAlignment="Center"
-                                                           TextWrapping="Wrap" />
-                                                <Button Content="Delete" Command="{Binding ConfirmDeleteCommand}" />
-                                                <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" />
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </StackPanel>
+                                    <views:VmDetailView />
                                 </DataTemplate>
                             </ContentControl.ContentTemplate>
                         </ContentControl>
