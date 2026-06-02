@@ -28,15 +28,17 @@ internal static class ServiceConfiguration
             builder.AddDebug();
         });
 
-        // Core infrastructure (process, sockets, tool discovery). The optional
-        // "bundled directory" arguments are null in dev: tools resolve from PATH.
+        // Core infrastructure (process, sockets, tool discovery). QemuLocator is pointed at a
+        // "qemu" folder beside the executable — the packaged layout (ADR-0009). It's inert when
+        // that folder is absent (dev), where QEMU resolves from PATH. remote-viewer is NOT
+        // bundled (ADR-0008) and resolves from PATH / Program Files.
         services.AddSingleton<IProcessRunner, ProcessRunner>();
         services.AddSingleton<IProcessLauncher, ProcessLauncher>();
         services.AddSingleton<IEndpointAllocator, QmpEndpointAllocator>();
         services.AddSingleton<IQmpConnector, DefaultQmpConnector>();
         services.AddSingleton<IQgaConnector, DefaultQgaConnector>();
         services.AddSingleton<IRemoteViewerLocator>(_ => new RemoteViewerLocator());
-        services.AddSingleton(_ => new QemuLocator());
+        services.AddSingleton(_ => new QemuLocator(Path.Combine(AppContext.BaseDirectory, "qemu")));
         services.AddSingleton(_ => AcceleratorDetector.CreateDefault());
 
         // Core services (orchestration).
