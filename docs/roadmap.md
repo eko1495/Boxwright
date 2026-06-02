@@ -89,7 +89,8 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
 
 Invest here only if Stage 2 metrics trend positive.
 
-- [ ] Embedded **VNC** display (drop the external remote-viewer dependency).
+- [x] Embedded **VNC** display — renders a VNC guest in-app via MarcusW.VncClient (set a VM's
+      display to VNC); SPICE still uses remote-viewer. See ADR-0012.
 - [ ] USB passthrough wizard (ship UsbDk on Windows).
 - [ ] Bridged/TAP networking on Linux.
 - [ ] Live performance graphs from QMP `query-stats`.
