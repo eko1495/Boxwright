@@ -1,0 +1,55 @@
+name: Package Boxwright (Linux)
+
+# Builds the Linux AppImage (app + .NET runtime; QEMU is NOT bundled — see ADR-0011) on a
+# version tag or manual dispatch, and attaches it to the GitHub Release. Companion to
+# package-windows.yml; both attach to the same Release on a v*.*.* tag.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g. 0.3.0)'
+        required: true
+
+permissions:
+  contents: write   # attach the AppImage as a Release asset (built-in GITHUB_TOKEN)
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # appimagetool runs FUSE-free (APPIMAGE_EXTRACT_AND_RUN, set inside the script), so the
+      # runner needs no libfuse. Explicit `bash` means the script's +x bit is irrelevant.
+      - name: Package
+        run: bash ./tools/package-linux.sh "${{ steps.version.outputs.value }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Boxwright-linux-x64
+          path: artifacts/linux-x64/*.AppImage
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/linux-x64/*.AppImage
