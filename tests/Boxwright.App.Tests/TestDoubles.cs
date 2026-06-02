@@ -229,3 +229,38 @@ internal sealed class FakeLogReader : ILogReader
         return Task.FromResult(Content);
     }
 }
+
+/// <summary>A fake OS catalog source returning preset entries (or failing on demand).</summary>
+internal sealed class FakeOsCatalogSource : IOsCatalogSource
+{
+    public List<OsCatalogEntry> Entries { get; } = [];
+
+    public OsCatalogException? FailWith { get; init; }
+
+    public Task<IReadOnlyList<OsCatalogEntry>> GetEntriesAsync(CancellationToken cancellationToken = default) =>
+        FailWith is not null
+            ? Task.FromException<IReadOnlyList<OsCatalogEntry>>(FailWith)
+            : Task.FromResult<IReadOnlyList<OsCatalogEntry>>(Entries.ToList());
+}
+
+/// <summary>A fake ISO downloader: records requests and returns a preset path (or fails on demand).</summary>
+internal sealed class FakeIsoDownloader : IIsoDownloader
+{
+    public string ReturnPath { get; init; } = Path.Combine(Path.GetTempPath(), "boxwright-fake.iso");
+
+    public Exception? FailWith { get; init; }
+
+    public List<OsCatalogEntry> Requested { get; } = [];
+
+    public Task<string> EnsureAsync(OsCatalogEntry entry, IProgress<IsoDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        Requested.Add(entry);
+        if (FailWith is not null)
+        {
+            return Task.FromException<string>(FailWith);
+        }
+
+        progress?.Report(new IsoDownloadProgress(entry.SizeBytes, entry.SizeBytes));
+        return Task.FromResult(ReturnPath);
+    }
+}

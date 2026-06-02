@@ -49,6 +49,13 @@ internal static class ServiceConfiguration
         services.AddSingleton<IVmLauncher, VmLauncher>();
         services.AddSingleton(_ => new VmRepository(VmRepository.DefaultRootDirectory));
 
+        // OS catalog + ISO downloader ("Get an OS"). One shared HttpClient — never per-call.
+        services.AddSingleton(_ => new HttpClient());
+        services.AddSingleton<IHttpStreamSource, HttpClientStreamSource>();
+        services.AddSingleton<IOsCatalogSource, BundledOsCatalogSource>();
+        services.AddSingleton<IIsoDownloader>(sp =>
+            new IsoDownloader(sp.GetRequiredService<IHttpStreamSource>(), IsoDownloader.DefaultCacheDirectory));
+
         // UI-thread marshalling for background callbacks (VM process exit).
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
 
