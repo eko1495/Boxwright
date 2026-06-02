@@ -9,6 +9,7 @@
         Width="980" Height="660"
         MinWidth="720" MinHeight="480"
         WindowStartupLocation="CenterScreen"
+        TransparencyLevelHint="Mica,None"
         Title="{Binding Title}">
 
     <DockPanel>

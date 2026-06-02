@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Boxwright.App.ViewModels;
 
@@ -20,9 +21,22 @@ public partial class MainWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        ApplyHostMaterial();
         if (DataContext is MainWindowViewModel viewModel)
         {
             viewModel.Vms.RefreshCommand.Execute(null);
+        }
+    }
+
+    // On Windows 11 the OS grants Mica; let the material show by clearing the window
+    // background. Everywhere else (Windows 10, Linux, macOS) ActualTransparencyLevel is
+    // None, so we keep the opaque theme background — never a transparent, unreadable
+    // window (Directive 4: degrade gracefully).
+    private void ApplyHostMaterial()
+    {
+        if (ActualTransparencyLevel == WindowTransparencyLevel.Mica)
+        {
+            Background = Brushes.Transparent;
         }
     }
 
