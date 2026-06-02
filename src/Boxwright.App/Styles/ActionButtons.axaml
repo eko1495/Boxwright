@@ -1,0 +1,19 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Design.PreviewWith>
+        <StackPanel Orientation="Horizontal" Spacing="6" Margin="16">
+            <Button Classes="action" Content="Pause" />
+            <Button Classes="action accent" Content="Start" />
+        </StackPanel>
+    </Design.PreviewWith>
+
+    <!-- Compact toolbar-style action button. Combine with FluentAvalonia's built-in
+         `accent` class for the primary action. Icon + label content is set per button. -->
+    <Style Selector="Button.action">
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="MinWidth" Value="64" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+</Styles>

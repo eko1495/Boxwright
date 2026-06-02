@@ -1,0 +1,23 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Design.PreviewWith>
+        <Border Classes="pill" Background="#2F9E44" Margin="16">
+            <TextBlock Text="Running" />
+        </Border>
+    </Design.PreviewWith>
+
+    <!-- A small rounded status chip. The Background brush is supplied by the view
+         (StatusToBrushConverter); this style only fixes the shape and label look. -->
+    <Style Selector="Border.pill">
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="9,2" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Border.pill > TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+</Styles>

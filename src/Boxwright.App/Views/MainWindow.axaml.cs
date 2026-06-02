@@ -1,6 +1,9 @@
 using System;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Styling;
 using Boxwright.App.ViewModels;
 
 namespace Boxwright.App.Views;
@@ -61,5 +64,20 @@ public partial class MainWindow : Window
 
         _shutdownHandled = true;
         Close();
+    }
+
+    // Cycle the app appearance: follow-OS (Default) -> Light -> Dark -> follow-OS.
+    // FluentAvaloniaTheme re-renders live when the app's RequestedThemeVariant changes.
+    private void OnToggleTheme(object? sender, RoutedEventArgs e)
+    {
+        if (Application.Current is not { } app)
+        {
+            return;
+        }
+
+        app.RequestedThemeVariant =
+            app.RequestedThemeVariant == ThemeVariant.Light ? ThemeVariant.Dark
+            : app.RequestedThemeVariant == ThemeVariant.Dark ? ThemeVariant.Default
+            : ThemeVariant.Light;
     }
 }

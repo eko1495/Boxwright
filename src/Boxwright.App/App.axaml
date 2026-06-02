@@ -1,10 +1,19 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sty="using:FluentAvalonia.Styling"
              x:Class="Boxwright.App.App"
              RequestedThemeVariant="Default">
 
     <Application.Styles>
-        <FluentTheme />
+        <!-- WinUI 3 / Fluent v2 look. PreferSystemTheme + the app's
+             RequestedThemeVariant="Default" = follow the OS light/dark; the brand
+             accent is fixed (PreferUserAccentColor="False"), not the OS accent. -->
+        <sty:FluentAvaloniaTheme PreferSystemTheme="True"
+                                 PreferUserAccentColor="False"
+                                 CustomAccentColor="#0F6FFF" />
+        <StyleInclude Source="avares://Boxwright.App/Styles/Cards.axaml" />
+        <StyleInclude Source="avares://Boxwright.App/Styles/StatusPill.axaml" />
+        <StyleInclude Source="avares://Boxwright.App/Styles/ActionButtons.axaml" />
     </Application.Styles>
 
 </Application>
