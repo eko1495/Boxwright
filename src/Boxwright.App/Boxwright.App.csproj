@@ -36,6 +36,9 @@
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="FluentAvaloniaUI" />
+    <!-- Embedded VNC viewer (RFB client + Avalonia VncView). App-layer only; Core/Qmp stay dep-free. -->
+    <PackageReference Include="Community.MarcusW.VncClient" />
+    <PackageReference Include="Community.MarcusW.VncClient.Avalonia" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <!-- Dev-only visual inspector (F12). Excluded from Release builds. -->
     <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
