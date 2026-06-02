@@ -1,0 +1,21 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vnc="using:MarcusW.VncClient.Avalonia"
+        xmlns:ui="using:FluentAvalonia.UI.Controls"
+        x:Class="Boxwright.App.Views.VncDisplayWindow"
+        Width="1024" Height="768"
+        MinWidth="320" MinHeight="240"
+        WindowStartupLocation="CenterScreen"
+        Icon="/Assets/boxwright.ico"
+        Title="Boxwright — Display">
+
+    <Grid Background="Black">
+        <!-- The library control renders the framebuffer and forwards keyboard/mouse. -->
+        <vnc:VncView x:Name="Vnc" />
+
+        <!-- Connection status overlay (hidden once connected). -->
+        <ui:InfoBar x:Name="StatusBar" VerticalAlignment="Top" Margin="8" IsClosable="False"
+                    IsOpen="True" Severity="Informational"
+                    Title="Connecting" Message="Connecting to the VM's display…" />
+    </Grid>
+</Window>

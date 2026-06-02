@@ -68,6 +68,9 @@ internal static class ServiceConfiguration
         // Reveals the app-wide logs folder in the OS file manager (toolbar button).
         services.AddSingleton<IFolderOpener, ShellFolderOpener>();
 
+        // Embedded VNC display: renders a VNC VM's screen in-app (MarcusW.VncClient.Avalonia).
+        services.AddSingleton<IEmbeddedVncDisplay, AvaloniaVncDisplay>();
+
         // View models.
         services.AddTransient<VmListViewModel>();
         services.AddTransient<MainWindowViewModel>();
