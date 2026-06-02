@@ -1,0 +1,59 @@
+name: CI
+
+# Build + test (+ format) on Windows, macOS and Linux for every push / PR to main.
+# The tests are hermetic — fakes instead of real QEMU, no display, no network — so
+# each OS leg only needs restore -> build -> test. (The real-QEMU E2E harness is an
+# Exe, not a test project, so `dotnet test` skips it.)
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: build & test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          # 10.0.x is the build/test TFM; 8.0.x lets Boxwright.Qmp's net8.0 target build.
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release — warnings are errors)
+        run: dotnet build -c Release --no-restore
+
+      - name: Test (Release)
+        run: dotnet test -c Release --no-build --verbosity normal
+
+      # Run the format gate once, on Linux (LF checkout), to avoid duplicating it
+      # across the matrix. .gitattributes guarantees LF on every runner.
+      - name: Verify formatting
+        if: matrix.os == 'ubuntu-latest'
+        run: dotnet format --verify-no-changes

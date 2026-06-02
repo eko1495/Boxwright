@@ -1,0 +1,20 @@
+# Boxwright line-ending policy: LF everywhere.
+#
+# .editorconfig sets `end_of_line = lf`, so the repo and every checkout must use LF
+# — including on GitHub's windows-latest runners, which default to
+# core.autocrlf=true. Without this, `dotnet format --verify-no-changes` fails on the
+# Windows CI leg (CRLF vs the required LF). It also stops the recurring
+# "LF will be replaced by CRLF" warnings on commit.
+
+* text=auto eol=lf
+
+# Binary assets — never normalize line endings or diff their bytes.
+*.ico    binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.icns   binary
+*.zip    binary
+*.nupkg  binary
+*.snupkg binary
