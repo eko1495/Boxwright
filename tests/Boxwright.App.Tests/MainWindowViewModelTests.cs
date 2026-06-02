@@ -47,6 +47,7 @@ public sealed class MainWindowViewModelTests : IDisposable
             new ImmediateUiDispatcher(),
             new FakeFilePicker(),
             new FakeDisplayLauncher(),
+            new FakeEmbeddedVncDisplay(),
             new FakeLogReader(),
             new FakeSnapshotService(),
             new FakeVmCloneService());

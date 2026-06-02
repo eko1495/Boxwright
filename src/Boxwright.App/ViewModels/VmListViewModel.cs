@@ -18,6 +18,7 @@ public sealed partial class VmListViewModel : ObservableObject
     private readonly IUiDispatcher _dispatcher;
     private readonly IFilePicker _filePicker;
     private readonly IDisplayLauncher _displayLauncher;
+    private readonly IEmbeddedVncDisplay _embeddedVnc;
     private readonly ILogReader _logReader;
     private readonly ISnapshotService _snapshotService;
     private readonly IVmCloneService _cloneService;
@@ -28,6 +29,7 @@ public sealed partial class VmListViewModel : ObservableObject
         IUiDispatcher dispatcher,
         IFilePicker filePicker,
         IDisplayLauncher displayLauncher,
+        IEmbeddedVncDisplay embeddedVnc,
         ILogReader logReader,
         ISnapshotService snapshotService,
         IVmCloneService cloneService)
@@ -37,6 +39,7 @@ public sealed partial class VmListViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(filePicker);
         ArgumentNullException.ThrowIfNull(displayLauncher);
+        ArgumentNullException.ThrowIfNull(embeddedVnc);
         ArgumentNullException.ThrowIfNull(logReader);
         ArgumentNullException.ThrowIfNull(snapshotService);
         ArgumentNullException.ThrowIfNull(cloneService);
@@ -46,6 +49,7 @@ public sealed partial class VmListViewModel : ObservableObject
         _dispatcher = dispatcher;
         _filePicker = filePicker;
         _displayLauncher = displayLauncher;
+        _embeddedVnc = embeddedVnc;
         _logReader = logReader;
         _snapshotService = snapshotService;
         _cloneService = cloneService;
@@ -131,7 +135,7 @@ public sealed partial class VmListViewModel : ObservableObject
 
     private VmListItemViewModel CreateItem(Vm vm)
     {
-        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _logReader, _snapshotService, _cloneService);
+        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _embeddedVnc, _logReader, _snapshotService, _cloneService);
         item.Deleted += OnItemDeleted;
         item.Cloned += OnItemCloned;
         return item;

@@ -15,6 +15,7 @@ public sealed class VmListItemViewModelTests : IDisposable
     private readonly ImmediateUiDispatcher _dispatcher = new();
     private readonly FakeFilePicker _filePicker = new();
     private readonly FakeDisplayLauncher _display = new();
+    private readonly FakeEmbeddedVncDisplay _embeddedVnc = new();
     private readonly FakeLogReader _logReader = new();
     private readonly FakeSnapshotService _snapshots = new();
     private readonly FakeVmCloneService _clone = new();
@@ -39,7 +40,7 @@ public sealed class VmListItemViewModelTests : IDisposable
 
     private VmListItemViewModel NewItem(IVmLauncher launcher, Vm? vm = null) =>
         new(vm ?? new Vm(Path.Combine(_root, "x"), new VmConfig { Id = "x", Name = "Test" }),
-            launcher, _repository, _dispatcher, _filePicker, _display, _logReader, _snapshots, _clone);
+            launcher, _repository, _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone);
 
     private Vm SnapshottableVm() =>
         new(Path.Combine(_root, "x"), new VmConfig
@@ -437,14 +438,16 @@ public sealed class VmListItemViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task OpenDisplay_UsesTheSessionsProtocol()
+    public async Task OpenDisplay_VncSession_OpensTheEmbeddedViewer()
     {
         var item = NewItem(new FakeVmLauncher(new FakeRunningVm { SpicePort = 5950, DisplayProtocol = "vnc" }));
         await item.StartCommand.ExecuteAsync(null);
 
         item.OpenDisplayCommand.Execute(null);
 
-        Assert.Equal((5950, "vnc"), Assert.Single(_display.Launches));
+        (string Title, string Host, int Port) opened = Assert.Single(_embeddedVnc.Opens);
+        Assert.Equal(("127.0.0.1", 5950), (opened.Host, opened.Port));
+        Assert.Empty(_display.Launches); // VNC renders in-app — it does NOT shell out to remote-viewer
     }
 
     [Fact]

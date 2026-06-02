@@ -154,6 +154,14 @@ internal sealed class FakeDisplayLauncher : IDisplayLauncher
     }
 }
 
+/// <summary>A fake embedded VNC display that records the windows it was asked to open.</summary>
+internal sealed class FakeEmbeddedVncDisplay : IEmbeddedVncDisplay
+{
+    public List<(string Title, string Host, int Port)> Opens { get; } = [];
+
+    public void Open(string title, string host, int port) => Opens.Add((title, host, port));
+}
+
 /// <summary>A fake folder opener that records the path it was asked to reveal, instead of shelling out.</summary>
 internal sealed class FakeFolderOpener : IFolderOpener
 {

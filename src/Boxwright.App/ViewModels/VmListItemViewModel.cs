@@ -38,6 +38,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     private readonly IUiDispatcher _dispatcher;
     private readonly IFilePicker _filePicker;
     private readonly IDisplayLauncher _displayLauncher;
+    private readonly IEmbeddedVncDisplay _embeddedVnc;
     private readonly ILogReader _logReader;
     private readonly ISnapshotService _snapshotService;
     private readonly IVmCloneService _cloneService;
@@ -50,6 +51,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         IUiDispatcher dispatcher,
         IFilePicker filePicker,
         IDisplayLauncher displayLauncher,
+        IEmbeddedVncDisplay embeddedVnc,
         ILogReader logReader,
         ISnapshotService snapshotService,
         IVmCloneService cloneService)
@@ -60,6 +62,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(filePicker);
         ArgumentNullException.ThrowIfNull(displayLauncher);
+        ArgumentNullException.ThrowIfNull(embeddedVnc);
         ArgumentNullException.ThrowIfNull(logReader);
         ArgumentNullException.ThrowIfNull(snapshotService);
         ArgumentNullException.ThrowIfNull(cloneService);
@@ -70,6 +73,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         _dispatcher = dispatcher;
         _filePicker = filePicker;
         _displayLauncher = displayLauncher;
+        _embeddedVnc = embeddedVnc;
         _logReader = logReader;
         _snapshotService = snapshotService;
         _cloneService = cloneService;
@@ -282,6 +286,13 @@ public sealed partial class VmListItemViewModel : ObservableObject
     {
         if (_session is null)
         {
+            return;
+        }
+
+        // VNC guests render in-app; SPICE (and anything else) still opens in remote-viewer.
+        if (string.Equals(_session.DisplayProtocol, "vnc", StringComparison.OrdinalIgnoreCase))
+        {
+            _embeddedVnc.Open(Name, "127.0.0.1", _session.SpicePort);
             return;
         }
 
