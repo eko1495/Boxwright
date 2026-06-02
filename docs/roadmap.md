@@ -69,10 +69,12 @@ that before adding anything.
 
 This is the "Quickemu moment" — the feature most likely to attract stars.
 
-- [ ] **Built-in OS catalog** with one-click ISO download (Ubuntu, Fedora,
-      Debian, Mint, Arch, Windows 10/11 eval, FreeBSD, ReactOS). Reuse
-      Quickemu's catalog JSON if license-compatible; otherwise our own.
-- [ ] Checksum/signature verification + provenance display for downloads.
+- [x] **Built-in OS catalog** with one-click ISO download — our own bundled JSON
+      behind an interface (remote manifest later). First cut: Ubuntu 24.04
+      Desktop/Server, Debian 13 netinst; Fedora/Mint/Windows to follow (Windows
+      needs a non-direct acquisition flow). See ADR-0010.
+- [x] Checksum (SHA-256) verification + provenance display for downloads.
+      GPG/PGP *signature* verification is a fast-follow.
 - [ ] **Auto-attach virtio-win ISO** when creating a Windows guest.
 - [ ] qcow2 internal snapshots (create / list / revert / delete).
 - [ ] First public launch posts: r/qemu, r/linux, r/homelab, r/selfhosted,
