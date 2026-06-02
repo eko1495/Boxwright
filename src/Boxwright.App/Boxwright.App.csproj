@@ -11,10 +11,17 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>Assets\boxwright.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Boxwright.Core\Boxwright.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- App assets. boxwright.ico is the window/taskbar icon (AvaloniaResource) and,
+         via ApplicationIcon above, the embedded Win32 exe icon. -->
+    <AvaloniaResource Include="Assets/**" />
   </ItemGroup>
 
   <ItemGroup>

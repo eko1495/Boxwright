@@ -10,6 +10,7 @@
         MinWidth="720" MinHeight="480"
         WindowStartupLocation="CenterScreen"
         TransparencyLevelHint="Mica,None"
+        Icon="/Assets/boxwright.ico"
         Title="{Binding Title}">
 
     <DockPanel>
