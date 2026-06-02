@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Boxwright.App.ViewModels"
         xmlns:core="using:Boxwright.Core"
+        xmlns:conv="using:Boxwright.App.Converters"
         x:Class="Boxwright.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Width="960" Height="640"
@@ -46,27 +47,37 @@
         <!-- Content: VM list (left) + detail / power controls / new-VM form (right) -->
         <Grid ColumnDefinitions="300,*">
 
-            <Panel Grid.Column="0" Margin="8">
-                <ListBox ItemsSource="{Binding Vms.Vms}" SelectedItem="{Binding Vms.SelectedVm}"
-                         IsVisible="{Binding !Vms.IsEmpty}" Background="Transparent">
+            <Panel Grid.Column="0" Margin="12,12,6,12">
+                <ListBox Classes="vm-list" ItemsSource="{Binding Vms.Vms}"
+                         SelectedItem="{Binding Vms.SelectedVm}"
+                         IsVisible="{Binding !Vms.IsEmpty}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:VmListItemViewModel">
-                            <Grid ColumnDefinitions="*,Auto" Margin="4">
-                                <StackPanel Grid.Column="0" Spacing="2">
-                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                                    <TextBlock Text="{Binding Summary}" Opacity="0.6" FontSize="12" />
-                                </StackPanel>
-                                <TextBlock Grid.Column="1" Text="{Binding StatusText}" Opacity="0.7"
-                                           FontSize="12" VerticalAlignment="Center" />
-                            </Grid>
+                            <Border Classes="card" Padding="12">
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Name}"
+                                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center" />
+                                    <Border Grid.Row="0" Grid.Column="1" Classes="pill"
+                                            Background="{Binding Status, Converter={x:Static conv:StatusToBrushConverter.Instance}}">
+                                        <TextBlock Text="{Binding StatusText}" />
+                                    </Border>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                               Text="{Binding Summary}" Opacity="0.6" FontSize="12"
+                                               Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                            </Border>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
 
                 <StackPanel IsVisible="{Binding Vms.IsEmpty}" HorizontalAlignment="Center"
-                            VerticalAlignment="Center" Spacing="6">
-                    <TextBlock Text="No VMs yet." FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                    <TextBlock Text="Click “New VM” to create one." Opacity="0.6" HorizontalAlignment="Center" />
+                            VerticalAlignment="Center" Spacing="6" MaxWidth="240">
+                    <TextBlock Text="No VMs yet" FontSize="18" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="Click “New VM” to create your first virtual machine."
+                               Opacity="0.6" HorizontalAlignment="Center" TextWrapping="Wrap"
+                               TextAlignment="Center" />
                 </StackPanel>
             </Panel>
 
