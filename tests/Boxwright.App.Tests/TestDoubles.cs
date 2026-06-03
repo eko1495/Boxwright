@@ -272,3 +272,22 @@ internal sealed class FakeIsoDownloader : IIsoDownloader
         return Task.FromResult(ReturnPath);
     }
 }
+
+/// <summary>A fake seed generator: records requests and returns a synthetic seed path (or fails on demand).</summary>
+internal sealed class FakeSeedGenerator : ISeedGenerator
+{
+    public List<(UnattendedAnswers Answers, string VmFolder)> Calls { get; } = [];
+
+    public Exception? FailWith { get; init; }
+
+    public string Generate(UnattendedAnswers answers, string vmFolderPath)
+    {
+        Calls.Add((answers, vmFolderPath));
+        if (FailWith is not null)
+        {
+            throw FailWith;
+        }
+
+        return Path.Combine(vmFolderPath, CloudInitSeedGenerator.SeedFileName);
+    }
+}

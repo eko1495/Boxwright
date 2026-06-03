@@ -19,7 +19,7 @@ public sealed class CatalogViewModelTests
         Recommended = new OsRecommendedSpec { MemoryMiB = 4096, CpuCores = 4, DiskGiB = 30, Firmware = "uefi" },
     };
 
-    private static (CatalogViewModel Vm, FakeIsoDownloader Downloader, FakeDiskService Disk) Build(
+    private static (CatalogViewModel Vm, FakeIsoDownloader Downloader, FakeDiskService Disk, FakeSeedGenerator Seed) Build(
         VmRepository repository,
         Func<string, bool>? isNameTaken = null,
         Exception? downloadFails = null,
@@ -29,15 +29,16 @@ public sealed class CatalogViewModelTests
         source.Entries.Add(SampleEntry());
         var downloader = new FakeIsoDownloader { FailWith = downloadFails };
         var disk = new FakeDiskService { FailWith = diskFails };
-        var vm = new CatalogViewModel(source, downloader, repository, disk, new ImmediateUiDispatcher(), isNameTaken ?? (_ => false));
-        return (vm, downloader, disk);
+        var seed = new FakeSeedGenerator();
+        var vm = new CatalogViewModel(source, downloader, repository, disk, seed, new ImmediateUiDispatcher(), isNameTaken ?? (_ => false));
+        return (vm, downloader, disk, seed);
     }
 
     [Fact]
     public async Task LoadEntries_PopulatesGallery()
     {
         using var temp = new TempDir();
-        (CatalogViewModel vm, _, _) = Build(new VmRepository(temp.Path));
+        (CatalogViewModel vm, _, _, _) = Build(new VmRepository(temp.Path));
 
         await vm.LoadEntriesCommand.ExecuteAsync(null);
 
@@ -48,7 +49,7 @@ public sealed class CatalogViewModelTests
     public void SelectingEntry_PrefillsRecommendedSpecs()
     {
         using var temp = new TempDir();
-        (CatalogViewModel vm, _, _) = Build(new VmRepository(temp.Path));
+        (CatalogViewModel vm, _, _, _) = Build(new VmRepository(temp.Path));
 
         vm.SelectedEntry = SampleEntry();
 
@@ -66,7 +67,7 @@ public sealed class CatalogViewModelTests
     {
         using var temp = new TempDir();
         var repository = new VmRepository(temp.Path);
-        (CatalogViewModel vm, FakeIsoDownloader downloader, FakeDiskService disk) = Build(repository);
+        (CatalogViewModel vm, FakeIsoDownloader downloader, FakeDiskService disk, FakeSeedGenerator seed) = Build(repository);
         await vm.LoadEntriesCommand.ExecuteAsync(null);
         vm.SelectedEntry = vm.Entries[0];
         Vm? created = null;
@@ -91,6 +92,37 @@ public sealed class CatalogViewModelTests
 
         // The VM is persisted, not just raised.
         Assert.Single(await repository.ListAsync());
+
+        // SampleEntry doesn't support autoinstall, so no seed is generated and only the primary disk exists.
+        Assert.Empty(seed.Calls);
+        Assert.Single(created.Config.Disks);
+    }
+
+    [Fact]
+    public async Task GetIt_Unattended_GeneratesSeedAndAttachesItAsAnExtraDisk()
+    {
+        using var temp = new TempDir();
+        var repository = new VmRepository(temp.Path);
+        (CatalogViewModel vm, _, _, FakeSeedGenerator seed) = Build(repository);
+        vm.SelectedEntry = SampleEntry() with { SupportsAutoinstall = true };
+        vm.UnattendedUsername = "alice";
+        vm.UnattendedPassword = "secret";
+        Vm? created = null;
+        vm.Created += (_, v) => created = v;
+
+        await vm.GetItCommand.ExecuteAsync(null);
+
+        Assert.NotNull(created);
+        Assert.True(vm.SelectedSupportsUnattended);
+
+        // A seed was generated into the VM folder, carrying the entered answers.
+        (UnattendedAnswers Answers, string VmFolder) call = Assert.Single(seed.Calls);
+        Assert.Equal(created!.FolderPath, call.VmFolder);
+        Assert.Equal("alice", call.Answers.Username);
+
+        // The persisted config now has the primary disk plus the raw seed disk.
+        Assert.Equal(2, created.Config.Disks.Count);
+        Assert.Contains(created.Config.Disks, d => d.File == "seed.img" && d.Format == "raw");
     }
 
     [Fact]
@@ -98,7 +130,7 @@ public sealed class CatalogViewModelTests
     {
         using var temp = new TempDir();
         var repository = new VmRepository(temp.Path);
-        (CatalogViewModel vm, _, _) = Build(repository, downloadFails: new OperationCanceledException());
+        (CatalogViewModel vm, _, _, _) = Build(repository, downloadFails: new OperationCanceledException());
         vm.SelectedEntry = SampleEntry();
         Vm? created = null;
         vm.Created += (_, v) => created = v;
@@ -116,7 +148,7 @@ public sealed class CatalogViewModelTests
     {
         using var temp = new TempDir();
         var repository = new VmRepository(temp.Path);
-        (CatalogViewModel vm, _, _) = Build(repository, downloadFails: new DownloadException("network down"));
+        (CatalogViewModel vm, _, _, _) = Build(repository, downloadFails: new DownloadException("network down"));
         vm.SelectedEntry = SampleEntry();
         Vm? created = null;
         vm.Created += (_, v) => created = v;
@@ -134,7 +166,7 @@ public sealed class CatalogViewModelTests
     {
         using var temp = new TempDir();
         var repository = new VmRepository(temp.Path);
-        (CatalogViewModel vm, _, _) = Build(repository, diskFails: new DiskException("out of space"));
+        (CatalogViewModel vm, _, _, _) = Build(repository, diskFails: new DiskException("out of space"));
         vm.SelectedEntry = SampleEntry();
         Vm? created = null;
         vm.Created += (_, v) => created = v;
@@ -150,7 +182,7 @@ public sealed class CatalogViewModelTests
     public void NameCollision_BlocksGetIt()
     {
         using var temp = new TempDir();
-        (CatalogViewModel vm, _, _) = Build(new VmRepository(temp.Path), isNameTaken: _ => true);
+        (CatalogViewModel vm, _, _, _) = Build(new VmRepository(temp.Path), isNameTaken: _ => true);
 
         vm.SelectedEntry = SampleEntry();
 

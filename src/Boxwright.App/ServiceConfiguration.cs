@@ -71,6 +71,9 @@ internal static class ServiceConfiguration
         // Embedded VNC display: renders a VNC VM's screen in-app (MarcusW.VncClient.Avalonia).
         services.AddSingleton<IEmbeddedVncDisplay, AvaloniaVncDisplay>();
 
+        // Unattended-install seed generator: writes a cloud-init NoCloud CIDATA image (Ubuntu autoinstall).
+        services.AddSingleton<ISeedGenerator, CloudInitSeedGenerator>();
+
         // View models.
         services.AddTransient<VmListViewModel>();
         services.AddTransient<MainWindowViewModel>();

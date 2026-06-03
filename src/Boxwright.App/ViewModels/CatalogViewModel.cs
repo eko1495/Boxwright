@@ -21,6 +21,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
     private readonly IIsoDownloader _downloader;
     private readonly VmRepository _repository;
     private readonly IDiskService _diskService;
+    private readonly ISeedGenerator _seedGenerator;
     private readonly IUiDispatcher _dispatcher;
     private readonly Func<string, bool> _isNameTaken;
     private CancellationTokenSource? _cts;
@@ -30,6 +31,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         IIsoDownloader downloader,
         VmRepository repository,
         IDiskService diskService,
+        ISeedGenerator seedGenerator,
         IUiDispatcher dispatcher,
         Func<string, bool> isNameTaken)
     {
@@ -37,6 +39,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(downloader);
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(diskService);
+        ArgumentNullException.ThrowIfNull(seedGenerator);
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(isNameTaken);
 
@@ -44,6 +47,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         _downloader = downloader;
         _repository = repository;
         _diskService = diskService;
+        _seedGenerator = seedGenerator;
         _dispatcher = dispatcher;
         _isNameTaken = isNameTaken;
     }
@@ -53,7 +57,9 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection), nameof(ProvenanceText), nameof(HasNotes),
-        nameof(NotesText), nameof(RequiresLicense), nameof(LicenseText))]
+        nameof(NotesText), nameof(RequiresLicense), nameof(LicenseText),
+        nameof(SelectedSupportsUnattended), nameof(ShowManualInstallNote),
+        nameof(ValidationError), nameof(HasValidationError))]
     [NotifyCanExecuteChangedFor(nameof(GetItCommand))]
     private OsCatalogEntry? _selectedEntry;
 
@@ -96,6 +102,27 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _firmware = "uefi";
 
+    /// <summary>Whether to set up an unattended (autoinstall) install for the selected OS.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ValidationError), nameof(HasValidationError))]
+    [NotifyCanExecuteChangedFor(nameof(GetItCommand))]
+    private bool _unattendedEnabled = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ValidationError), nameof(HasValidationError))]
+    [NotifyCanExecuteChangedFor(nameof(GetItCommand))]
+    private string _hostname = "ubuntu";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ValidationError), nameof(HasValidationError))]
+    [NotifyCanExecuteChangedFor(nameof(GetItCommand))]
+    private string _unattendedUsername = "ubuntu";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ValidationError), nameof(HasValidationError))]
+    [NotifyCanExecuteChangedFor(nameof(GetItCommand))]
+    private string _unattendedPassword = string.Empty;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasErrorMessage))]
     private string? _errorMessage;
@@ -135,6 +162,15 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         ? $"This OS needs a license you must provide. {SelectedEntry?.Notes}".Trim()
         : null;
 
+    /// <summary>True when the selected OS supports unattended install (currently Ubuntu autoinstall).</summary>
+    public bool SelectedSupportsUnattended => SelectedEntry?.SupportsAutoinstall ?? false;
+
+    /// <summary>True when an OS is selected but can't be installed unattended (show a manual-install note).</summary>
+    public bool ShowManualInstallNote => HasSelection && !SelectedSupportsUnattended;
+
+    // Whether a seed should actually be baked for the current selection.
+    private bool UnattendedActive => SelectedSupportsUnattended && UnattendedEnabled;
+
     /// <summary>The first validation problem with the confirm fields, or null when valid.</summary>
     public string? ValidationError
     {
@@ -168,6 +204,24 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
             if (DiskSizeGiB <= 0)
             {
                 return "Disk size must be greater than 0 GiB.";
+            }
+
+            if (SelectedSupportsUnattended && UnattendedEnabled)
+            {
+                if (string.IsNullOrWhiteSpace(Hostname))
+                {
+                    return "Enter a hostname for the guest.";
+                }
+
+                if (string.IsNullOrWhiteSpace(UnattendedUsername))
+                {
+                    return "Enter a username for the guest.";
+                }
+
+                if (string.IsNullOrEmpty(UnattendedPassword))
+                {
+                    return "Set a password for the guest.";
+                }
             }
 
             return null;
@@ -253,6 +307,28 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
             return;
         }
 
+        // Optionally bake an unattended-install seed and attach it as a tiny extra disk (Ubuntu autoinstall).
+        if (UnattendedActive)
+        {
+            try
+            {
+                _seedGenerator.Generate(BuildAnswers(), vm.FolderPath);
+                VmConfig withSeed = vm.Config with
+                {
+                    Disks = [.. vm.Config.Disks, new DiskConfig { File = CloudInitSeedGenerator.SeedFileName, Format = "raw", Interface = "virtio" }],
+                };
+                await _repository.SaveAsync(withSeed);
+                vm = vm with { Config = withSeed };
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                await _repository.DeleteAsync(vm.Config.Id);
+                ErrorMessage = $"Couldn't create the unattended-install seed: {ex.Message}";
+                ResetDownloadState();
+                return;
+            }
+        }
+
         try
         {
             string diskPath = Path.Combine(vm.FolderPath, NewVmViewModel.DiskFileName);
@@ -302,6 +378,13 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         ProgressText = null;
         ProgressPercent = 0;
     }
+
+    private UnattendedAnswers BuildAnswers() => new()
+    {
+        Hostname = Hostname.Trim(),
+        Username = UnattendedUsername.Trim(),
+        Password = UnattendedPassword,
+    };
 
     private VmConfig BuildConfig(string isoPath) => new()
     {

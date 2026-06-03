@@ -17,6 +17,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly IFolderOpener _folderOpener;
     private readonly IOsCatalogSource _catalogSource;
     private readonly IIsoDownloader _isoDownloader;
+    private readonly ISeedGenerator _seedGenerator;
     private readonly IUiDispatcher _dispatcher;
 
     public MainWindowViewModel(
@@ -27,6 +28,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IFolderOpener folderOpener,
         IOsCatalogSource catalogSource,
         IIsoDownloader isoDownloader,
+        ISeedGenerator seedGenerator,
         IUiDispatcher dispatcher)
     {
         ArgumentNullException.ThrowIfNull(vms);
@@ -36,6 +38,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(folderOpener);
         ArgumentNullException.ThrowIfNull(catalogSource);
         ArgumentNullException.ThrowIfNull(isoDownloader);
+        ArgumentNullException.ThrowIfNull(seedGenerator);
         ArgumentNullException.ThrowIfNull(dispatcher);
 
         Vms = vms;
@@ -44,6 +47,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _folderOpener = folderOpener;
         _catalogSource = catalogSource;
         _isoDownloader = isoDownloader;
+        _seedGenerator = seedGenerator;
         _dispatcher = dispatcher;
         Accelerator = acceleratorDetector.Detect().ToQemuValue();
         VmsDirectory = repository.RootDirectory;
@@ -129,7 +133,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        var form = new CatalogViewModel(_catalogSource, _isoDownloader, _repository, _diskService, _dispatcher, IsNameTaken);
+        var form = new CatalogViewModel(_catalogSource, _isoDownloader, _repository, _diskService, _seedGenerator, _dispatcher, IsNameTaken);
         form.Created += OnCatalogCreated;
         form.Cancelled += OnCatalogCancelled;
         Catalog = form;
