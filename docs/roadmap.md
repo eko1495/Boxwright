@@ -94,6 +94,9 @@ Invest here only if Stage 2 metrics trend positive.
 
 - [x] Embedded **VNC** display — renders a VNC guest in-app via MarcusW.VncClient (set a VM's
       display to VNC); SPICE still uses remote-viewer. See ADR-0012.
+- [x] **Guest audio** — Intel HD Audio sound card; audio plays over SPICE (remote-viewer), so there's
+      no host-driver dependency. Host-direct playback for VNC/headless (pipewire/pa/coreaudio/dsound)
+      is a fast-follow.
 - [ ] USB passthrough wizard (ship UsbDk on Windows).
 - [ ] Bridged/TAP networking on Linux.
 - [ ] Live performance graphs from QMP `query-stats`.
