@@ -220,6 +220,47 @@ public sealed class VmListItemViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task TryAdopt_WithAdoptableSession_ShowsRunningWithoutStarting()
+    {
+        var adopted = new FakeRunningVm { Accelerator = Accelerator.Whpx };
+        var launcher = new FakeVmLauncher(new FakeRunningVm()) { AdoptResult = adopted };
+        var item = NewItem(launcher);
+        Assert.False(item.IsLive);
+
+        await item.TryAdoptAsync();
+
+        Assert.True(item.IsLive);
+        Assert.Equal(VmStatus.Running, item.Status);
+        Assert.Contains("Reconnected", item.StatusMessage, StringComparison.Ordinal);
+        Assert.True(item.StopCommand.CanExecute(null));
+        Assert.Null(launcher.LastVm); // re-adopted, never started
+    }
+
+    [Fact]
+    public async Task TryAdopt_WithNothingToAdopt_StaysStopped()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm())); // AdoptResult defaults to null
+
+        await item.TryAdoptAsync();
+
+        Assert.False(item.IsLive);
+        Assert.Equal(VmStatus.Stopped, item.Status);
+    }
+
+    [Fact]
+    public async Task TryAdopt_WhenTheAdoptedSessionExits_ReturnsToStopped()
+    {
+        var adopted = new FakeRunningVm();
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()) { AdoptResult = adopted });
+        await item.TryAdoptAsync();
+        Assert.True(item.IsLive);
+
+        adopted.RaiseExited();
+
+        Assert.Equal(VmStatus.Stopped, item.Status); // adopted sessions tear down on exit like started ones
+    }
+
+    [Fact]
     public async Task Start_WhenLaunchFails_StaysStopped_WithActionableMessage()
     {
         var item = NewItem(new ThrowingVmLauncher(new InvalidOperationException("WHPX is not available")));

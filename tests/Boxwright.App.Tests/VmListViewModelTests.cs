@@ -182,6 +182,22 @@ public sealed class VmListViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Refresh_ReconnectsToVmsLeftRunningByAPreviousRun()
+    {
+        VmRepository repo = NewRepository();
+        await repo.CreateAsync(new VmConfig { Name = "survivor" });
+        var launcher = new FakeVmLauncher(new FakeRunningVm()) { AdoptResult = new FakeRunningVm() };
+        var sut = new VmListViewModel(repo, launcher, _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone);
+
+        await sut.RefreshCommand.ExecuteAsync(null);
+
+        VmListItemViewModel item = Assert.Single(sut.Vms);
+        Assert.True(item.IsLive); // re-adopted on load, not started
+        Assert.Equal(VmStatus.Running, item.Status);
+        Assert.True(sut.HasRunningVms);
+    }
+
+    [Fact]
     public async Task DeletingTheOnlyVm_EmptiesTheList()
     {
         VmRepository repo = NewRepository();

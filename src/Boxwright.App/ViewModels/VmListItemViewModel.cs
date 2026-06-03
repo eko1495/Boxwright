@@ -159,10 +159,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         try
         {
             IRunningVm session = await _launcher.StartAsync(Vm);
-            session.Exited += OnSessionExited;
-            _session = session;
-            Status = VmStatus.Running;
-            StatusMessage = DescribeAccelerator(session.Accelerator);
+            AttachSession(session);
 
             // A cold boot just happened; if a saved state exists, jump to it and consume it.
             if (HasSavedState)
@@ -189,6 +186,46 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
         // Surface what QEMU wrote (the launch header + any output/errors) without a manual click.
         await RefreshLogAsync();
+    }
+
+    // Wire a live session (freshly started or re-adopted on restart) into this item: subscribe to its
+    // exit, hold it, and reflect Running. Shared by StartAsync and TryAdoptAsync.
+    private void AttachSession(IRunningVm session)
+    {
+        session.Exited += OnSessionExited;
+        _session = session;
+        Status = VmStatus.Running;
+        StatusMessage = DescribeAccelerator(session.Accelerator);
+    }
+
+    /// <summary>
+    /// Reconnects to a still-running QEMU left behind by a previous app run (ADR-0014). A no-op if
+    /// this item already has a live session or there is nothing to adopt; otherwise the VM shows
+    /// Running again. A failed reconnect never breaks the list load — the VM simply stays Stopped.
+    /// </summary>
+    internal async Task TryAdoptAsync()
+    {
+        if (_session is not null)
+        {
+            return;
+        }
+
+        try
+        {
+            IRunningVm? session = await _launcher.AdoptAsync(Vm);
+            if (session is null)
+            {
+                return;
+            }
+
+            AttachSession(session);
+            StatusMessage = $"Reconnected. {DescribeAccelerator(session.Accelerator)}";
+            await RefreshLogAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            StatusMessage = $"Couldn't reconnect to the running VM: {ex.Message}";
+        }
     }
 
     private bool CanStart() => Status == VmStatus.Stopped;

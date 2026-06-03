@@ -122,6 +122,7 @@ public sealed partial class VmListViewModel : ObservableObject
         {
             IReadOnlyList<Vm> loaded = await _repository.ListAsync(cancellationToken);
             MergeInto(loaded);
+            await ReconnectRunningAsync();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -132,6 +133,11 @@ public sealed partial class VmListViewModel : ObservableObject
             IsLoading = false;
         }
     }
+
+    // Re-adopt any VMs whose QEMU survived a previous app run (reconnect-on-restart, ADR-0014).
+    // Idempotent — live items are skipped — so it's safe to run on every refresh.
+    private Task ReconnectRunningAsync() =>
+        Task.WhenAll(Vms.Where(v => !v.IsLive).Select(v => v.TryAdoptAsync()));
 
     private VmListItemViewModel CreateItem(Vm vm)
     {
