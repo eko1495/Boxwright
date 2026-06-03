@@ -12,6 +12,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- Pure-managed FAT writer for the cloud-init NoCloud seed image (ADR-0013). MIT; cross-platform. -->
+    <PackageReference Include="LTRData.DiscUtils.Fat" />
   </ItemGroup>
 
   <ItemGroup>
