@@ -54,8 +54,35 @@ public sealed class QemuProcess : IDisposable
         LogFilePath = logFilePath;
     }
 
+    // Attach path (reconnect on restart, ADR-0014): adopt an already-running QEMU. No stdout capture
+    // (the original pipe died with the launching process) and no launch header — we only track State
+    // and surface Exited so the UI can control and observe the re-adopted VM.
+    private QemuProcess(IRunningProcess attached, string logFilePath, Accelerator? accelerator)
+    {
+        _launcher = null!; // unused on the attach path — the process is already running
+        _executable = string.Empty;
+        _arguments = [];
+        _workingDirectory = string.Empty;
+        _accelerator = accelerator;
+        LogFilePath = logFilePath;
+        _process = attached;
+        State = QemuProcessState.Running;
+        attached.Exited += OnExited;
+    }
+
+    /// <summary>Adopts an already-running QEMU process by its handle (reconnect on app restart).</summary>
+    public static QemuProcess Attach(IRunningProcess attached, string logFilePath, Accelerator? accelerator = null)
+    {
+        ArgumentNullException.ThrowIfNull(attached);
+        ArgumentException.ThrowIfNullOrWhiteSpace(logFilePath);
+        return new QemuProcess(attached, logFilePath, accelerator);
+    }
+
     /// <summary>The current lifecycle state.</summary>
     public QemuProcessState State { get; private set; } = QemuProcessState.NotStarted;
+
+    /// <summary>The OS process id once started or attached; null beforehand.</summary>
+    public int? ProcessId => _process?.Id;
 
     /// <summary>The exit code, once <see cref="State"/> is <see cref="QemuProcessState.Exited"/>.</summary>
     public int? ExitCode { get; private set; }

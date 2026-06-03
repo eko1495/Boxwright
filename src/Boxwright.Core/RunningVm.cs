@@ -13,6 +13,8 @@ public sealed class RunningVm : IRunningVm
     private readonly IQmpClient _client;
     private readonly IQgaConnector _qgaConnector;
     private readonly int _guestAgentPort;
+    private readonly Action? _onStopped;
+    private int _onStoppedInvoked;
 
     internal RunningVm(
         QemuProcess process,
@@ -21,7 +23,8 @@ public sealed class RunningVm : IRunningVm
         int spicePort,
         string displayProtocol,
         IQgaConnector qgaConnector,
-        int guestAgentPort)
+        int guestAgentPort,
+        Action? onStopped = null)
     {
         _process = process;
         _client = client;
@@ -30,6 +33,7 @@ public sealed class RunningVm : IRunningVm
         DisplayProtocol = displayProtocol;
         _qgaConnector = qgaConnector;
         _guestAgentPort = guestAgentPort;
+        _onStopped = onStopped;
     }
 
     /// <summary>The accelerator resolved for this VM (for the UI to surface — ADR-0003).</summary>
@@ -157,5 +161,12 @@ public sealed class RunningVm : IRunningVm
     {
         await _client.DisposeAsync();
         _process.Dispose();
+
+        // The session is gone — clear any persisted runtime state so a restart won't try to re-adopt
+        // a dead process (reconnect-on-restart, ADR-0014). Runs once, after the process is down.
+        if (Interlocked.Exchange(ref _onStoppedInvoked, 1) == 0)
+        {
+            _onStopped?.Invoke();
+        }
     }
 }

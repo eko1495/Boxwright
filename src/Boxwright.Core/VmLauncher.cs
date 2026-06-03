@@ -14,6 +14,7 @@ public sealed class VmLauncher : IVmLauncher
     private readonly IEndpointAllocator _endpointAllocator;
     private readonly IQmpConnector _qmpConnector;
     private readonly IQgaConnector _qgaConnector;
+    private readonly IVmRuntimeStore _runtimeStore;
     private readonly AcceleratorDetector _acceleratorDetector;
     private readonly QemuLocator _locator;
     private readonly ILogger<VmLauncher> _logger;
@@ -24,6 +25,7 @@ public sealed class VmLauncher : IVmLauncher
         IEndpointAllocator endpointAllocator,
         IQmpConnector qmpConnector,
         IQgaConnector qgaConnector,
+        IVmRuntimeStore runtimeStore,
         AcceleratorDetector acceleratorDetector,
         QemuLocator locator,
         ILogger<VmLauncher> logger)
@@ -32,6 +34,7 @@ public sealed class VmLauncher : IVmLauncher
         ArgumentNullException.ThrowIfNull(endpointAllocator);
         ArgumentNullException.ThrowIfNull(qmpConnector);
         ArgumentNullException.ThrowIfNull(qgaConnector);
+        ArgumentNullException.ThrowIfNull(runtimeStore);
         ArgumentNullException.ThrowIfNull(acceleratorDetector);
         ArgumentNullException.ThrowIfNull(locator);
         ArgumentNullException.ThrowIfNull(logger);
@@ -40,6 +43,7 @@ public sealed class VmLauncher : IVmLauncher
         _endpointAllocator = endpointAllocator;
         _qmpConnector = qmpConnector;
         _qgaConnector = qgaConnector;
+        _runtimeStore = runtimeStore;
         _acceleratorDetector = acceleratorDetector;
         _locator = locator;
         _logger = logger;
@@ -82,9 +86,13 @@ public sealed class VmLauncher : IVmLauncher
                 () => process.State == QemuProcessState.Running,
                 cancellationToken);
 
-            var runningVm = new RunningVm(process, client, accelerator, spicePort, vm.Config.Display.Protocol, _qgaConnector, guestAgentPort);
+            int pid = process.ProcessId ?? 0;
+            _runtimeStore.Save(vm, VmRuntimeState.From(pid, qmpEndpoint, spicePort, vm.Config.Display.Protocol, guestAgentPort, accelerator));
+            var runningVm = new RunningVm(
+                process, client, accelerator, spicePort, vm.Config.Display.Protocol,
+                _qgaConnector, guestAgentPort, onStopped: () => _runtimeStore.Clear(vm));
             launched = true;
-            _logger.LogInformation("VM '{Name}' started; SPICE port {Port}.", vm.Config.Name, spicePort);
+            _logger.LogInformation("VM '{Name}' started; pid {Pid}, SPICE port {Port}.", vm.Config.Name, pid, spicePort);
             return runningVm;
         }
         catch (Exception ex) when (LogLaunchFailure(vm.Config.Name, ex))
@@ -97,6 +105,61 @@ public sealed class VmLauncher : IVmLauncher
             {
                 process.Kill();
                 process.Dispose();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Re-adopts a VM whose QEMU process is still running after an app restart: reads the persisted
+    /// runtime state, attaches to the process by id, and reconnects the QMP client. Returns null when
+    /// there is nothing to adopt (no record, or the recorded process is gone / not QEMU), clearing a
+    /// stale record. Leaves the process running if QMP cannot be reconnected.
+    /// </summary>
+    public async Task<IRunningVm?> AdoptAsync(Vm vm, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(vm);
+
+        VmRuntimeState? state = _runtimeStore.TryLoad(vm);
+        if (state is null)
+        {
+            return null; // never launched, or cleanly stopped
+        }
+
+        IRunningProcess? attached = _processLauncher.Attach(state.ProcessId);
+        if (attached is null)
+        {
+            _runtimeStore.Clear(vm); // the process is gone (or its id was reused) — forget it
+            return null;
+        }
+
+        QemuProcess process = QemuProcess.Attach(attached, vm.LogPath, state.Accelerator);
+        bool adopted = false;
+        try
+        {
+            IQmpClient client = await _qmpConnector.ConnectAsync(
+                state.ToQmpEndpoint(),
+                () => !attached.HasExited,
+                cancellationToken);
+
+            var runningVm = new RunningVm(
+                process, client, state.Accelerator, state.SpicePort, state.DisplayProtocol,
+                _qgaConnector, state.GuestAgentPort, onStopped: () => _runtimeStore.Clear(vm));
+            adopted = true;
+            _logger.LogInformation("Reconnected to VM '{Name}' (pid {Pid}).", vm.Config.Name, state.ProcessId);
+            return runningVm;
+        }
+        catch (QmpProtocolException ex)
+        {
+            // The process is alive but its QMP socket won't answer — leave it running (don't kill the
+            // user's VM); just don't adopt it. A Windows Job Object backstop would avoid this orphan.
+            _logger.LogWarning(ex, "Could not reconnect QMP to VM '{Name}' (pid {Pid}); leaving it running.", vm.Config.Name, state.ProcessId);
+            return null;
+        }
+        finally
+        {
+            if (!adopted)
+            {
+                process.Dispose(); // drop our wrapper/handle; the QEMU process keeps running
             }
         }
     }

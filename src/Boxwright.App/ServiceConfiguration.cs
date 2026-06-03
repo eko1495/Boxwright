@@ -49,6 +49,9 @@ internal static class ServiceConfiguration
         services.AddSingleton<IVmLauncher, VmLauncher>();
         services.AddSingleton(_ => new VmRepository(VmRepository.DefaultRootDirectory));
 
+        // Per-VM runtime state (runtime.json) so the app can re-adopt running QEMU after a restart (ADR-0014).
+        services.AddSingleton<IVmRuntimeStore, VmRuntimeStore>();
+
         // OS catalog + ISO downloader ("Get an OS"). One shared HttpClient — never per-call.
         services.AddSingleton(_ => new HttpClient());
         services.AddSingleton<IHttpStreamSource, HttpClientStreamSource>();

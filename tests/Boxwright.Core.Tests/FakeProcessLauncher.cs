@@ -8,11 +8,22 @@ internal sealed class FakeProcessLauncher : IProcessLauncher
 
     public FakeRunningProcess? Last { get; private set; }
 
+    /// <summary>The process <see cref="Attach"/> returns (null → "no such process"); set by adopt tests.</summary>
+    public FakeRunningProcess? AttachResult { get; set; }
+
+    public int? LastAttachedId { get; private set; }
+
     public IRunningProcess Start(ProcessLaunchRequest request)
     {
         LastRequest = request;
         Last = new FakeRunningProcess();
         return Last;
+    }
+
+    public IRunningProcess? Attach(int processId)
+    {
+        LastAttachedId = processId;
+        return AttachResult;
     }
 }
 

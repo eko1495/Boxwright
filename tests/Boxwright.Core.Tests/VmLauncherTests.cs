@@ -115,6 +115,82 @@ public class VmLauncherTests
             firmware: "uefi");
     }
 
+    [Fact]
+    public async Task AdoptAsync_WithLiveProcessAndRuntimeState_ReconnectsAndReturnsRunningVm()
+    {
+        await WithLauncherAsync(async (vmLauncher, vm, launcher, store) =>
+        {
+            // A VM launched earlier (runtime.json present) whose QEMU is still alive.
+            store.Save(vm, VmRuntimeState.From(4321, QmpEndpoint.Tcp("127.0.0.1", 4444), 5930, "spice", 5931, Accelerator.Whpx));
+            launcher.AttachResult = new FakeRunningProcess(); // alive
+
+            IRunningVm? adopted = await vmLauncher.AdoptAsync(vm);
+
+            Assert.NotNull(adopted);
+            Assert.Equal(4321, launcher.LastAttachedId);
+            Assert.Equal(5930, adopted!.SpicePort);
+            Assert.Equal("spice", adopted.DisplayProtocol);
+            Assert.Equal(Accelerator.Whpx, adopted.Accelerator);
+            Assert.Equal(QemuProcessState.Running, adopted.State);
+            await adopted.DisposeAsync();
+        });
+    }
+
+    [Fact]
+    public async Task AdoptAsync_NoRuntimeState_ReturnsNull()
+    {
+        await WithLauncherAsync(async (vmLauncher, vm, launcher, _) =>
+        {
+            Assert.Null(await vmLauncher.AdoptAsync(vm));
+            Assert.Null(launcher.LastAttachedId); // never even tried to attach
+        });
+    }
+
+    [Fact]
+    public async Task AdoptAsync_ProcessGone_ReturnsNullAndClearsStaleState()
+    {
+        await WithLauncherAsync(async (vmLauncher, vm, launcher, store) =>
+        {
+            store.Save(vm, VmRuntimeState.From(9999, QmpEndpoint.Tcp("127.0.0.1", 4444), 5930, "spice", 5931, Accelerator.Tcg));
+            launcher.AttachResult = null; // the process is gone / its id was reused
+
+            IRunningVm? adopted = await vmLauncher.AdoptAsync(vm);
+
+            Assert.Null(adopted);
+            Assert.Equal(9999, launcher.LastAttachedId);
+            Assert.Null(store.TryLoad(vm)); // the stale record was cleared
+        });
+    }
+
+    private static async Task WithLauncherAsync(Func<VmLauncher, Vm, FakeProcessLauncher, VmRuntimeStore, Task> body)
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"boxwright-adopt-{Guid.NewGuid():N}");
+        string vmFolder = Path.Combine(root, "vm");
+        Directory.CreateDirectory(vmFolder);
+
+        var launcher = new FakeProcessLauncher();
+        var store = new VmRuntimeStore();
+        var vmLauncher = new VmLauncher(
+            launcher,
+            new QmpEndpointAllocator(),
+            new FakeQmpConnector(new RecordingQmpClient()),
+            new FakeQgaConnector(),
+            store,
+            new AcceleratorDetector(new TcgProbe()),
+            new QemuLocator(Path.Combine(root, "qemu")),
+            NullLogger<VmLauncher>.Instance);
+        var vm = new Vm(vmFolder, new VmConfig { Name = "Test" });
+
+        try
+        {
+            await body(vmLauncher, vm, launcher, store);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static string ExeName(string baseName) => OperatingSystem.IsWindows() ? baseName + ".exe" : baseName;
 
     private static async Task WithStartedVmAsync(Func<IRunningVm, FakeProcessLauncher, RecordingQmpClient, Task> body, string firmware = "bios")
@@ -136,6 +212,7 @@ public class VmLauncherTests
             new QmpEndpointAllocator(),
             new FakeQmpConnector(recording),
             new FakeQgaConnector(),
+            new VmRuntimeStore(),
             new AcceleratorDetector(new TcgProbe()),
             new QemuLocator(qemuDir),
             NullLogger<VmLauncher>.Instance);

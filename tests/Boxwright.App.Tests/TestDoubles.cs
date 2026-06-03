@@ -87,6 +87,11 @@ internal sealed class FakeVmLauncher : IVmLauncher
         LastVm = vm;
         return Task.FromResult(_session);
     }
+
+    /// <summary>The session returned by <see cref="AdoptAsync"/> (null → nothing to adopt); set by reconnect tests.</summary>
+    public IRunningVm? AdoptResult { get; set; }
+
+    public Task<IRunningVm?> AdoptAsync(Vm vm, CancellationToken cancellationToken = default) => Task.FromResult(AdoptResult);
 }
 
 /// <summary>An <see cref="IVmLauncher"/> that always fails to start (e.g. accelerator unavailable).</summary>
@@ -98,6 +103,8 @@ internal sealed class ThrowingVmLauncher : IVmLauncher
 
     public Task<IRunningVm> StartAsync(Vm vm, CancellationToken cancellationToken = default) =>
         Task.FromException<IRunningVm>(_exception);
+
+    public Task<IRunningVm?> AdoptAsync(Vm vm, CancellationToken cancellationToken = default) => Task.FromResult<IRunningVm?>(null);
 }
 
 /// <summary>A fake disk service that records creates (or fails on demand) instead of invoking qemu-img.</summary>

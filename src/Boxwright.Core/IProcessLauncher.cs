@@ -10,6 +10,14 @@ public interface IProcessLauncher
 {
     /// <summary>Starts the process described by <paramref name="request"/>.</summary>
     IRunningProcess Start(ProcessLaunchRequest request);
+
+    /// <summary>
+    /// Adopts an already-running process by id — for re-managing a VM after the app restarts
+    /// (reconnect-on-restart, ADR-0014). Returns null if no such process exists or it isn't a QEMU
+    /// process (a PID-reuse guard). The handle has no stdout (the original pipe is gone) and detects
+    /// exit by polling.
+    /// </summary>
+    IRunningProcess? Attach(int processId);
 }
 
 /// <summary>Describes a process to launch.</summary>
