@@ -32,6 +32,7 @@ public sealed partial class VmSettingsViewModel : ObservableObject
         _memoryMiB = _original.MemoryMiB;
         _cpuCores = _original.Cpu.Cores;
         _firmware = _original.Firmware;
+        _osType = _original.OsType;
         _displayProtocol = _original.Display.Protocol;
         _displayGl = _original.Display.Gl;
         _bootMenu = _original.Boot.Menu;
@@ -60,6 +61,9 @@ public sealed partial class VmSettingsViewModel : ObservableObject
     private string _firmware;
 
     [ObservableProperty]
+    private string _osType;
+
+    [ObservableProperty]
     private string _displayProtocol;
 
     [ObservableProperty]
@@ -80,6 +84,8 @@ public sealed partial class VmSettingsViewModel : ObservableObject
     public bool IsRunning { get; }
 
     public IReadOnlyList<string> FirmwareOptions { get; } = ["bios", "uefi"];
+
+    public IReadOnlyList<string> OsTypeOptions { get; } = ["linux", "windows"];
 
     public IReadOnlyList<string> DisplayProtocolOptions { get; } = ["spice", "vnc"];
 
@@ -137,6 +143,7 @@ public sealed partial class VmSettingsViewModel : ObservableObject
             MemoryMiB = MemoryMiB,
             Cpu = _original.Cpu with { Cores = CpuCores },
             Firmware = Firmware,
+            OsType = OsType,
             Display = _original.Display with { Gl = DisplayGl, Protocol = DisplayProtocol },
             Boot = _original.Boot with { Menu = BootMenu },
         };

@@ -96,6 +96,7 @@ public sealed class CatalogViewModelTests
         // SampleEntry doesn't support autoinstall, so no seed is generated and only the primary disk exists.
         Assert.Empty(seed.Calls);
         Assert.Single(created.Config.Disks);
+        Assert.Equal("linux", created.Config.OsType); // catalog guests are Linux
     }
 
     [Fact]

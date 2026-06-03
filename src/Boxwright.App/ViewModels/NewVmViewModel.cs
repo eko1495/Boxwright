@@ -56,6 +56,9 @@ public sealed partial class NewVmViewModel : ObservableObject
     private string _firmware = "bios";
 
     [ObservableProperty]
+    private string _osType = "linux";
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasErrorMessage))]
     private string? _errorMessage;
 
@@ -65,6 +68,9 @@ public sealed partial class NewVmViewModel : ObservableObject
 
     /// <summary>The firmware choices offered (BIOS is the simplest first-boot default).</summary>
     public IReadOnlyList<string> FirmwareOptions { get; } = ["bios", "uefi"];
+
+    /// <summary>The guest-OS choices offered (selects the virtual GPU; Linux is the default).</summary>
+    public IReadOnlyList<string> OsTypeOptions { get; } = ["linux", "windows"];
 
     /// <summary>The first validation problem, or null when the form is valid.</summary>
     public string? ValidationError
@@ -157,6 +163,7 @@ public sealed partial class NewVmViewModel : ObservableObject
         MemoryMiB = MemoryMiB,
         Cpu = new CpuConfig { Sockets = 1, Cores = CpuCores, Threads = 1 },
         Firmware = Firmware,
+        OsType = OsType,
         Disks = [new DiskConfig { File = DiskFileName, Format = "qcow2", Interface = "virtio" }],
     };
 }

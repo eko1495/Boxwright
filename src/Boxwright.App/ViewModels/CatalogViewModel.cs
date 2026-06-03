@@ -396,6 +396,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         MemoryMiB = MemoryMiB,
         Cpu = new CpuConfig { Sockets = 1, Cores = CpuCores, Threads = 1 },
         Firmware = Firmware,
+        OsType = "linux", // every catalog entry is a Linux distro today
         Disks = [new DiskConfig { File = NewVmViewModel.DiskFileName, Format = "qcow2", Interface = "virtio" }],
         RemovableMedia = [new RemovableMediaConfig { Type = "cdrom", File = isoPath, Attached = true }],
         Boot = new BootConfig { Order = "dc" }, // boot the installer first, then disk

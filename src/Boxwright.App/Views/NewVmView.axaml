@@ -32,6 +32,11 @@
                         <ComboBox ItemsSource="{Binding FirmwareOptions}" SelectedItem="{Binding Firmware}"
                                   Width="160" HorizontalAlignment="Left" />
                     </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Guest OS" Opacity="0.7" />
+                        <ComboBox ItemsSource="{Binding OsTypeOptions}" SelectedItem="{Binding OsType}"
+                                  Width="160" HorizontalAlignment="Left" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

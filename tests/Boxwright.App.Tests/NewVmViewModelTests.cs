@@ -44,6 +44,7 @@ public sealed class NewVmViewModelTests : IDisposable
         Assert.Equal(2, form.CpuCores);
         Assert.Equal(20, form.DiskSizeGiB);
         Assert.Equal("bios", form.Firmware);
+        Assert.Equal("linux", form.OsType);
         Assert.Null(form.ValidationError);
         Assert.True(form.CreateCommand.CanExecute(null));
     }
@@ -85,6 +86,7 @@ public sealed class NewVmViewModelTests : IDisposable
         form.CpuCores = 4;
         form.DiskSizeGiB = 30;
         form.Firmware = "uefi";
+        form.OsType = "windows";
         Vm? created = null;
         form.Created += (_, vm) => created = vm;
 
@@ -95,6 +97,7 @@ public sealed class NewVmViewModelTests : IDisposable
         Assert.Equal(4096, created.Config.MemoryMiB);
         Assert.Equal(4, created.Config.Cpu.Cores);
         Assert.Equal("uefi", created.Config.Firmware);
+        Assert.Equal("windows", created.Config.OsType);
         DiskConfig diskCfg = Assert.Single(created.Config.Disks);
         Assert.Equal(NewVmViewModel.DiskFileName, diskCfg.File);
 
