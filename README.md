@@ -49,6 +49,7 @@ on Windows *and* macOS *and* Linux.** That gap is what Boxwright aims at.
   TCG fallback
 - ✅ ISO mount & boot; SPICE display via the system viewer
 - ✅ Guest audio (Intel HD Audio), played over SPICE by the system viewer
+- ✅ VMs keep running if Boxwright is closed or crashes — they're re-adopted (reconnected) on restart
 - ✅ One-click OS catalog (download & verify popular distros, then set up a VM)
 - 🚧 Unattended **Ubuntu** install (experimental, opt-in) — Boxwright builds a cloud-init autoinstall seed;
   on 24.04 the installer still needs a boot-time flag to run it hands-free, so it's off by default for now

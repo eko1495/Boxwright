@@ -42,3 +42,4 @@ What we rejected and why.
 | [0011](0011-linux-packaging.md) | Linux packaging: AppImage with system QEMU (not Flatpak, not bundled) | Accepted |
 | [0012](0012-embedded-vnc-display.md) | Embedded VNC display via MarcusW.VncClient (App-layer dep; opt-in by protocol) | Accepted |
 | [0013](0013-unattended-install-cloud-init.md) | Unattended install via a cloud-init NoCloud seed (Ubuntu autoinstall; FAT seed) | Accepted |
+| [0014](0014-vm-runtime-state-and-reconnect.md) | Persist VM runtime state; re-adopt running QEMU on restart (no daemon) | Accepted |

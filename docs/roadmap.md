@@ -97,6 +97,9 @@ Invest here only if Stage 2 metrics trend positive.
 - [x] **Guest audio** — Intel HD Audio sound card; audio plays over SPICE (remote-viewer), so there's
       no host-driver dependency. Host-direct playback for VNC/headless (pipewire/pa/coreaudio/dsound)
       is a fast-follow.
+- [x] **Reconnect on restart** — a per-VM `runtime.json` lets the app re-adopt QEMU processes that
+      survived an abnormal exit (reconnect QMP, show Running) instead of orphaning them. No daemon.
+      See ADR-0014.
 - [ ] USB passthrough wizard (ship UsbDk on Windows).
 - [ ] Bridged/TAP networking on Linux.
 - [ ] Live performance graphs from QMP `query-stats`.
