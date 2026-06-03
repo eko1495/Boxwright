@@ -102,11 +102,15 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _firmware = "uefi";
 
-    /// <summary>Whether to set up an unattended (autoinstall) install for the selected OS.</summary>
+    /// <summary>
+    /// Whether to set up an unattended (autoinstall) install for the selected OS. Opt-in/off by
+    /// default: the seed-only approach doesn't yet trigger autoinstall on Ubuntu 24.04's live-server
+    /// (it needs an <c>autoinstall</c> kernel arg — ADR-0013), so this is experimental.
+    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ValidationError), nameof(HasValidationError))]
     [NotifyCanExecuteChangedFor(nameof(GetItCommand))]
-    private bool _unattendedEnabled = true;
+    private bool _unattendedEnabled;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ValidationError), nameof(HasValidationError))]

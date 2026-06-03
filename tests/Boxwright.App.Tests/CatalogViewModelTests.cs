@@ -99,12 +99,28 @@ public sealed class CatalogViewModelTests
     }
 
     [Fact]
+    public async Task GetIt_UnattendedOptInOffByDefault_GeneratesNoSeed()
+    {
+        using var temp = new TempDir();
+        var repository = new VmRepository(temp.Path);
+        (CatalogViewModel vm, _, _, FakeSeedGenerator seed) = Build(repository);
+        vm.SelectedEntry = SampleEntry() with { SupportsAutoinstall = true };
+
+        Assert.False(vm.UnattendedEnabled); // opt-in: off until the user ticks it
+
+        await vm.GetItCommand.ExecuteAsync(null);
+
+        Assert.Empty(seed.Calls);
+    }
+
+    [Fact]
     public async Task GetIt_Unattended_GeneratesSeedAndAttachesItAsAnExtraDisk()
     {
         using var temp = new TempDir();
         var repository = new VmRepository(temp.Path);
         (CatalogViewModel vm, _, _, FakeSeedGenerator seed) = Build(repository);
         vm.SelectedEntry = SampleEntry() with { SupportsAutoinstall = true };
+        vm.UnattendedEnabled = true;
         vm.UnattendedUsername = "alice";
         vm.UnattendedPassword = "secret";
         Vm? created = null;

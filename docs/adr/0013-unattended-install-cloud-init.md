@@ -30,11 +30,14 @@ cmdline — which would require extracting kernel+initrd from the ISO.
   `$6$` (SHA-512 crypt) helper lives in Core. The plaintext never reaches the seed.
 - **First third-party functional dependency in `Boxwright.Core`** (DiscUtils, MIT). Deliberate and contained —
   it is managed and cross-platform, and violates no directive (not Avalonia, not libvirt, not QEMU-linking).
-- **Phased hands-free.** **Phase A (this ADR): "pre-filled, confirm-once"** — the seed alone; no kernel cmdline,
-  no kernel/initrd extraction; the user may confirm the disk-erase once in the guest. **Phase B (future, gated
-  on validation):** extract `/casper/vmlinuz` + `/casper/initrd` and boot
-  `-kernel`/`-initrd`/`-append "autoinstall ds=nocloud"` for true zero-touch — only if Phase A's smoke shows
-  confirm-once isn't good enough.
+- **Phased hands-free.** **Phase A (this ADR): the seed alone, no kernel cmdline.** Validated on the dev box
+  (2026-06-03): the seed is generated + attached correctly, but Ubuntu 24.04's **live-server installer ignores
+  a NoCloud seed without `autoinstall` on the kernel command line** — it boots the normal interactive installer.
+  So the option **ships opt-in/off and labelled experimental**: it writes a correct seed but does not yet make
+  the install hands-free. **Phase B (required to actually deliver it):** extract `/casper/vmlinuz` +
+  `/casper/initrd` and boot `-kernel`/`-initrd`/`-append "autoinstall ds=nocloud"` (stateful — first boot only).
+  A cleaner alternative is to switch Ubuntu to its **cloud image** (a pre-installed qcow2 that consumes the
+  NoCloud seed on first boot with no installer and no kernel arg). Both are deferred.
 - **Embedded SPICE was evaluated this cycle and deferred** (recorded here so the analysis isn't lost): there is
   no maintained .NET SPICE client; FFI to `libspice-client-glib` drags a heavy native dependency tree that is
   fragile to bundle on Windows/macOS (threatening Directive 4); the pure-Rust client is GPL v3 (blocked by
@@ -48,8 +51,10 @@ This **extends** ADR-0010 (the catalog); it supersedes nothing.
   with no external tools; the gating makes the per-distro reality visible instead of silently broken.
 - **Harder / accepted:** Ubuntu-only for now (others are honestly gated); the seed persists as a tiny extra
   disk after install (a post-install detach is a follow-up); the first third-party dependency in Core.
-- **Honest (Directive 9):** Phase A is **pre-filled, confirm-once**, not yet zero-touch — UI copy says as much,
-  and how hands-free it actually is must be confirmed by the dev-box smoke before any "fully automated" claim.
+- **Honest (Directive 9):** the dev-box smoke showed the seed alone does **not** trigger autoinstall on the
+  24.04 live-server (you get the manual installer). So the feature ships **opt-in/off and experimental** — it
+  generates a correct seed but does not yet automate the install; that needs Phase B (or cloud images). No
+  "automated install" claim until it actually does.
 
 ## Alternatives considered
 - **ISO9660 seed on a CD-ROM** (the obvious "second cdrom"): rejected — DiscUtils mangles the names and writes

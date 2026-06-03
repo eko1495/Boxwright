@@ -75,9 +75,9 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
       needs a non-direct acquisition flow). See ADR-0010.
 - [x] Checksum (SHA-256) verification + provenance display for downloads.
       GPG/PGP *signature* verification is a fast-follow.
-- [x] **Unattended install** for Ubuntu — generates a cloud-init NoCloud seed (FAT/`CIDATA`) so the
-      installer runs pre-answered; other distros are capability-gated to manual install (preseed/
-      kickstart differ). "Confirm-once" today; true zero-touch is a fast-follow. See ADR-0013.
+- [ ] **Unattended install** for Ubuntu — seed generation is done (cloud-init NoCloud FAT/`CIDATA`), but the
+      24.04 live-server ignores it without an `autoinstall` kernel arg, so it ships opt-in/experimental
+      pending that (Phase B) or a switch to cloud images. Other distros are capability-gated. See ADR-0013.
 - [ ] **Auto-attach virtio-win ISO** when creating a Windows guest.
 - [ ] qcow2 internal snapshots (create / list / revert / delete).
 - [ ] First public launch posts: r/qemu, r/linux, r/homelab, r/selfhosted,

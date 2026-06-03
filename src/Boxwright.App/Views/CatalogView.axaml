@@ -65,7 +65,7 @@
                 </Border>
 
                 <!-- Unattended install (Ubuntu autoinstall) — only when the selected OS supports it. -->
-                <Expander Header="Set up unattended install" IsExpanded="True"
+                <Expander Header="Set up unattended install (experimental)" IsExpanded="False"
                           HorizontalAlignment="Stretch" IsVisible="{Binding SelectedSupportsUnattended}">
                     <StackPanel Spacing="12">
                         <CheckBox Content="Install automatically (pre-answer the installer)"
@@ -85,7 +85,7 @@
                                          Width="240" HorizontalAlignment="Left" />
                             </StackPanel>
                             <TextBlock Opacity="0.55" FontSize="12" TextWrapping="Wrap"
-                                       Text="Boxwright pre-answers the installer. You may still need to confirm erasing the disk once inside the VM." />
+                                       Text="Experimental: Boxwright writes an autoinstall seed, but Ubuntu 24.04's installer may still run manually (it needs a boot-time flag Boxwright doesn't set yet). Leave this off for a normal install." />
                         </StackPanel>
                     </StackPanel>
                 </Expander>
