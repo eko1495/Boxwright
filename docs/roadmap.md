@@ -75,6 +75,9 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
       needs a non-direct acquisition flow). See ADR-0010.
 - [x] Checksum (SHA-256) verification + provenance display for downloads.
       GPG/PGP *signature* verification is a fast-follow.
+- [x] **Unattended install** for Ubuntu — generates a cloud-init NoCloud seed (FAT/`CIDATA`) so the
+      installer runs pre-answered; other distros are capability-gated to manual install (preseed/
+      kickstart differ). "Confirm-once" today; true zero-touch is a fast-follow. See ADR-0013.
 - [ ] **Auto-attach virtio-win ISO** when creating a Windows guest.
 - [ ] qcow2 internal snapshots (create / list / revert / delete).
 - [ ] First public launch posts: r/qemu, r/linux, r/homelab, r/selfhosted,
@@ -101,6 +104,8 @@ Invest here only if Stage 2 metrics trend positive.
 ## v1.0 — The complete tool
 
 - [ ] Embedded **SPICE** (clipboard, folder sharing, multi-monitor, USB redirect).
+      (Evaluated 2026-06 and deferred — no .NET SPICE client, native FFI risks cross-platform
+      parity, and remote-viewer is already smooth. See ADR-0013.)
 - [ ] VM templates + linked clones.
 - [ ] Headless mode / CLI parity (the GUI becomes optional, not mandatory).
 - [ ] Plugin/recipe API for community-contributed OS definitions.

@@ -48,7 +48,9 @@ on Windows *and* macOS *and* Linux.** That gap is what Boxwright aims at.
 - ✅ Automatic accelerator selection — KVM (Linux), HVF (macOS), WHPX (Windows),
   TCG fallback
 - ✅ ISO mount & boot; SPICE display via the system viewer
-- 🚧 One-click OS catalog (download & boot popular distros / Windows eval)
+- ✅ One-click OS catalog (download & verify popular distros, then set up a VM)
+- ✅ Unattended **Ubuntu** install — Boxwright pre-answers the installer (cloud-init autoinstall); other
+  distros install interactively for now
 - 🚧 Auto-attach virtio-win drivers for Windows guests
 - 🚧 Snapshots
 - ✅ Embedded display — render a VNC guest in-app (set a VM's display protocol to VNC). Best as a

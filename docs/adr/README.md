@@ -41,3 +41,4 @@ What we rejected and why.
 | [0010](0010-os-catalog.md) | One-click OS catalog: bundled JSON + verified ISO download to a shared cache | Accepted |
 | [0011](0011-linux-packaging.md) | Linux packaging: AppImage with system QEMU (not Flatpak, not bundled) | Accepted |
 | [0012](0012-embedded-vnc-display.md) | Embedded VNC display via MarcusW.VncClient (App-layer dep; opt-in by protocol) | Accepted |
+| [0013](0013-unattended-install-cloud-init.md) | Unattended install via a cloud-init NoCloud seed (Ubuntu autoinstall; FAT seed) | Accepted |
