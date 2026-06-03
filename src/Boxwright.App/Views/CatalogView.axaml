@@ -64,6 +64,37 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Unattended install (Ubuntu autoinstall) — only when the selected OS supports it. -->
+                <Expander Header="Set up unattended install" IsExpanded="True"
+                          HorizontalAlignment="Stretch" IsVisible="{Binding SelectedSupportsUnattended}">
+                    <StackPanel Spacing="12">
+                        <CheckBox Content="Install automatically (pre-answer the installer)"
+                                  IsChecked="{Binding UnattendedEnabled}" />
+                        <StackPanel Spacing="12" IsEnabled="{Binding UnattendedEnabled}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Hostname" Opacity="0.7" />
+                                <TextBox Text="{Binding Hostname}" Width="240" HorizontalAlignment="Left" />
+                            </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Username" Opacity="0.7" />
+                                <TextBox Text="{Binding UnattendedUsername}" Width="240" HorizontalAlignment="Left" />
+                            </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Password" Opacity="0.7" />
+                                <TextBox Text="{Binding UnattendedPassword}" PasswordChar="•"
+                                         Width="240" HorizontalAlignment="Left" />
+                            </StackPanel>
+                            <TextBlock Opacity="0.55" FontSize="12" TextWrapping="Wrap"
+                                       Text="Boxwright pre-answers the installer. You may still need to confirm erasing the disk once inside the VM." />
+                        </StackPanel>
+                    </StackPanel>
+                </Expander>
+
+                <!-- Other OSes install interactively (preseed/kickstart aren't automated yet — ADR-0013). -->
+                <ui:InfoBar IsOpen="{Binding ShowManualInstallNote}" IsClosable="False" Severity="Informational"
+                            Title="Manual install"
+                            Message="Unattended setup isn't available for this OS yet — Boxwright boots the installer and you follow the on-screen steps." />
+
                 <TextBlock Text="{Binding ValidationError}" IsVisible="{Binding HasValidationError}"
                            Foreground="#CC8800" TextWrapping="Wrap" />
             </StackPanel>
