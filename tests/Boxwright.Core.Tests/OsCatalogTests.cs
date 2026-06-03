@@ -27,10 +27,20 @@ public sealed class OsCatalogTests
             Assert.True(e.Recommended.DiskGiB > 0);
             Assert.False(string.IsNullOrWhiteSpace(e.Recommended.Firmware));
             Assert.False(string.IsNullOrWhiteSpace(e.SourceName));
+            Assert.False(string.IsNullOrWhiteSpace(e.OsFamily));
+
+            // Unattended install is currently Ubuntu-only (ADR-0013); the flag must not leak elsewhere.
+            if (e.SupportsAutoinstall)
+            {
+                Assert.Equal("ubuntu", e.OsFamily);
+            }
         }
 
         // Ids must be unique — they key the selection and the cache-file fallback name.
         Assert.Equal(entries.Count, entries.Select(e => e.Id).Distinct(StringComparer.Ordinal).Count());
+
+        // The catalog must actually offer autoinstall for Ubuntu (the headline of the feature).
+        Assert.Contains(entries, e => e.OsFamily == "ubuntu" && e.SupportsAutoinstall);
     }
 
     [Fact]
@@ -46,6 +56,7 @@ public sealed class OsCatalogTests
               "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
               "sizeBytes": 1234, "sourceName": "Example",
               "requiresLicense": true, "notes": "eval",
+              "osFamily": "ubuntu", "supportsAutoinstall": true,
               "recommended": { "memoryMiB": 1024, "cpuCores": 1, "diskGiB": 10, "firmware": "bios" }
             }
           ]
@@ -59,6 +70,8 @@ public sealed class OsCatalogTests
         Assert.Equal(new Uri("https://example.com/test.iso"), e.IsoUrl);
         Assert.True(e.RequiresLicense);
         Assert.Equal("eval", e.Notes);
+        Assert.Equal("ubuntu", e.OsFamily);
+        Assert.True(e.SupportsAutoinstall);
         Assert.Equal(1024, e.Recommended.MemoryMiB);
         Assert.Equal("bios", e.Recommended.Firmware);
     }

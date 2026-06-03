@@ -9,6 +9,8 @@
   "entries": [
     {
       "id": "ubuntu-24.04-desktop",
+      "osFamily": "ubuntu",
+      "supportsAutoinstall": true,
       "name": "Ubuntu Desktop",
       "version": "24.04.4 LTS",
       "arch": "x86_64",
@@ -21,6 +23,8 @@
     },
     {
       "id": "ubuntu-24.04-server",
+      "osFamily": "ubuntu",
+      "supportsAutoinstall": true,
       "name": "Ubuntu Server",
       "version": "24.04.4 LTS",
       "arch": "x86_64",
@@ -33,6 +37,7 @@
     },
     {
       "id": "debian-13-netinst",
+      "osFamily": "debian",
       "name": "Debian",
       "version": "13.5.0 (netinst)",
       "arch": "x86_64",
@@ -45,6 +50,7 @@
     },
     {
       "id": "fedora-44-workstation",
+      "osFamily": "fedora",
       "name": "Fedora Workstation",
       "version": "44",
       "arch": "x86_64",
@@ -57,6 +63,7 @@
     },
     {
       "id": "linuxmint-22.3-cinnamon",
+      "osFamily": "linuxmint",
       "name": "Linux Mint (Cinnamon)",
       "version": "22.3",
       "arch": "x86_64",

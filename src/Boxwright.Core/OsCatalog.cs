@@ -53,6 +53,19 @@ public sealed record OsCatalogEntry
     /// <summary>True when the OS needs a license the user must supply (e.g. a Windows evaluation).</summary>
     public bool RequiresLicense { get; init; }
 
+    /// <summary>
+    /// OS family, used to pick the unattended-install mechanism — e.g. <c>ubuntu</c> (cloud-init
+    /// autoinstall), <c>debian</c> (preseed), <c>fedora</c> (kickstart). Empty if unspecified.
+    /// </summary>
+    public string OsFamily { get; init; } = string.Empty;
+
+    /// <summary>
+    /// True when Boxwright can generate an unattended-install seed for this entry. Currently this
+    /// means Ubuntu autoinstall via a cloud-init NoCloud seed; other families install interactively
+    /// (capability-gated — see ADR-0013).
+    /// </summary>
+    public bool SupportsAutoinstall { get; init; }
+
     /// <summary>Optional note shown to the user (e.g. evaluation terms or install hints).</summary>
     public string? Notes { get; init; }
 }
