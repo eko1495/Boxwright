@@ -55,6 +55,7 @@ public sealed class VmSettingsViewModelTests : IDisposable
         Assert.Equal("bios", form.Firmware);
         Assert.Equal("linux", form.OsType);
         Assert.Equal("spice", form.DisplayProtocol);
+        Assert.True(form.AudioEnabled); // defaults on (seeded config has no Audio block)
         Assert.Null(form.ValidationError);
         Assert.True(form.SaveCommand.CanExecute(null));
     }
@@ -72,6 +73,7 @@ public sealed class VmSettingsViewModelTests : IDisposable
         form.DisplayProtocol = "vnc";
         form.DisplayGl = true;
         form.BootMenu = true;
+        form.AudioEnabled = false;
         VmConfig? saved = null;
         form.Saved += (_, cfg) => saved = cfg;
 
@@ -85,6 +87,7 @@ public sealed class VmSettingsViewModelTests : IDisposable
         Assert.Equal("uefi", reloaded.Firmware);
         Assert.Equal("windows", reloaded.OsType);
         Assert.Equal("vnc", reloaded.Display.Protocol);
+        Assert.False(reloaded.Audio.Enabled);
         Assert.True(reloaded.Display.Gl);
         Assert.True(reloaded.Boot.Menu);
 

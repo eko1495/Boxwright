@@ -36,6 +36,7 @@ public sealed partial class VmSettingsViewModel : ObservableObject
         _displayProtocol = _original.Display.Protocol;
         _displayGl = _original.Display.Gl;
         _bootMenu = _original.Boot.Menu;
+        _audioEnabled = _original.Audio.Enabled;
 
         DisksText = _original.Disks.Count == 0
             ? "(no disks)"
@@ -71,6 +72,9 @@ public sealed partial class VmSettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _bootMenu;
+
+    [ObservableProperty]
+    private bool _audioEnabled;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasErrorMessage))]
@@ -145,6 +149,7 @@ public sealed partial class VmSettingsViewModel : ObservableObject
             Firmware = Firmware,
             OsType = OsType,
             Display = _original.Display with { Gl = DisplayGl, Protocol = DisplayProtocol },
+            Audio = _original.Audio with { Enabled = AudioEnabled },
             Boot = _original.Boot with { Menu = BootMenu },
         };
 

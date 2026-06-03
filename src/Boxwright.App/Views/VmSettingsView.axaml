@@ -43,6 +43,7 @@
                         <ComboBox ItemsSource="{Binding DisplayProtocolOptions}" SelectedItem="{Binding DisplayProtocol}"
                                   Width="160" HorizontalAlignment="Left" />
                     </StackPanel>
+                    <CheckBox IsChecked="{Binding AudioEnabled}" Content="Enable audio" />
                     <CheckBox IsChecked="{Binding BootMenu}" Content="Show the firmware boot menu" />
                     <StackPanel Spacing="4">
                         <TextBlock Text="Disks (read-only)" Opacity="0.7" />
