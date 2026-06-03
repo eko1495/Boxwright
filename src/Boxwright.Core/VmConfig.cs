@@ -54,6 +54,9 @@ public sealed record VmConfig
     /// <summary>Display/console configuration.</summary>
     public DisplayConfig Display { get; init; } = new();
 
+    /// <summary>Audio/sound-card configuration.</summary>
+    public AudioConfig Audio { get; init; } = new();
+
     /// <summary>
     /// Accelerator selection. Persisted as <c>auto</c> and resolved per-host at
     /// launch; never persisted as a concrete value like <c>kvm</c> (ADR-0003).
@@ -137,6 +140,13 @@ public sealed record DisplayConfig
 
     /// <summary>Whether OpenGL acceleration is requested.</summary>
     public bool Gl { get; init; }
+}
+
+/// <summary>Audio/sound-card configuration.</summary>
+public sealed record AudioConfig
+{
+    /// <summary>Whether the VM has a sound card (Intel HD Audio). On by default.</summary>
+    public bool Enabled { get; init; } = true;
 }
 
 /// <summary>Boot order and firmware menu options.</summary>

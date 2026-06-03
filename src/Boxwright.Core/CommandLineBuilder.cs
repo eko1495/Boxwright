@@ -47,6 +47,7 @@ public static class CommandLineBuilder
         AppendNetworking(args, config);
         AppendInput(args);
         AppendDisplay(args, config, context);
+        AppendAudio(args, config);
         AppendGuestChannels(args, config, context);
 
         args.Add("-qmp");
@@ -176,6 +177,26 @@ public static class CommandLineBuilder
             args.Add("-vnc");
             args.Add($"127.0.0.1:{context.SpicePort - 5900}");
         }
+    }
+
+    // A sound card (Intel HD Audio) so the guest has audio. The backend rides the display: SPICE
+    // plays audio over the SPICE connection (remote-viewer), so there's no host-audio-driver
+    // dependency and nothing that can break VM launch. VNC has no audio channel in our embedded
+    // client, so it gets the null backend (a silent card) for now. Disabled → no card at all.
+    private static void AppendAudio(List<string> args, VmConfig config)
+    {
+        if (!config.Audio.Enabled)
+        {
+            return;
+        }
+
+        bool isVnc = string.Equals(config.Display.Protocol, "vnc", StringComparison.OrdinalIgnoreCase);
+        args.Add("-audiodev");
+        args.Add($"{(isVnc ? "none" : "spice")},id=audio0");
+        args.Add("-device");
+        args.Add("intel-hda");
+        args.Add("-device");
+        args.Add("hda-duplex,audiodev=audio0");
     }
 
     // The QEMU "-vga" device for a guest OS over SPICE (VNC always uses virtio-gpu). Mirrors

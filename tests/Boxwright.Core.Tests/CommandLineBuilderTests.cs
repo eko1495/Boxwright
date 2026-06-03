@@ -53,6 +53,9 @@ public class CommandLineBuilderTests
             "-device", "usb-tablet",
             "-vga", "virtio",
             "-spice", "port=5930,addr=127.0.0.1,disable-ticketing=on",
+            "-audiodev", "spice,id=audio0",
+            "-device", "intel-hda",
+            "-device", "hda-duplex,audiodev=audio0",
             "-device", "virtio-serial-pci",
             "-chardev", "socket,host=127.0.0.1,port=5931,server=on,wait=off,id=qga0",
             "-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0",
@@ -147,6 +150,40 @@ public class CommandLineBuilderTests
 
         Assert.Contains("spicevmc,id=spicechannel0,name=vdagent", args);
         Assert.Contains("virtserialport,chardev=spicechannel0,name=com.redhat.spice.0", args);
+    }
+
+    [Fact]
+    public void Build_SpiceGuest_RoutesAudioOverSpice()
+    {
+        // Boxwright's default display is SPICE, so audio rides the SPICE connection (no host driver).
+        IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());
+
+        Assert.Equal("spice,id=audio0", ArgValue(args, "-audiodev"));
+        Assert.Contains("intel-hda", args);
+        Assert.Contains("hda-duplex,audiodev=audio0", args);
+    }
+
+    [Fact]
+    public void Build_VncGuest_UsesNullAudioBackend()
+    {
+        // The embedded VNC client carries no audio, so the card is present but silent (null backend).
+        VmConfig config = CanonicalConfig() with { Display = new DisplayConfig { Protocol = "vnc" } };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Equal("none,id=audio0", ArgValue(args, "-audiodev"));
+        Assert.Contains("intel-hda", args);
+    }
+
+    [Fact]
+    public void Build_AudioDisabled_EmitsNoSoundCard()
+    {
+        VmConfig config = CanonicalConfig() with { Audio = new AudioConfig { Enabled = false } };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.DoesNotContain("-audiodev", args);
+        Assert.DoesNotContain("intel-hda", args);
     }
 
     [Fact]
