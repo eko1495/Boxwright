@@ -151,12 +151,12 @@ public static class CommandLineBuilder
     {
         bool isVnc = string.Equals(config.Display.Protocol, "vnc", StringComparison.OrdinalIgnoreCase);
 
-        // A real paravirtual GPU so the guest desktop renders — bare "std" VGA commonly leaves
-        // modern GNOME/Wayland on a black screen. QXL pairs with SPICE; over VNC it pushes large,
-        // frequent framebuffer updates (sluggish), so VNC guests get virtio-gpu instead: VGA-compatible
-        // at boot (no black screen) and efficient under VNC once the guest's virtio-gpu driver loads.
+        // virtio-gpu (virtio-vga) for every guest. It renders modern GNOME/Wayland desktops
+        // (Ubuntu 24.04+, Fedora) that the SPICE-era "qxl" leaves on a black screen, and it's
+        // VGA-compatible at boot so older guests still get a framebuffer. Works over both SPICE
+        // (remote-viewer) and VNC; bare "std" was avoided because it black-screens modern GNOME.
         args.Add("-vga");
-        args.Add(isVnc ? "virtio" : "qxl");
+        args.Add("virtio");
 
         if (string.Equals(config.Display.Protocol, "spice", StringComparison.OrdinalIgnoreCase))
         {

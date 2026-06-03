@@ -52,7 +52,10 @@ public sealed class VmLauncher : IVmLauncher
 
         Accelerator accelerator = _acceleratorDetector.Detect();
         QmpEndpoint qmpEndpoint = _endpointAllocator.AllocateQmpEndpoint();
-        int spicePort = _endpointAllocator.AllocateFreeTcpPort();
+
+        // VNC's display number is (port - 5900), so its display port must be ≥ 5900; SPICE takes any free port.
+        bool isVnc = string.Equals(vm.Config.Display.Protocol, "vnc", StringComparison.OrdinalIgnoreCase);
+        int spicePort = _endpointAllocator.AllocateFreeTcpPort(isVnc ? 5900 : 0);
         int guestAgentPort = _endpointAllocator.AllocateFreeTcpPort();
         (string? uefiCode, string? uefiVars) = PrepareUefiFirmware(vm);
 

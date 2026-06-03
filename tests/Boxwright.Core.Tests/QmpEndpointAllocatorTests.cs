@@ -17,6 +17,16 @@ public class QmpEndpointAllocatorTests
     }
 
     [Fact]
+    public void AllocateFreeTcpPort_WithMinimum_ReturnsPortAtOrAboveIt()
+    {
+        var allocator = new QmpEndpointAllocator();
+
+        int port = allocator.AllocateFreeTcpPort(5900); // VNC display ports must be >= 5900
+
+        Assert.InRange(port, 5900, 65535);
+    }
+
+    [Fact]
     public void AllocateQmpEndpoint_MatchesHostTransport()
     {
         var allocator = new QmpEndpointAllocator();

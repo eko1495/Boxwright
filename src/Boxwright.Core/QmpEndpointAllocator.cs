@@ -10,8 +10,12 @@ public interface IEndpointAllocator
     /// <summary>Allocates a QMP endpoint for this host (TCP on Windows, Unix socket elsewhere).</summary>
     QmpEndpoint AllocateQmpEndpoint();
 
-    /// <summary>Allocates a currently-free loopback TCP port (e.g. for the display server).</summary>
-    int AllocateFreeTcpPort();
+    /// <summary>
+    /// Allocates a currently-free loopback TCP port (e.g. for the display server). When
+    /// <paramref name="minPort"/> is positive, the chosen port is at or above it — VNC needs
+    /// ≥ 5900 because its display number is <c>port − 5900</c>.
+    /// </summary>
+    int AllocateFreeTcpPort(int minPort = 0);
 }
 
 /// <summary>
@@ -34,10 +38,30 @@ public sealed class QmpEndpointAllocator : IEndpointAllocator
     }
 
     /// <inheritdoc />
-    public int AllocateFreeTcpPort()
+    public int AllocateFreeTcpPort(int minPort = 0)
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        return ((IPEndPoint)listener.LocalEndpoint).Port;
+        if (minPort <= 0)
+        {
+            using var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            return ((IPEndPoint)listener.LocalEndpoint).Port;
+        }
+
+        // Scan upward for a free port at or above minPort (VNC display ports must be ≥ 5900).
+        for (int port = minPort; port <= 65535; port++)
+        {
+            try
+            {
+                using var listener = new TcpListener(IPAddress.Loopback, port);
+                listener.Start();
+                return port;
+            }
+            catch (SocketException)
+            {
+                // Port in use — try the next one.
+            }
+        }
+
+        throw new InvalidOperationException($"No free loopback TCP port available at or above {minPort}.");
     }
 }

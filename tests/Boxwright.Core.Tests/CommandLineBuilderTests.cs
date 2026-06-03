@@ -51,7 +51,7 @@ public class CommandLineBuilderTests
             "-device", "virtio-net,netdev=net0",
             "-usb",
             "-device", "usb-tablet",
-            "-vga", "qxl",
+            "-vga", "virtio",
             "-spice", "port=5930,addr=127.0.0.1,disable-ticketing=on",
             "-device", "virtio-serial-pci",
             "-chardev", "socket,host=127.0.0.1,port=5931,server=on,wait=off,id=qga0",
@@ -74,11 +74,12 @@ public class CommandLineBuilderTests
     }
 
     [Fact]
-    public void Build_IncludesQxlGpu_SoTheDesktopRenders()
+    public void Build_IncludesVirtioGpu_SoModernDesktopsRender()
     {
+        // virtio-gpu renders modern GNOME/Wayland (Ubuntu 24.04+, Fedora); qxl black-screens them.
         IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());
 
-        Assert.Equal("qxl", ArgValue(args, "-vga"));
+        Assert.Equal("virtio", ArgValue(args, "-vga"));
     }
 
     [Fact]
