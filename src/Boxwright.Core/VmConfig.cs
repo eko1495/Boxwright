@@ -29,6 +29,13 @@ public sealed record VmConfig
     /// <summary>Firmware: <c>bios</c> (the MVP default — simplest first boot) or <c>uefi</c> (OVMF firmware located by <see cref="QemuLocator.ResolveUefiFirmware"/>, with a per-VM NVRAM copy).</summary>
     public string Firmware { get; init; } = "bios";
 
+    /// <summary>
+    /// Guest OS family — <c>linux</c> (default), <c>windows</c>, or <c>macos</c>. Selects a
+    /// guest-appropriate virtual GPU (Linux → virtio-gpu, Windows → qxl, macOS → vmware-svga),
+    /// mirroring Quickemu. Boot-time only.
+    /// </summary>
+    public string OsType { get; init; } = "linux";
+
     /// <summary>CPU model and topology.</summary>
     public CpuConfig Cpu { get; init; } = new();
 

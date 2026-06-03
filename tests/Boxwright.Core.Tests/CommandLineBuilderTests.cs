@@ -74,10 +74,43 @@ public class CommandLineBuilderTests
     }
 
     [Fact]
-    public void Build_IncludesVirtioGpu_SoModernDesktopsRender()
+    public void Build_LinuxGuest_UsesVirtioGpu_SoModernDesktopsRender()
     {
         // virtio-gpu renders modern GNOME/Wayland (Ubuntu 24.04+, Fedora); qxl black-screens them.
+        // CanonicalConfig has no OsType, so it defaults to "linux".
         IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());
+
+        Assert.Equal("virtio", ArgValue(args, "-vga"));
+    }
+
+    [Fact]
+    public void Build_WindowsGuest_UsesQxlVga()
+    {
+        // Windows ships qxl drivers and renders poorly on bare virtio-gpu without virtio-win.
+        VmConfig config = CanonicalConfig() with { OsType = "windows" };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Equal("qxl", ArgValue(args, "-vga"));
+    }
+
+    [Fact]
+    public void Build_MacosGuest_UsesVmwareSvga()
+    {
+        VmConfig config = CanonicalConfig() with { OsType = "macos" };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Equal("vmware", ArgValue(args, "-vga"));
+    }
+
+    [Fact]
+    public void Build_VncIgnoresOsType_AlwaysVirtio()
+    {
+        // VNC streams the framebuffer; virtio-gpu is the efficient, render-everything choice there.
+        VmConfig config = CanonicalConfig() with { OsType = "windows", Display = new DisplayConfig { Protocol = "vnc" } };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
 
         Assert.Equal("virtio", ArgValue(args, "-vga"));
     }

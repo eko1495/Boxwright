@@ -151,12 +151,12 @@ public static class CommandLineBuilder
     {
         bool isVnc = string.Equals(config.Display.Protocol, "vnc", StringComparison.OrdinalIgnoreCase);
 
-        // virtio-gpu (virtio-vga) for every guest. It renders modern GNOME/Wayland desktops
-        // (Ubuntu 24.04+, Fedora) that the SPICE-era "qxl" leaves on a black screen, and it's
-        // VGA-compatible at boot so older guests still get a framebuffer. Works over both SPICE
-        // (remote-viewer) and VNC; bare "std" was avoided because it black-screens modern GNOME.
+        // Per-guest GPU (mirrors Quickemu): Windows → qxl (good in-box Windows drivers), macOS →
+        // vmware-svga, everything else (Linux) → virtio-gpu, which renders modern GNOME/Wayland
+        // (Ubuntu 24.04+, Fedora) where qxl black-screens it. VNC always uses virtio-gpu — it's
+        // efficient and VGA-compatible at boot, so it renders before guest drivers load.
         args.Add("-vga");
-        args.Add("virtio");
+        args.Add(isVnc ? "virtio" : VgaForGuest(config.OsType));
 
         if (string.Equals(config.Display.Protocol, "spice", StringComparison.OrdinalIgnoreCase))
         {
@@ -177,6 +177,15 @@ public static class CommandLineBuilder
             args.Add($"127.0.0.1:{context.SpicePort - 5900}");
         }
     }
+
+    // The QEMU "-vga" device for a guest OS over SPICE (VNC always uses virtio-gpu). Mirrors
+    // Quickemu's per-guest choice; an unknown OsType falls back to the Linux/virtio default.
+    private static string VgaForGuest(string osType) => osType.ToLowerInvariant() switch
+    {
+        "windows" => "qxl",   // qxl-vga
+        "macos" => "vmware",  // vmware-svga
+        _ => "virtio",        // virtio-vga (Linux + default)
+    };
 
     // Agent channels share one virtio-serial bus: the QEMU Guest Agent (clean shutdown +
     // guest IP, always wired) and, for SPICE displays, the spice-vdagent (clipboard +
