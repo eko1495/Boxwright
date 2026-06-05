@@ -83,8 +83,17 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
   - [x] *Desktop/Server ISO autoinstall* (Phase B) — `InstallMediaExtractor` pulls the ISO's
         `vmlinuz`/`initrd` and the VM boots `-kernel/-initrd -append "autoinstall …"`, so subiquity runs
         fully non-interactively (no "Review your choices" prompt); the one-shot kernel boot is dropped once
-        the install powers off. Verified end-to-end on real QEMU (q35/UEFI). Other distros (preseed/
-        kickstart) are capability-gated — PR 4.
+        the install powers off. Verified end-to-end on real QEMU (q35/UEFI).
+- **Unattended install** for Debian (see ADR-0016):
+  - [x] *Netinst preseed* — a per-family installer seam (`IUnattendedInstaller`, resolved by OS family)
+        adds Debian: `DebianPreseedInstaller` extracts the text installer's `install.amd/vmlinuz` +
+        `initrd.gz`, **injects** a generated `preseed.cfg` into the initrd (a gzipped cpio segment — no
+        external tool), and boots `-append "auto=true priority=critical"` so d-i runs fully non-interactively
+        (auto-confirming the partman disk-write prompts). Installs a GNOME desktop and powers off, after which
+        the VM graduates to a disk boot (same finalize path as Ubuntu).
+  - [ ] *Fedora kickstart* — capability-gated/deferred: the catalog's Fedora **Workstation Live** ISO can't
+        run a kickstart install (Live media limitation). Needs a separate Fedora **Server/netinst** catalog
+        entry + a network-repo `inst.ks`/OEMDRV path.
 - **Unattended Windows** install (see ADR-0015):
   - [x] *Bring-your-own ISO* — pick a Windows 10/11 ISO in the New-VM flow + credentials; Boxwright bakes
         an `Autounattend.xml` seed CD (local admin + auto-login), bypasses the Win11 TPM/Secure-Boot

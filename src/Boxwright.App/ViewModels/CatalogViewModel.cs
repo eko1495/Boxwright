@@ -22,13 +22,10 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
     private readonly VmRepository _repository;
     private readonly IDiskService _diskService;
     private readonly ISeedGenerator _seedGenerator;
-    private readonly IInstallMediaExtractor _extractor;
+    private readonly IUnattendedInstallerResolver _installerResolver;
     private readonly IUiDispatcher _dispatcher;
     private readonly Func<string, bool> _isNameTaken;
     private CancellationTokenSource? _cts;
-
-    // The kernel command line that makes the Ubuntu installer run fully non-interactively (ADR-0013 Phase B).
-    private const string AutoinstallSeedArgs = "autoinstall ds=nocloud";
 
     public CatalogViewModel(
         IOsCatalogSource catalogSource,
@@ -36,7 +33,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         VmRepository repository,
         IDiskService diskService,
         ISeedGenerator seedGenerator,
-        IInstallMediaExtractor extractor,
+        IUnattendedInstallerResolver installerResolver,
         IUiDispatcher dispatcher,
         Func<string, bool> isNameTaken)
     {
@@ -45,7 +42,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(diskService);
         ArgumentNullException.ThrowIfNull(seedGenerator);
-        ArgumentNullException.ThrowIfNull(extractor);
+        ArgumentNullException.ThrowIfNull(installerResolver);
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(isNameTaken);
 
@@ -54,7 +51,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         _repository = repository;
         _diskService = diskService;
         _seedGenerator = seedGenerator;
-        _extractor = extractor;
+        _installerResolver = installerResolver;
         _dispatcher = dispatcher;
         _isNameTaken = isNameTaken;
     }
@@ -337,19 +334,20 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
             return;
         }
 
-        // Unattended autoinstall: bake the cloud-init seed (attached as a tiny extra disk) AND extract the
-        // ISO's kernel+initrd so the VM boots with `autoinstall` on the kernel cmdline (ADR-0013 Phase B) —
-        // that's what makes the installer skip the manual "Review your choices" confirmation. The InstallBoot
-        // is cleared automatically once the install finishes (see VmListItemViewModel.OnSessionExited).
+        // Unattended install: the per-family installer (resolved by OS family — ADR-0016) prepares the
+        // installer media and returns how to boot it. For Ubuntu that's a cloud-init seed disk plus an
+        // `autoinstall` kernel boot; for Debian it's a preseed injected into the installer initrd. The
+        // one-shot InstallBoot is what makes the installer skip the manual disk-erase confirmation; it is
+        // cleared automatically once the install finishes (see VmListItemViewModel.OnSessionExited).
         if (UnattendedActive)
         {
             try
             {
-                _seedGenerator.Generate(BuildAnswers(), vm.FolderPath);
+                UnattendedInstallPlan plan = _installerResolver.Resolve(entry.OsFamily).Prepare(downloadedPath, vm.FolderPath, BuildAnswers());
                 VmConfig withSeed = vm.Config with
                 {
-                    Disks = [.. vm.Config.Disks, new DiskConfig { File = CloudInitSeedGenerator.SeedFileName, Format = "raw", Interface = "virtio" }],
-                    InstallBoot = _extractor.Extract(downloadedPath, vm.FolderPath, AutoinstallSeedArgs),
+                    Disks = [.. vm.Config.Disks, .. plan.SeedDisks],
+                    InstallBoot = plan.Boot,
                 };
                 await _repository.SaveAsync(withSeed);
                 vm = vm with { Config = withSeed };

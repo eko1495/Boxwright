@@ -58,6 +58,7 @@
     {
       "id": "debian-13-netinst",
       "osFamily": "debian",
+      "supportsAutoinstall": true,
       "name": "Debian",
       "version": "13.5.0 (netinst)",
       "arch": "x86_64",
@@ -66,7 +67,7 @@
       "sizeBytes": 696254464,
       "recommended": { "memoryMiB": 2048, "cpuCores": 2, "diskGiB": 20, "firmware": "uefi" },
       "sourceName": "Debian · cdimage.debian.org",
-      "notes": "Minimal network installer — needs an internet connection during installation."
+      "notes": "Network installer — needs an internet connection during installation. Unattended installs a GNOME desktop, so the first install downloads a lot of packages and takes a while."
     },
     {
       "id": "fedora-44-workstation",

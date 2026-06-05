@@ -1,12 +1,11 @@
 using System.Text.RegularExpressions;
-using DiscUtils.Iso9660;
 
 namespace Boxwright.Core;
 
 /// <summary>
 /// Extracts the installer kernel + initrd from an Ubuntu (casper) live ISO and builds the
-/// <see cref="InstallBootConfig"/> that boots it hands-free (ADR-0013 Phase B). Reads the ISO with
-/// DiscUtils' <see cref="CDReader"/> — pure managed code, no external tool — so it works the same on
+/// <see cref="InstallBootConfig"/> that boots it hands-free (ADR-0013 Phase B). Reads the ISO via
+/// <see cref="IsoMedia"/> (DiscUtils) — pure managed code, no external tool — so it works the same on
 /// Windows, macOS, and Linux. The ISO's own kernel command line (from <c>/boot/grub/grub.cfg</c>) is
 /// preserved (it carries the desktop ISO's <c>layerfs-path=…</c>), with the caller's
 /// <c>autoinstall</c> arguments prepended so the installer runs non-interactively.
@@ -33,50 +32,28 @@ public sealed partial class InstallMediaExtractor : IInstallMediaExtractor
 
         Directory.CreateDirectory(vmFolderPath);
 
-        FileStream iso;
-        try
+        using IsoMedia iso = IsoMedia.Open(isoPath);
+
+        if (!iso.FileExists(KernelIsoPath))
         {
-            iso = new FileStream(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            throw new InstallMediaException($"Couldn't open the installer ISO '{Path.GetFileName(isoPath)}': {ex.Message}", ex);
+            throw new InstallMediaException(
+                $"'{Path.GetFileName(isoPath)}' has no installer kernel at /casper/vmlinuz — it may not be an Ubuntu (casper) live ISO.");
         }
 
-        using (iso)
+        iso.CopyFile(KernelIsoPath, Path.Combine(vmFolderPath, KernelFileName));
+
+        string? initrdSource = Array.Find(InitrdIsoPaths, iso.FileExists)
+            ?? throw new InstallMediaException($"'{Path.GetFileName(isoPath)}' has no installer initrd under /casper.");
+        iso.CopyFile(initrdSource, Path.Combine(vmFolderPath, InitrdFileName));
+
+        string grubCfg = iso.FileExists(GrubCfgIsoPath) ? iso.ReadText(GrubCfgIsoPath) : string.Empty;
+
+        return new InstallBootConfig
         {
-            CDReader reader;
-            try
-            {
-                reader = new CDReader(iso, joliet: true);
-            }
-            catch (Exception ex)
-            {
-                // Any parse failure means it isn't a usable ISO9660 image.
-                throw new InstallMediaException($"'{Path.GetFileName(isoPath)}' is not a readable ISO9660 image: {ex.Message}", ex);
-            }
-
-            if (!reader.FileExists(KernelIsoPath))
-            {
-                throw new InstallMediaException(
-                    $"'{Path.GetFileName(isoPath)}' has no installer kernel at /casper/vmlinuz — it may not be an Ubuntu (casper) live ISO.");
-            }
-
-            ExtractFile(reader, KernelIsoPath, Path.Combine(vmFolderPath, KernelFileName));
-
-            string? initrdSource = Array.Find(InitrdIsoPaths, reader.FileExists)
-                ?? throw new InstallMediaException($"'{Path.GetFileName(isoPath)}' has no installer initrd under /casper.");
-            ExtractFile(reader, initrdSource, Path.Combine(vmFolderPath, InitrdFileName));
-
-            string grubCfg = reader.FileExists(GrubCfgIsoPath) ? ReadText(reader, GrubCfgIsoPath) : string.Empty;
-
-            return new InstallBootConfig
-            {
-                KernelFile = KernelFileName,
-                InitrdFile = InitrdFileName,
-                Append = BuildAppend(seedArgs, grubCfg),
-            };
-        }
+            KernelFile = KernelFileName,
+            InitrdFile = InitrdFileName,
+            Append = BuildAppend(seedArgs, grubCfg),
+        };
     }
 
     /// <summary>
@@ -91,20 +68,6 @@ public sealed partial class InstallMediaExtractor : IInstallMediaExtractor
         string baseArgs = match.Success ? match.Groups["args"].Value.Trim() : string.Empty;
         string combined = string.IsNullOrWhiteSpace(baseArgs) ? seedArgs : $"{seedArgs} {baseArgs}";
         return combined.Trim();
-    }
-
-    private static void ExtractFile(CDReader reader, string isoPath, string destination)
-    {
-        using Stream source = reader.OpenFile(isoPath, FileMode.Open, FileAccess.Read);
-        using var dest = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None);
-        source.CopyTo(dest);
-    }
-
-    private static string ReadText(CDReader reader, string path)
-    {
-        using Stream stream = reader.OpenFile(path, FileMode.Open, FileAccess.Read);
-        using var text = new StreamReader(stream);
-        return text.ReadToEnd();
     }
 
     [GeneratedRegex(@"linux\s+/casper/vmlinuz\s+(?<args>[^\r\n]*)", RegexOptions.IgnoreCase)]

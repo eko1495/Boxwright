@@ -108,7 +108,7 @@
                                          Width="240" HorizontalAlignment="Left" />
                             </StackPanel>
                             <TextBlock Opacity="0.55" FontSize="12" TextWrapping="Wrap"
-                                       Text="Boxwright pre-answers the installer and boots it with the autoinstall flag, so the whole install runs hands-free and the VM is ready when it powers off. Leave this off to click through the installer yourself." />
+                                       Text="Boxwright pre-answers the installer and runs it hands-free, so the whole install completes on its own and the VM is ready when it powers off. Leave this off to click through the installer yourself." />
                         </StackPanel>
                     </StackPanel>
                 </Expander>

@@ -83,6 +83,12 @@ internal static class ServiceConfiguration
         // Extracts an installer ISO's kernel/initrd so an Ubuntu autoinstall boots hands-free (ADR-0013 Phase B).
         services.AddSingleton<IInstallMediaExtractor, InstallMediaExtractor>();
 
+        // Per-family unattended installers, resolved by OS family (ADR-0016): Ubuntu autoinstall (cloud-init
+        // CIDATA seed) and Debian preseed (initrd-injected). New families are just one more registration here.
+        services.AddSingleton<IUnattendedInstaller, UbuntuAutoinstaller>();
+        services.AddSingleton<IUnattendedInstaller, DebianPreseedInstaller>();
+        services.AddSingleton<IUnattendedInstallerResolver, UnattendedInstallerResolver>();
+
         // View models.
         services.AddTransient<VmListViewModel>();
         services.AddTransient<MainWindowViewModel>();

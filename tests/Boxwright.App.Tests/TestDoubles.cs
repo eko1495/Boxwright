@@ -341,25 +341,46 @@ internal sealed class FakeSeedGenerator : ISeedGenerator
     }
 }
 
-/// <summary>A fake installer-kernel extractor: records requests and returns a preset (or failing) InstallBoot.</summary>
-internal sealed class FakeInstallMediaExtractor : IInstallMediaExtractor
+/// <summary>A fake per-family unattended installer: records Prepare requests and returns a preset (or failing) plan.</summary>
+internal sealed class FakeUnattendedInstaller : IUnattendedInstaller
 {
-    public List<(string IsoPath, string VmFolder, string SeedArgs)> Calls { get; } = [];
+    public List<(string IsoPath, string VmFolder, UnattendedAnswers Answers)> Calls { get; } = [];
+
+    public string OsFamily { get; init; } = "test";
 
     public Exception? FailWith { get; init; }
 
-    public InstallBootConfig Result { get; init; } =
-        new() { KernelFile = "vmlinuz", InitrdFile = "initrd", Append = "autoinstall ds=nocloud" };
-
-    public InstallBootConfig Extract(string isoPath, string vmFolderPath, string seedArgs)
+    public UnattendedInstallPlan Result { get; init; } = new()
     {
-        Calls.Add((isoPath, vmFolderPath, seedArgs));
+        Boot = new InstallBootConfig { KernelFile = "vmlinuz", InitrdFile = "initrd", Append = "autoinstall ds=nocloud" },
+        SeedDisks = [new DiskConfig { File = "seed.img", Format = "raw", Interface = "virtio" }],
+    };
+
+    public UnattendedInstallPlan Prepare(string isoPath, string vmFolderPath, UnattendedAnswers answers)
+    {
+        Calls.Add((isoPath, vmFolderPath, answers));
         if (FailWith is not null)
         {
             throw FailWith;
         }
 
         return Result;
+    }
+}
+
+/// <summary>A fake resolver that always returns one configured installer, recording each requested family.</summary>
+internal sealed class FakeUnattendedInstallerResolver : IUnattendedInstallerResolver
+{
+    private readonly IUnattendedInstaller _installer;
+
+    public FakeUnattendedInstallerResolver(IUnattendedInstaller installer) => _installer = installer;
+
+    public List<string> ResolvedFamilies { get; } = [];
+
+    public IUnattendedInstaller Resolve(string osFamily)
+    {
+        ResolvedFamilies.Add(osFamily);
+        return _installer;
     }
 }
 

@@ -18,7 +18,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly IOsCatalogSource _catalogSource;
     private readonly IIsoDownloader _isoDownloader;
     private readonly ISeedGenerator _seedGenerator;
-    private readonly IInstallMediaExtractor _installMediaExtractor;
+    private readonly IUnattendedInstallerResolver _installerResolver;
     private readonly IAutounattendSeedGenerator _autounattendSeedGenerator;
     private readonly IFilePicker _filePicker;
     private readonly IUiDispatcher _dispatcher;
@@ -32,7 +32,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IOsCatalogSource catalogSource,
         IIsoDownloader isoDownloader,
         ISeedGenerator seedGenerator,
-        IInstallMediaExtractor installMediaExtractor,
+        IUnattendedInstallerResolver installerResolver,
         IAutounattendSeedGenerator autounattendSeedGenerator,
         IFilePicker filePicker,
         IUiDispatcher dispatcher)
@@ -45,7 +45,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(catalogSource);
         ArgumentNullException.ThrowIfNull(isoDownloader);
         ArgumentNullException.ThrowIfNull(seedGenerator);
-        ArgumentNullException.ThrowIfNull(installMediaExtractor);
+        ArgumentNullException.ThrowIfNull(installerResolver);
         ArgumentNullException.ThrowIfNull(autounattendSeedGenerator);
         ArgumentNullException.ThrowIfNull(filePicker);
         ArgumentNullException.ThrowIfNull(dispatcher);
@@ -57,7 +57,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _catalogSource = catalogSource;
         _isoDownloader = isoDownloader;
         _seedGenerator = seedGenerator;
-        _installMediaExtractor = installMediaExtractor;
+        _installerResolver = installerResolver;
         _autounattendSeedGenerator = autounattendSeedGenerator;
         _filePicker = filePicker;
         _dispatcher = dispatcher;
@@ -145,7 +145,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        var form = new CatalogViewModel(_catalogSource, _isoDownloader, _repository, _diskService, _seedGenerator, _installMediaExtractor, _dispatcher, IsNameTaken);
+        var form = new CatalogViewModel(_catalogSource, _isoDownloader, _repository, _diskService, _seedGenerator, _installerResolver, _dispatcher, IsNameTaken);
         form.Created += OnCatalogCreated;
         form.Cancelled += OnCatalogCancelled;
         Catalog = form;

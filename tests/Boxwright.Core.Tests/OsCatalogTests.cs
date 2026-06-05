@@ -29,10 +29,11 @@ public sealed class OsCatalogTests
             Assert.False(string.IsNullOrWhiteSpace(e.SourceName));
             Assert.False(string.IsNullOrWhiteSpace(e.OsFamily));
 
-            // Unattended install is currently Ubuntu-only (ADR-0013); the flag must not leak elsewhere.
+            // Unattended install is gated to the families with a registered installer (ADR-0013/0016):
+            // Ubuntu (autoinstall) and Debian (preseed). The flag must not leak to unsupported families.
             if (e.SupportsAutoinstall)
             {
-                Assert.Equal("ubuntu", e.OsFamily);
+                Assert.True(e.OsFamily is "ubuntu" or "debian", $"Unexpected autoinstall family: {e.OsFamily}");
             }
         }
 
