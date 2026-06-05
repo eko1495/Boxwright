@@ -36,6 +36,26 @@
       "requiresLicense": false
     },
     {
+      // Pre-installed cloud image (qcow2), not an installer ISO: it is flattened into the VM disk and
+      // boots straight into cloud-init, which applies the seed on first boot — a genuinely hands-free
+      // install (no installer screens). Server image (no desktop). The SHA-256 below is the source of
+      // truth; sizeBytes is approximate (progress only) and, like the hash, rotates each point release.
+      "id": "ubuntu-24.04-server-cloudimage",
+      "imageKind": "cloudimage",
+      "osFamily": "ubuntu",
+      "supportsAutoinstall": true,
+      "name": "Ubuntu Server (cloud image)",
+      "version": "24.04 LTS",
+      "arch": "x86_64",
+      "isoUrl": "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img",
+      "sha256": "53fdde898feed8b027d94baa9cfe8229867f330a1d9c49dc7d84465ee7f229f7",
+      "sizeBytes": 628097024,
+      "recommended": { "memoryMiB": 2048, "cpuCores": 2, "diskGiB": 20, "firmware": "uefi" },
+      "sourceName": "Canonical · cloud-images.ubuntu.com",
+      "requiresLicense": false,
+      "notes": "Hands-free: a pre-installed server image set up by cloud-init on first boot. Headless server (no desktop) — sign in at the console with the username and password you set."
+    },
+    {
       "id": "debian-13-netinst",
       "osFamily": "debian",
       "name": "Debian",

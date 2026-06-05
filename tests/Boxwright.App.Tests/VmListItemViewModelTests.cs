@@ -352,6 +352,59 @@ public sealed class VmListItemViewModelTests : IDisposable
         Assert.True(item.StartCommand.CanExecute(null));
     }
 
+    private Vm UnattendedInstallVm() =>
+        new(Path.Combine(_root, "ua"), new VmConfig
+        {
+            Id = "ua",
+            Name = "ua-install",
+            Disks = [new DiskConfig { File = "disk.qcow2", Format = "qcow2", Interface = "virtio" }],
+            RemovableMedia = [new RemovableMediaConfig { Type = "cdrom", File = "ubuntu.iso", Attached = true }],
+            Boot = new BootConfig { Order = "dc" },
+            InstallBoot = new InstallBootConfig { KernelFile = "vmlinuz", InitrdFile = "initrd", Append = "autoinstall ds=nocloud" },
+        });
+
+    [Fact]
+    public async Task SessionExit_AfterUnattendedInstall_GraduatesToDiskBoot_AndEjectsInstaller()
+    {
+        Vm vm = await _repository.CreateAsync(UnattendedInstallVm().Config);
+        var session = new FakeRunningVm();
+        var item = NewItem(new FakeVmLauncher(session), vm);
+        await item.StartCommand.ExecuteAsync(null);
+
+        session.RaiseExited(); // the install ran to completion and the guest powered off
+
+        Assert.Equal(VmStatus.Stopped, item.Status);
+        await WaitUntilAsync(() => item.Vm.Config.InstallBoot is null);   // one-shot kernel boot dropped
+        Assert.Equal("c", item.Vm.Config.Boot.Order);                     // boots the installed disk now
+        Assert.DoesNotContain(item.Vm.Config.RemovableMedia, m => m.Attached); // installer ejected
+        // ...and it was persisted.
+        Assert.Null((await _repository.ListAsync()).Single().Config.InstallBoot);
+    }
+
+    [Fact]
+    public async Task DeliberateStop_DuringUnattendedInstall_DoesNotGraduate()
+    {
+        Vm vm = await _repository.CreateAsync(UnattendedInstallVm().Config);
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), vm);
+        await item.StartCommand.ExecuteAsync(null);
+
+        await item.StopCommand.ExecuteAsync(null); // user stops mid-install
+
+        // The install was interrupted, not finished — keep the install boot so it can be retried.
+        Assert.NotNull(item.Vm.Config.InstallBoot);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 2000)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (!condition() && sw.ElapsedMilliseconds < timeoutMs)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.True(condition(), "condition was not met within the timeout");
+    }
+
     [Fact]
     public async Task Delete_IsTwoStep_RemovesFolder_AndRaisesDeleted()
     {

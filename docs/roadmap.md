@@ -75,10 +75,23 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
       needs a non-direct acquisition flow). See ADR-0010.
 - [x] Checksum (SHA-256) verification + provenance display for downloads.
       GPG/PGP *signature* verification is a fast-follow.
-- [ ] **Unattended install** for Ubuntu — seed generation is done (cloud-init NoCloud FAT/`CIDATA`), but the
-      24.04 live-server ignores it without an `autoinstall` kernel arg, so it ships opt-in/experimental
-      pending that (Phase B) or a switch to cloud images. Other distros are capability-gated. See ADR-0013.
-- [ ] **Auto-attach virtio-win ISO** when creating a Windows guest.
+- **Unattended install** for Ubuntu — two paths (see ADR-0013):
+  - [x] *Cloud image* — the pre-installed `…-server-cloudimg-amd64.img` is flattened into the VM disk
+        (`qemu-img convert`), grown to size (`qemu-img resize`), and booted with the cloud-init
+        `CIDATA` seed. Runs hands-free on first boot — **no installer, no kernel arg**. This is the
+        "pick it, click, walk away" path; credentials are required (a cloud image has no default login).
+  - [x] *Desktop/Server ISO autoinstall* (Phase B) — `InstallMediaExtractor` pulls the ISO's
+        `vmlinuz`/`initrd` and the VM boots `-kernel/-initrd -append "autoinstall …"`, so subiquity runs
+        fully non-interactively (no "Review your choices" prompt); the one-shot kernel boot is dropped once
+        the install powers off. Verified end-to-end on real QEMU (q35/UEFI). Other distros (preseed/
+        kickstart) are capability-gated — PR 4.
+- **Unattended Windows** install (see ADR-0015):
+  - [x] *Bring-your-own ISO* — pick a Windows 10/11 ISO in the New-VM flow + credentials; Boxwright bakes
+        an `Autounattend.xml` seed CD (local admin + auto-login), bypasses the Win11 TPM/Secure-Boot
+        checks (no vTPM), and uses in-box **SATA + e1000e** so Setup needs no virtio-win. Built + unit-tested.
+  - [ ] *Live-verify* a real Windows install to the desktop (deferred — no Windows ISO on the dev box),
+        and auto-send the "press any key to boot from CD" keypress via QMP so it's fully hands-free.
+  - [ ] *virtio + auto-attach virtio-win ISO* as a later performance option (faster than SATA).
 - [ ] qcow2 internal snapshots (create / list / revert / delete).
 - [ ] First public launch posts: r/qemu, r/linux, r/homelab, r/selfhosted,
       Hacker News — *only* once signed binaries exist for all three OSes.

@@ -124,12 +124,23 @@ internal sealed class ThrowingVmLauncher : IVmLauncher
     public Task<IRunningVm?> AdoptAsync(Vm vm, CancellationToken cancellationToken = default) => Task.FromResult<IRunningVm?>(null);
 }
 
-/// <summary>A fake disk service that records creates (or fails on demand) instead of invoking qemu-img.</summary>
+/// <summary>A fake disk service that records operations (or fails on demand) instead of invoking qemu-img.</summary>
 internal sealed class FakeDiskService : IDiskService
 {
     public List<(string Path, long SizeBytes, string Format)> Created { get; } = [];
 
+    public List<(string Source, string Destination, string Format)> Copied { get; } = [];
+
+    public List<(string Path, long SizeBytes)> Resized { get; } = [];
+
+    /// <summary>Makes <see cref="CreateAsync"/> fail (the ISO-path disk-create step).</summary>
     public DiskException? FailWith { get; init; }
+
+    /// <summary>Makes <see cref="CopyAsync"/> fail (the cloud-image flatten step).</summary>
+    public DiskException? CopyFailWith { get; init; }
+
+    /// <summary>The virtual size <see cref="GetInfoAsync"/> reports (a small cloud-image-ish default).</summary>
+    public long VirtualSizeBytes { get; set; } = 3L * 1024 * 1024 * 1024;
 
     public Task CreateAsync(string path, long sizeBytes, string format = "qcow2", CancellationToken cancellationToken = default)
     {
@@ -143,10 +154,24 @@ internal sealed class FakeDiskService : IDiskService
     }
 
     public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException();
+        Task.FromResult(new DiskInfo { VirtualSize = VirtualSizeBytes });
 
-    public Task CopyAsync(string sourcePath, string destinationPath, string format = "qcow2", CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
+    public Task CopyAsync(string sourcePath, string destinationPath, string format = "qcow2", CancellationToken cancellationToken = default)
+    {
+        if (CopyFailWith is not null)
+        {
+            return Task.FromException(CopyFailWith);
+        }
+
+        Copied.Add((sourcePath, destinationPath, format));
+        return Task.CompletedTask;
+    }
+
+    public Task ResizeAsync(string path, long sizeBytes, CancellationToken cancellationToken = default)
+    {
+        Resized.Add((path, sizeBytes));
+        return Task.CompletedTask;
+    }
 
     public Task CreateOverlayAsync(string backingPath, string overlayPath, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
@@ -300,18 +325,59 @@ internal sealed class FakeIsoDownloader : IIsoDownloader
 /// <summary>A fake seed generator: records requests and returns a synthetic seed path (or fails on demand).</summary>
 internal sealed class FakeSeedGenerator : ISeedGenerator
 {
-    public List<(UnattendedAnswers Answers, string VmFolder)> Calls { get; } = [];
+    public List<(UnattendedAnswers Answers, string VmFolder, SeedProfile Profile)> Calls { get; } = [];
 
     public Exception? FailWith { get; init; }
 
-    public string Generate(UnattendedAnswers answers, string vmFolderPath)
+    public string Generate(UnattendedAnswers answers, string vmFolderPath, SeedProfile profile = SeedProfile.InstallerAutoinstall)
     {
-        Calls.Add((answers, vmFolderPath));
+        Calls.Add((answers, vmFolderPath, profile));
         if (FailWith is not null)
         {
             throw FailWith;
         }
 
         return Path.Combine(vmFolderPath, CloudInitSeedGenerator.SeedFileName);
+    }
+}
+
+/// <summary>A fake installer-kernel extractor: records requests and returns a preset (or failing) InstallBoot.</summary>
+internal sealed class FakeInstallMediaExtractor : IInstallMediaExtractor
+{
+    public List<(string IsoPath, string VmFolder, string SeedArgs)> Calls { get; } = [];
+
+    public Exception? FailWith { get; init; }
+
+    public InstallBootConfig Result { get; init; } =
+        new() { KernelFile = "vmlinuz", InitrdFile = "initrd", Append = "autoinstall ds=nocloud" };
+
+    public InstallBootConfig Extract(string isoPath, string vmFolderPath, string seedArgs)
+    {
+        Calls.Add((isoPath, vmFolderPath, seedArgs));
+        if (FailWith is not null)
+        {
+            throw FailWith;
+        }
+
+        return Result;
+    }
+}
+
+/// <summary>A fake Windows autounattend seed generator: records requests and returns a synthetic ISO path.</summary>
+internal sealed class FakeAutounattendSeedGenerator : IAutounattendSeedGenerator
+{
+    public List<(UnattendedAnswers Answers, WindowsInstallOptions Options, bool Uefi, string VmFolder)> Calls { get; } = [];
+
+    public Exception? FailWith { get; init; }
+
+    public string Generate(UnattendedAnswers answers, WindowsInstallOptions options, bool uefi, string vmFolderPath)
+    {
+        Calls.Add((answers, options, uefi, vmFolderPath));
+        if (FailWith is not null)
+        {
+            throw FailWith;
+        }
+
+        return Path.Combine(vmFolderPath, AutounattendSeedGenerator.SeedFileName);
     }
 }

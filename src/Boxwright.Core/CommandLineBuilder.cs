@@ -42,8 +42,19 @@ public static class CommandLineBuilder
         };
 
         AppendFirmware(args, config, context);
-        AppendDisks(args, config);
-        AppendRemovableMedia(args, config);
+        if (IsWindows(config))
+        {
+            // Windows Setup has no in-box virtio driver, so it can't see a virtio disk. Put storage on
+            // the q35 chipset's built-in AHCI/SATA controller (in-box AHCI driver), so Setup sees the
+            // disk and the install/autounattend media with no extra drivers (see ADR-0015).
+            AppendWindowsStorage(args, config);
+        }
+        else
+        {
+            AppendDisks(args, config);
+            AppendRemovableMedia(args, config);
+        }
+
         AppendNetworking(args, config);
         AppendInput(args);
         AppendDisplay(args, config, context);
@@ -53,10 +64,31 @@ public static class CommandLineBuilder
         args.Add("-qmp");
         args.Add(QmpArgument(context.QmpEndpoint));
 
+        AppendInstallBoot(args, config);
+
         args.Add("-boot");
         args.Add($"order={config.Boot.Order},menu={(config.Boot.Menu ? "on" : "off")}");
 
         return args;
+    }
+
+    // One-shot direct-kernel boot for an unattended ISO install (ADR-0013 Phase B). The installer ISO and
+    // the CIDATA seed stay attached as normal devices (above); -kernel just overrides what boots, and the
+    // 'autoinstall' token in the append is what makes the installer run non-interactively. Cleared after
+    // the install finishes (the guest powers off), so later boots come up off the installed disk.
+    private static void AppendInstallBoot(List<string> args, VmConfig config)
+    {
+        if (config.InstallBoot is not { } install)
+        {
+            return;
+        }
+
+        args.Add("-kernel");
+        args.Add(install.KernelFile);
+        args.Add("-initrd");
+        args.Add(install.InitrdFile);
+        args.Add("-append");
+        args.Add(install.Append);
     }
 
     // GATE-0: WHPX runs cleaner with the in-kernel IRQ chip disabled.
@@ -122,6 +154,47 @@ public static class CommandLineBuilder
             args.Add("-drive");
             args.Add($"file={media.File},media=cdrom,id={id}");
             index++;
+        }
+    }
+
+    private static bool IsWindows(VmConfig config) =>
+        string.Equals(config.OsType, "windows", StringComparison.OrdinalIgnoreCase);
+
+    // Windows storage on q35's built-in AHCI: each disk is an ide-hd and each attached optical medium an
+    // ide-cd, on its own SATA port (ide.0, ide.1, …). Drives use if=none + an explicit device so they
+    // land on the AHCI bus (Windows has an in-box AHCI driver; it has none for virtio). The first cdrom
+    // keeps CdromDriveId so the live-eject (RunningVm.EjectIsoAsync) still finds it.
+    private static void AppendWindowsStorage(List<string> args, VmConfig config)
+    {
+        int port = 0;
+
+        int diskIndex = 0;
+        foreach (DiskConfig disk in config.Disks)
+        {
+            string id = $"hd{diskIndex}";
+            args.Add("-drive");
+            args.Add($"if=none,id={id},file={disk.File},format={disk.Format}");
+            args.Add("-device");
+            args.Add($"ide-hd,drive={id},bus=ide.{port}");
+            port++;
+            diskIndex++;
+        }
+
+        int cdIndex = 0;
+        foreach (RemovableMediaConfig media in config.RemovableMedia)
+        {
+            if (!media.Attached || string.IsNullOrEmpty(media.File))
+            {
+                continue;
+            }
+
+            string id = cdIndex == 0 ? CdromDriveId : $"boxwright-cd{cdIndex}";
+            args.Add("-drive");
+            args.Add($"if=none,id={id},file={media.File},format=raw,media=cdrom");
+            args.Add("-device");
+            args.Add($"ide-cd,drive={id},bus=ide.{port}");
+            port++;
+            cdIndex++;
         }
     }
 

@@ -40,6 +40,45 @@
                 </StackPanel>
             </Border>
 
+            <!-- Windows install (unattended) — only when the Windows guest OS is selected. -->
+            <Expander Header="Install Windows automatically (unattended)" IsExpanded="True"
+                      HorizontalAlignment="Stretch" IsVisible="{Binding IsWindows}">
+                <StackPanel Spacing="12">
+                    <CheckBox Content="Set up an unattended install (pre-answer Windows Setup)"
+                              IsChecked="{Binding WindowsUnattended}" />
+                    <StackPanel Spacing="12" IsEnabled="{Binding WindowsUnattended}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Windows installer ISO" Opacity="0.7" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Choose ISO…" Command="{Binding PickWindowsIsoCommand}" />
+                                <TextBlock Text="{Binding WindowsIsoPath}" VerticalAlignment="Center"
+                                           Opacity="0.7" TextTrimming="CharacterEllipsis" MaxWidth="260" />
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Hostname" Opacity="0.7" />
+                            <TextBox Text="{Binding Hostname}" Width="240" HorizontalAlignment="Left" />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Username" Opacity="0.7" />
+                            <TextBox Text="{Binding UnattendedUsername}" Width="240" HorizontalAlignment="Left" />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Password" Opacity="0.7" />
+                            <TextBox Text="{Binding UnattendedPassword}" PasswordChar="•"
+                                     Width="240" HorizontalAlignment="Left" />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Product key (optional)" Opacity="0.7" />
+                            <TextBox Text="{Binding ProductKey}" Watermark="Leave blank for Evaluation ISOs"
+                                     Width="240" HorizontalAlignment="Left" />
+                        </StackPanel>
+                        <TextBlock Opacity="0.55" FontSize="12" TextWrapping="Wrap"
+                                   Text="Boxwright writes an Autounattend.xml seed and bypasses the Windows 11 TPM/Secure Boot checks. Windows on QEMU is slow, and on first boot you may still need to press a key at the “Press any key to boot from CD” prompt." />
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
             <TextBlock Text="{Binding ValidationError}" IsVisible="{Binding HasValidationError}"
                        Foreground="#CC8800" TextWrapping="Wrap" />
             <ui:InfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Error"

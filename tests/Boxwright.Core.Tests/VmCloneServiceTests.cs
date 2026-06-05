@@ -104,6 +104,9 @@ public sealed class VmCloneServiceTests : IDisposable
         public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task ResizeAsync(string path, long sizeBytes, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task CopyAsync(string sourcePath, string destinationPath, string format = "qcow2", CancellationToken cancellationToken = default)
         {
             if (FailCopy)

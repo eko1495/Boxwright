@@ -18,6 +18,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly IOsCatalogSource _catalogSource;
     private readonly IIsoDownloader _isoDownloader;
     private readonly ISeedGenerator _seedGenerator;
+    private readonly IInstallMediaExtractor _installMediaExtractor;
+    private readonly IAutounattendSeedGenerator _autounattendSeedGenerator;
+    private readonly IFilePicker _filePicker;
     private readonly IUiDispatcher _dispatcher;
 
     public MainWindowViewModel(
@@ -29,6 +32,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IOsCatalogSource catalogSource,
         IIsoDownloader isoDownloader,
         ISeedGenerator seedGenerator,
+        IInstallMediaExtractor installMediaExtractor,
+        IAutounattendSeedGenerator autounattendSeedGenerator,
+        IFilePicker filePicker,
         IUiDispatcher dispatcher)
     {
         ArgumentNullException.ThrowIfNull(vms);
@@ -39,6 +45,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(catalogSource);
         ArgumentNullException.ThrowIfNull(isoDownloader);
         ArgumentNullException.ThrowIfNull(seedGenerator);
+        ArgumentNullException.ThrowIfNull(installMediaExtractor);
+        ArgumentNullException.ThrowIfNull(autounattendSeedGenerator);
+        ArgumentNullException.ThrowIfNull(filePicker);
         ArgumentNullException.ThrowIfNull(dispatcher);
 
         Vms = vms;
@@ -48,6 +57,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _catalogSource = catalogSource;
         _isoDownloader = isoDownloader;
         _seedGenerator = seedGenerator;
+        _installMediaExtractor = installMediaExtractor;
+        _autounattendSeedGenerator = autounattendSeedGenerator;
+        _filePicker = filePicker;
         _dispatcher = dispatcher;
         Accelerator = acceleratorDetector.Detect().ToQemuValue();
         VmsDirectory = repository.RootDirectory;
@@ -100,7 +112,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        var form = new NewVmViewModel(_repository, _diskService, IsNameTaken);
+        var form = new NewVmViewModel(_repository, _diskService, _filePicker, _autounattendSeedGenerator, IsNameTaken);
         form.Created += OnVmCreated;
         form.Cancelled += OnCreateCancelled;
         Creation = form;
@@ -133,7 +145,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        var form = new CatalogViewModel(_catalogSource, _isoDownloader, _repository, _diskService, _seedGenerator, _dispatcher, IsNameTaken);
+        var form = new CatalogViewModel(_catalogSource, _isoDownloader, _repository, _diskService, _seedGenerator, _installMediaExtractor, _dispatcher, IsNameTaken);
         form.Created += OnCatalogCreated;
         form.Cancelled += OnCatalogCancelled;
         Catalog = form;

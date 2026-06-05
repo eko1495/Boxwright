@@ -64,3 +64,62 @@ This **extends** ADR-0010 (the catalog); it supersedes nothing.
   server — more moving parts than a labelled volume.
 - **Cover Debian/Fedora/Mint now** (preseed/kickstart/Ubiquity): genuinely different mechanisms; deferred and
   capability-gated rather than faked.
+
+## Update (2026-06-04): the cloud-image path is implemented
+
+The "cleaner alternative" floated in the Decision — boot a pre-installed Ubuntu **cloud image** instead of
+running the installer — is now shipped, and it delivers the hands-free install Phase A could not:
+
+- A new catalog field `imageKind` distinguishes an installer ISO (`iso`, the default) from a cloud image
+  (`cloudimage`). The bundled catalog gains *Ubuntu Server (cloud image)* (24.04, the official
+  `…-server-cloudimg-amd64.img`).
+- For a cloud image the create flow downloads the qcow2, **flattens it into the VM folder** as the disk
+  (`qemu-img convert` via `IDiskService.CopyAsync`, so the folder stays self-contained/portable —
+  ADR-0006), grows it to the requested size (new `IDiskService.ResizeAsync` → `qemu-img resize`), and
+  attaches the existing `CIDATA` seed. There is **no installer ISO and no kernel arg** — cloud-init
+  consumes the seed on first boot, so it is genuinely hands-free. Boot order is disk-only (`c`).
+- The seed for this path carries **plain cloud-init** (`CloudImageUserData`), not subiquity
+  `autoinstall:` — a cloud image is already installed, so the seed only creates the login. Because a
+  cloud image ships no default password, the credentials are **required**, not opt-in.
+- `ISeedGenerator.Generate` gained a `SeedProfile` (`InstallerAutoinstall` | `CloudImage`) that selects
+  which `user-data` is baked in; the FAT/`CIDATA` mechanics (DiscUtils) are unchanged.
+
+**Validated end-to-end (real QEMU + the Ubuntu 24.04 cloud image), and it surfaced a seed bug.** The
+first boot came up with `DataSourceNone` — cloud-init never found the seed. Root cause: DiscUtils writes
+the FAT volume label only into the BPB boot sector, which Linux `blkid` reports as `LABEL_FATBOOT`, **not**
+`LABEL`. udev creates `/dev/disk/by-label/CIDATA` only from the real `LABEL` (a root-directory
+volume-label entry, attribute `0x08`), which DiscUtils never writes — so NoCloud's label probe missed the
+seed. `CloudInitSeedGenerator` now injects that root-directory `0x08` entry after formatting; a re-run then
+booted with `datasource: nocloud`, the seed's hostname/user applied, and password SSH login worked. This
+gotcha applies to the autoinstall seed too (Phase B), not just cloud images.
+
+## Update (2026-06-05): Phase B (kernel direct-boot autoinstall) is implemented
+
+Live testing of the Phase-A seed surfaced the gap precisely: the Ubuntu **Desktop** installer *read* the
+`CIDATA` seed (it rendered Boxwright's exact config on its "Review your choices" screen) but still stopped
+and asked the user to click **Install** — subiquity won't auto-confirm a destructive disk wipe without the
+literal `autoinstall` token on the **kernel command line**. Phase B supplies it:
+
+- New optional `VmConfig.InstallBoot` (`InstallBootConfig { KernelFile, InitrdFile, Append }`) — its
+  presence makes `CommandLineBuilder` emit `-kernel/-initrd/-append`; clearing it returns the VM to a
+  normal disk boot. Optional field → backward-compatible, no schema bump.
+- New `InstallMediaExtractor` (reuses the existing `DiscUtils.Iso9660` **`CDReader`** — pure managed, no
+  external tool) extracts `/casper/vmlinuz` + `/casper/initrd` into the VM folder and reads the ISO's own
+  `linux /casper/vmlinuz …` line from `/boot/grub/grub.cfg`, prepending `autoinstall ds=nocloud` (so the
+  desktop ISO's `layerfs-path=…` is preserved).
+- The catalog's ISO-autoinstall path now extracts on create and sets `InstallBoot`. When the install
+  finishes and the guest powers off (the seed's `shutdown -P now`), `VmListItemViewModel.OnSessionExited`
+  **graduates** the VM: it drops `InstallBoot`, ejects the installer media, and switches to disk-first
+  boot, so subsequent starts come up off the freshly installed OS. (A user-initiated stop mid-install does
+  *not* graduate — the install can be retried.)
+
+**Verified end-to-end on real QEMU** (Ubuntu 24.04 live-server, q35/UEFI/WHPX, the real Boxwright command
+line `-kernel vmlinuz -initrd initrd -append "autoinstall ds=nocloud ---"`): the UEFI EFI-stub loaded the
+kernel+initrd (so `-kernel` works under OVMF), casper found the attached ISO and booted the live system,
+and subiquity ran in **autoinstall mode** (`apply_autoinstall_config`, `curtin` running) — sailing past the
+confirm prompt that blocked Phase A — with no interaction. This resolved the two risks ADR-0013 flagged
+(UEFI direct-kernel boot; casper locating the medium). The Phase-A `LABEL_FATBOOT` seed fix above is a
+prerequisite and is in place.
+
+A cloud image (the update above) is still the lightest hands-free **Server**; Phase B is what makes a full
+**Desktop/Server ISO** install hands-free. These updates **extend** the ADR; they supersede nothing.

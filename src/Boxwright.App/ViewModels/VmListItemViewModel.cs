@@ -838,10 +838,31 @@ public sealed partial class VmListItemViewModel : ObservableObject
             }
 
             Status = VmStatus.Stopped;
-            StatusMessage = "The VM stopped unexpectedly (the guest powered off or the process exited).";
+
+            if (Vm.Config.InstallBoot is not null)
+            {
+                // The unattended install ran to completion and powered itself off (the seed's
+                // `shutdown -P now`). Graduate the VM to a normal disk boot before the next start.
+                StatusMessage = "Unattended install finished — start the VM to use it.";
+                _ = FinalizeInstallAsync();
+            }
+            else
+            {
+                StatusMessage = "The VM stopped unexpectedly (the guest powered off or the process exited).";
+            }
+
             _ = TeardownSessionAsync();
             _ = RefreshLogAsync();
         });
+
+    // After an unattended install powers off, drop the one-shot installer kernel boot, eject the installer
+    // media, and switch to disk-first boot so later starts come up off the freshly installed OS.
+    private Task FinalizeInstallAsync() => UpdateConfigAsync(c => c with
+    {
+        InstallBoot = null,
+        Boot = c.Boot with { Order = "c" },
+        RemovableMedia = [.. c.RemovableMedia.Select(m => m with { Attached = false })],
+    });
 
     private static string DescribeAccelerator(Accelerator accelerator) => accelerator switch
     {
