@@ -56,6 +56,20 @@ public static class QmpClientExtensions
 
     private static long ReadLong(JsonElement obj, string name) =>
         obj.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.Number ? value.GetInt64() : 0;
+
+    /// <summary>
+    /// Presses a chord of keys in the guest via QMP <c>send-key</c>. Each entry is a QEMU <c>qcode</c>
+    /// (e.g. <c>ret</c>, <c>spc</c>, <c>esc</c>); QEMU presses them together and releases them. Useful to
+    /// drive a boot-time firmware prompt — e.g. Windows Setup's "Press any key to boot from CD or DVD…" —
+    /// with no human at the console.
+    /// </summary>
+    public static Task SendKeyAsync(this IQmpClient client, IReadOnlyList<string> qcodes, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(qcodes);
+        var keys = qcodes.Select(code => new { type = "qcode", data = code }).ToArray();
+        return client.ExecuteAsync("send-key", new { keys }, cancellationToken);
+    }
 }
 
 /// <summary>Cumulative block-device byte counters from <c>query-blockstats</c>, summed across devices.</summary>

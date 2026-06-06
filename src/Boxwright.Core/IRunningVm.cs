@@ -35,6 +35,12 @@ public interface IRunningVm : IAsyncDisposable
     Task ResetAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sends a chord of keys to the guest (QMP <c>send-key</c> qcodes, e.g. <c>ret</c>) — used to drive a
+    /// boot-time firmware prompt such as Windows Setup's "Press any key to boot from CD" with no human present.
+    /// </summary>
+    Task SendKeysAsync(IReadOnlyList<string> qcodes, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Ejects the optical medium (installer ISO) from the running guest via QMP — a
     /// VirtualBox-style live eject, e.g. for the post-install "remove the installation
     /// medium" prompt. No-op-safe targets the drive launched as <see cref="CommandLineBuilder.CdromDriveId"/>.

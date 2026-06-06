@@ -184,6 +184,14 @@ public sealed partial class VmListItemViewModel : ObservableObject
             IRunningVm session = await _launcher.StartAsync(Vm);
             AttachSession(session);
 
+            // A from-scratch Windows install boots from the installer CD only if a key is pressed at the
+            // firmware's "Press any key to boot from CD…" prompt. Auto-press it so the install is hands-free
+            // (ADR-0015). Fire-and-forget; it stops itself once the install window passes.
+            if (Vm.Config.WindowsInstallInProgress)
+            {
+                _ = SendBootMediaKeypressesAsync(session);
+            }
+
             // A cold boot just happened; if a saved state exists, jump to it and consume it.
             if (HasSavedState)
             {
@@ -839,10 +847,11 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
             Status = VmStatus.Stopped;
 
-            if (Vm.Config.InstallBoot is not null)
+            if (Vm.Config.InstallBoot is not null || Vm.Config.WindowsInstallInProgress)
             {
-                // The unattended install ran to completion and powered itself off (the seed's
-                // `shutdown -P now`). Graduate the VM to a normal disk boot before the next start.
+                // The unattended install ran to completion and powered itself off (Linux: the seed's
+                // `shutdown -P now`; Windows: the Autounattend's final `shutdown /s`). Graduate the VM to a
+                // normal disk boot before the next start.
                 StatusMessage = "Unattended install finished — start the VM to use it.";
                 _ = FinalizeInstallAsync();
             }
@@ -855,14 +864,48 @@ public sealed partial class VmListItemViewModel : ObservableObject
             _ = RefreshLogAsync();
         });
 
-    // After an unattended install powers off, drop the one-shot installer kernel boot, eject the installer
-    // media, and switch to disk-first boot so later starts come up off the freshly installed OS.
+    // After an unattended install powers off, drop the install markers (the one-shot installer kernel boot
+    // and the Windows-install flag), eject the installer media, and switch to disk-first boot so later
+    // starts come up off the freshly installed OS.
     private Task FinalizeInstallAsync() => UpdateConfigAsync(c => c with
     {
         InstallBoot = null,
+        WindowsInstallInProgress = false,
         Boot = c.Boot with { Order = "c" },
         RemovableMedia = [.. c.RemovableMedia.Select(m => m with { Attached = false })],
     });
+
+    // How long the boot-from-CD auto-keypress keeps trying. The UEFI firmware (OVMF) shows
+    // "Press any key to boot from CD…" only after POST — observed ~15-25 s in and the exact moment varies
+    // with host speed and ISO size — so the window must be generous to land in it reliably. It still ends
+    // well before Windows Setup's first reboot (minutes later), so those in-process reboots get no keypress
+    // and fall through the prompt to the now-bootable disk. Once Setup has booted with its answer file the
+    // install is non-interactive, so the extra Enters are harmless.
+    private const int BootKeypressSeconds = 45;
+
+    // Presses Enter once a second across the window above so the firmware's "Press any key to boot from CD…"
+    // prompt is dismissed with no human present. Best-effort — it stops as soon as the VM leaves Running, the
+    // session is replaced, or QMP goes away.
+    private async Task SendBootMediaKeypressesAsync(IRunningVm session)
+    {
+        for (int i = 0; i < BootKeypressSeconds; i++)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            if (!ReferenceEquals(_session, session) || Status is not (VmStatus.Running or VmStatus.Starting))
+            {
+                return;
+            }
+
+            try
+            {
+                await session.SendKeysAsync(["ret"]);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return;
+            }
+        }
+    }
 
     private static string DescribeAccelerator(Accelerator accelerator) => accelerator switch
     {

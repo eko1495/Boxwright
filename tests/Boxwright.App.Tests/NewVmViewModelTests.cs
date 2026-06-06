@@ -193,6 +193,7 @@ public sealed class NewVmViewModelTests : IDisposable
         Assert.Equal("sata", diskCfg.Interface);             // in-box AHCI, not virtio
         Assert.Equal("e1000e", created.Config.Network.Model); // in-box NIC
         Assert.Equal("cd", created.Config.Boot.Order);        // disk-first, then installer CD
+        Assert.True(created.Config.WindowsInstallInProgress); // drives the boot-CD keypress + graduate (ADR-0015)
 
         // Both CDs attached: the Windows ISO and the generated autounattend ISO.
         Assert.Equal(2, created.Config.RemovableMedia.Count);

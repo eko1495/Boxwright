@@ -99,6 +99,10 @@ public sealed class RunningVm : IRunningVm
         }
     }
 
+    /// <summary>Sends a chord of keys to the guest (QMP <c>send-key</c>), e.g. to dismiss a boot-from-CD prompt.</summary>
+    public Task SendKeysAsync(IReadOnlyList<string> qcodes, CancellationToken cancellationToken = default) =>
+        _client.SendKeyAsync(qcodes, cancellationToken);
+
     /// <summary>Ejects the installer ISO from the running guest (QMP <c>eject</c>, forced past a guest lock).</summary>
     public Task EjectIsoAsync(CancellationToken cancellationToken = default) =>
         _client.ExecuteAsync("eject", new { device = CommandLineBuilder.CdromDriveId, force = true }, cancellationToken);

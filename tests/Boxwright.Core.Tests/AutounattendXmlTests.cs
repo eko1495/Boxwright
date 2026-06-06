@@ -43,6 +43,24 @@ public sealed class AutounattendXmlTests
     }
 
     [Fact]
+    public void Build_PowersOffWhenInstallFinishes_ViaFirstLogonShutdown()
+    {
+        // The Autounattend shuts the guest down at first logon so QEMU exits and Boxwright graduates the
+        // VM (eject media, disk-first boot) — the Windows analogue of the Linux seed's poweroff (ADR-0015).
+        string xml = AutounattendXml.Build(Answers(), new WindowsInstallOptions(), uefi: true);
+
+        XNamespace ns = "urn:schemas-microsoft-com:unattend";
+        var commandLines = XDocument.Parse(xml)
+            .Descendants(ns + "FirstLogonCommands")
+            .Descendants(ns + "CommandLine")
+            .Select(e => e.Value)
+            .ToList();
+
+        Assert.Contains(commandLines, c =>
+            c.Contains("shutdown", StringComparison.OrdinalIgnoreCase) && c.Contains("/s", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Build_CreatesLocalAdmin_WithEncodedPassword_NeverPlaintext()
     {
         string xml = AutounattendXml.Build(Answers(), new WindowsInstallOptions(), uefi: true);

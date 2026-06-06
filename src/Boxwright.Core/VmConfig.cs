@@ -73,6 +73,15 @@ public sealed record VmConfig
     /// after which the VM boots the installed disk normally. Null for an ordinary VM.
     /// </summary>
     public InstallBootConfig? InstallBoot { get; init; }
+
+    /// <summary>
+    /// True while a from-scratch unattended <b>Windows</b> install is in progress (ADR-0015). The Windows
+    /// analogue of <see cref="InstallBoot"/>: while set, the app auto-presses a key at boot to start Windows
+    /// Setup from the CD ("Press any key to boot from CD…"), and once Setup finishes and the guest powers
+    /// off (the Autounattend's final shutdown) the install media is ejected and boot switches to the disk.
+    /// False for an ordinary VM.
+    /// </summary>
+    public bool WindowsInstallInProgress { get; init; }
 }
 
 /// <summary>CPU model and topology.</summary>

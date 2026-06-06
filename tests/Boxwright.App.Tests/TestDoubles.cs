@@ -32,6 +32,15 @@ internal sealed class FakeRunningVm : IRunningVm
 
     public Task ResetAsync(CancellationToken cancellationToken = default) => Record("reset");
 
+    /// <summary>Records each key chord sent via QMP send-key (newest last).</summary>
+    public List<IReadOnlyList<string>> SentKeys { get; } = [];
+
+    public Task SendKeysAsync(IReadOnlyList<string> qcodes, CancellationToken cancellationToken = default)
+    {
+        SentKeys.Add(qcodes);
+        return Record("sendkeys");
+    }
+
     public Task EjectIsoAsync(CancellationToken cancellationToken = default) => Record("eject");
 
     public Task SaveStateAsync(string tag, CancellationToken cancellationToken = default) => Record("savestate");

@@ -327,8 +327,8 @@ public sealed partial class NewVmViewModel : ObservableObject
         Disks = [new DiskConfig { File = DiskFileName, Format = "qcow2", Interface = "virtio" }],
     };
 
-    // Windows install: SATA disk (in-box driver), e1000e NIC, the Windows ISO attached, and disk-first
-    // boot so the empty disk falls through to the installer CD on first boot, then boots Windows after.
+    // Windows install: SATA disk (in-box driver), e1000e NIC, the Windows ISO attached, and CD-first boot.
+    // WindowsInstallInProgress drives the boot-from-CD auto-keypress and the post-install graduate (ADR-0015).
     private VmConfig BuildWindowsUnattendedConfig(string windowsIsoPath) => new()
     {
         Name = Name.Trim(),
@@ -340,6 +340,7 @@ public sealed partial class NewVmViewModel : ObservableObject
         RemovableMedia = [new RemovableMediaConfig { Type = "cdrom", File = windowsIsoPath, Attached = true }],
         Network = new NetworkConfig { Model = "e1000e" },
         Boot = new BootConfig { Order = "cd" },
+        WindowsInstallInProgress = true,
     };
 
     private UnattendedAnswers BuildAnswers() => new()

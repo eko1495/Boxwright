@@ -98,8 +98,15 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
   - [x] *Bring-your-own ISO* — pick a Windows 10/11 ISO in the New-VM flow + credentials; Boxwright bakes
         an `Autounattend.xml` seed CD (local admin + auto-login), bypasses the Win11 TPM/Secure-Boot
         checks (no vTPM), and uses in-box **SATA + e1000e** so Setup needs no virtio-win. Built + unit-tested.
-  - [ ] *Live-verify* a real Windows install to the desktop (deferred — no Windows ISO on the dev box),
-        and auto-send the "press any key to boot from CD" keypress via QMP so it's fully hands-free.
+  - [~] *Hands-free + self-graduating* (ADR-0015 update) — built + unit-tested: a QMP `send-key`
+        auto-keypress (driven by a `WindowsInstallInProgress` flag) to dismiss the firmware's "Press any key
+        to boot from CD", and an Autounattend `FirstLogonCommands` shutdown so the VM graduates (eject media,
+        disk-boot) via the same `OnSessionExited` path as Linux. Live testing booted Setup from CD via the
+        keypress, but surfaced two blockers (see ADR-0015): the OVMF keypress is timing-racy (needs a more
+        robust dismiss), and Windows 11 **24H2/25H2's new "ConX" setup ignores the oobeSystem unattend** so
+        the install can't complete hands-free (workaround: force legacy setup). Both are follow-ups.
+  - [ ] *Robust boot-media keypress* + *force legacy setup on 24H2/25H2* (winpeshl.ini → setup.exe /legacy)
+        — the two blockers above; needed for a verified hands-free Windows install on current ISOs.
   - [ ] *virtio + auto-attach virtio-win ISO* as a later performance option (faster than SATA).
 - [ ] qcow2 internal snapshots (create / list / revert / delete).
 - [ ] First public launch posts: r/qemu, r/linux, r/homelab, r/selfhosted,

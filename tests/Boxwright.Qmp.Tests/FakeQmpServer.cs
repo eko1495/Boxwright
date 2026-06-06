@@ -55,6 +55,9 @@ internal sealed class FakeQmpServer : IAsyncDisposable
     /// <summary>The endpoint a QMP client should connect to.</summary>
     public QmpEndpoint Endpoint => QmpEndpoint.Tcp("127.0.0.1", Port);
 
+    /// <summary>Every raw command line the client sent (in arrival order) — lets tests assert the wire payload/arguments.</summary>
+    public ConcurrentQueue<string> ReceivedCommandLines { get; } = new();
+
     /// <summary>Scripts a successful reply for <paramref name="command"/>, using <paramref name="returnJson"/> as the raw <c>return</c> payload.</summary>
     public FakeQmpServer OnCommand(string command, string returnJson)
     {
@@ -117,6 +120,8 @@ internal sealed class FakeQmpServer : IAsyncDisposable
                 {
                     continue;
                 }
+
+                ReceivedCommandLines.Enqueue(line);
 
                 Func<long?, CancellationToken, Task<string>> handler = _handlers.TryGetValue(command, out var registered)
                     ? registered

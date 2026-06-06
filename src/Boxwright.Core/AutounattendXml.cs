@@ -148,6 +148,13 @@ public static class AutounattendXml
                       <PlainText>false</PlainText>
                     </Password>
                   </AutoLogon>
+                  <FirstLogonCommands>
+                    <SynchronousCommand wcm:action="add">
+                      <Order>1</Order>
+                      <CommandLine>cmd /c shutdown /s /t 8 /c "Boxwright: install complete"</CommandLine>
+                      <Description>Power off when the install completes so Boxwright finalizes the VM</Description>
+                    </SynchronousCommand>
+                  </FirstLogonCommands>
                 </component>
               </settings>
             </unattend>

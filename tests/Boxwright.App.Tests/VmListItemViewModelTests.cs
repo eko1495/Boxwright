@@ -394,6 +394,61 @@ public sealed class VmListItemViewModelTests : IDisposable
         Assert.NotNull(item.Vm.Config.InstallBoot);
     }
 
+    private Vm WindowsInstallVm() =>
+        new(Path.Combine(_root, "win"), new VmConfig
+        {
+            Id = "win",
+            Name = "win-install",
+            OsType = "windows",
+            Disks = [new DiskConfig { File = "disk.qcow2", Format = "qcow2", Interface = "sata" }],
+            RemovableMedia = [new RemovableMediaConfig { Type = "cdrom", File = "win11.iso", Attached = true }],
+            Boot = new BootConfig { Order = "cd" },
+            WindowsInstallInProgress = true,
+        });
+
+    [Fact]
+    public async Task Start_WindowsInstall_AutoPressesTheBootFromCdKey()
+    {
+        Vm vm = await _repository.CreateAsync(WindowsInstallVm().Config);
+        var session = new FakeRunningVm();
+        var item = NewItem(new FakeVmLauncher(session), vm);
+
+        await item.StartCommand.ExecuteAsync(null);
+
+        // The keypress loop fires ~once a second; the first Enter lands within the wait window.
+        await WaitUntilAsync(() => session.SentKeys.Count > 0, timeoutMs: 4000);
+        Assert.Contains(session.SentKeys, chord => chord.Count == 1 && chord[0] == "ret");
+    }
+
+    [Fact]
+    public async Task SessionExit_AfterWindowsInstall_GraduatesToDiskBoot_AndEjectsInstaller()
+    {
+        Vm vm = await _repository.CreateAsync(WindowsInstallVm().Config);
+        var session = new FakeRunningVm();
+        var item = NewItem(new FakeVmLauncher(session), vm);
+        await item.StartCommand.ExecuteAsync(null);
+
+        session.RaiseExited(); // Setup finished and the Autounattend shut the guest down
+
+        Assert.Equal(VmStatus.Stopped, item.Status);
+        await WaitUntilAsync(() => !item.Vm.Config.WindowsInstallInProgress); // install flag cleared
+        Assert.Equal("c", item.Vm.Config.Boot.Order);                         // boots the installed disk now
+        Assert.DoesNotContain(item.Vm.Config.RemovableMedia, m => m.Attached); // installer ejected
+        Assert.False((await _repository.ListAsync()).Single().Config.WindowsInstallInProgress); // persisted
+    }
+
+    [Fact]
+    public async Task DeliberateStop_DuringWindowsInstall_DoesNotGraduate()
+    {
+        Vm vm = await _repository.CreateAsync(WindowsInstallVm().Config);
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), vm);
+        await item.StartCommand.ExecuteAsync(null);
+
+        await item.StopCommand.ExecuteAsync(null); // user stops mid-install
+
+        Assert.True(item.Vm.Config.WindowsInstallInProgress); // not finished — keep it for a retry
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 2000)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
