@@ -5,21 +5,22 @@ using Xunit;
 
 namespace Boxwright.Core.Tests;
 
-public sealed class InitrdPreseedInjectorTests
+public sealed class InitrdFileInjectorTests
 {
-    [Fact]
-    public void Append_WritesAGzippedCpioSegment_CarryingTheFile()
+    [Theory]
+    [InlineData("preseed.cfg", "d-i debian-installer/locale string en_US.UTF-8\n")] // Debian
+    [InlineData("ks.cfg", "lang en_US.UTF-8\nrootpw --lock\npoweroff\n")]            // Fedora kickstart
+    public void Append_WritesAGzippedCpioSegment_CarryingTheFile(string fileName, string content)
     {
         using var temp = new TempFile();
-        const string content = "d-i debian-installer/locale string en_US.UTF-8\n";
 
-        InitrdPreseedInjector.Append(temp.Path, "preseed.cfg", content);
+        InitrdFileInjector.Append(temp.Path, fileName, content);
 
         // The file is exactly our appended gzip segment (the initrd started empty). Decompress + parse it.
         byte[] cpio = Gunzip(File.ReadAllBytes(temp.Path));
         (string name, byte[] data) = FirstCpioEntry(cpio);
 
-        Assert.Equal("preseed.cfg", name);
+        Assert.Equal(fileName, name);
         Assert.Equal(content, Encoding.UTF8.GetString(data));
         Assert.Contains("TRAILER!!!", Encoding.ASCII.GetString(cpio), StringComparison.Ordinal);
     }
@@ -31,7 +32,7 @@ public sealed class InitrdPreseedInjectorTests
         byte[] original = Encoding.ASCII.GetBytes("ORIGINAL-INITRD-BYTES");
         File.WriteAllBytes(temp.Path, original);
 
-        InitrdPreseedInjector.Append(temp.Path, "preseed.cfg", "d-i foo/bar string baz\n");
+        InitrdFileInjector.Append(temp.Path, "ks.cfg", "lang en_US.UTF-8\n");
 
         byte[] result = File.ReadAllBytes(temp.Path);
         Assert.True(result.Length > original.Length);

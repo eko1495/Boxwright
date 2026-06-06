@@ -33,7 +33,7 @@ Two facts shaped the design:
 - **`DebianPreseedInstaller`.** Extracts `install.amd/vmlinuz` + `install.amd/initrd.gz` via the shared
   `IsoMedia` helper (DiscUtils `CDReader`, refactored out of `InstallMediaExtractor`), generates a complete
   `preseed.cfg` (`DebianPreseed.Build`), and **injects** it into the copied initrd
-  (`InitrdPreseedInjector.Append`, a hand-written gzipped one-file cpio "newc" segment). Boots with
+  (`InitrdFileInjector.Append`, a hand-written gzipped one-file cpio "newc" segment). Boots with
   `auto=true priority=critical`. The preseed lives in the initrd, so **no seed disk** is attached
   (`SeedDisks = []`).
 - **The preseed pre-answers everything**, including the `partman/*` disk-write confirmations — Debian's

@@ -91,9 +91,13 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
         external tool), and boots `-append "auto=true priority=critical"` so d-i runs fully non-interactively
         (auto-confirming the partman disk-write prompts). Installs a GNOME desktop and powers off, after which
         the VM graduates to a disk boot (same finalize path as Ubuntu).
-  - [ ] *Fedora kickstart* — capability-gated/deferred: the catalog's Fedora **Workstation Live** ISO can't
-        run a kickstart install (Live media limitation). Needs a separate Fedora **Server/netinst** catalog
-        entry + a network-repo `inst.ks`/OEMDRV path.
+- **Unattended install** for Fedora (see ADR-0017):
+  - [x] *Netinst kickstart* — a new Fedora **Everything netinst** catalog entry routes (by `osFamily`) to
+        `FedoraKickstartInstaller`, which extracts `images/pxeboot/{vmlinuz,initrd.img}`, **injects** a
+        generated `ks.cfg` into the initrd (same primitive as Debian), and boots
+        `-append "inst.ks=file:/ks.cfg inst.stage2=hd:LABEL=… inst.text"` so Anaconda runs fully
+        non-interactively. Installs the GNOME (Workstation) environment and powers off → graduates like the
+        others. The Fedora **Live** entry stays interactive (Live media can't kickstart).
 - **Unattended Windows** install (see ADR-0015):
   - [x] *Bring-your-own ISO* — pick a Windows 10/11 ISO in the New-VM flow + credentials; Boxwright bakes
         an `Autounattend.xml` seed CD (local admin + auto-login), bypasses the Win11 TPM/Secure-Boot

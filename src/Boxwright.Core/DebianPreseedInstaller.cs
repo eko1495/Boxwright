@@ -4,7 +4,7 @@ namespace Boxwright.Core;
 /// Debian unattended install via debian-installer preseed (ADR-0016). Extracts the ISO's <b>text</b>
 /// installer kernel/initrd (<c>install.amd/vmlinuz</c> + <c>install.amd/initrd.gz</c> — the gtk
 /// installer can't read an initrd preseed), injects a generated <c>preseed.cfg</c> into the initrd
-/// (<see cref="InitrdPreseedInjector"/>), and boots with <c>auto=true priority=critical</c> so d-i
+/// (<see cref="InitrdFileInjector"/>), and boots with <c>auto=true priority=critical</c> so d-i
 /// runs fully non-interactively. The preseed lives inside the initrd, so no extra seed disk is
 /// attached. Pure managed (DiscUtils + gzip/cpio) — works the same on Windows, macOS, and Linux.
 /// </summary>
@@ -51,7 +51,7 @@ public sealed class DebianPreseedInstaller : IUnattendedInstaller
         string initrdDest = Path.Combine(vmFolderPath, InitrdFileName);
         iso.CopyFile(initrdSource, initrdDest);
 
-        InitrdPreseedInjector.Append(initrdDest, DebianPreseed.FileName, DebianPreseed.Build(answers));
+        InitrdFileInjector.Append(initrdDest, DebianPreseed.FileName, DebianPreseed.Build(answers));
 
         return new UnattendedInstallPlan
         {

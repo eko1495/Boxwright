@@ -87,6 +87,7 @@ internal static class ServiceConfiguration
         // CIDATA seed) and Debian preseed (initrd-injected). New families are just one more registration here.
         services.AddSingleton<IUnattendedInstaller, UbuntuAutoinstaller>();
         services.AddSingleton<IUnattendedInstaller, DebianPreseedInstaller>();
+        services.AddSingleton<IUnattendedInstaller, FedoraKickstartInstaller>();
         services.AddSingleton<IUnattendedInstallerResolver, UnattendedInstallerResolver>();
 
         // View models.

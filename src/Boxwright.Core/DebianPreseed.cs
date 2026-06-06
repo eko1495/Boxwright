@@ -4,7 +4,7 @@ namespace Boxwright.Core;
 /// Builds a debian-installer (d-i) <c>preseed.cfg</c> for a fully unattended Debian install. Every
 /// prompt the installer would otherwise ask is pre-answered — including the partman disk-write
 /// confirmations, which are Debian's equivalent of subiquity's "Review your choices" gate. The
-/// preseed is injected into the installer initrd (<see cref="InitrdPreseedInjector"/>) and read
+/// preseed is injected into the installer initrd (<see cref="InitrdFileInjector"/>) and read
 /// automatically from the initramfs root; <c>auto=true priority=critical</c> on the kernel command
 /// line suppresses the early locale/keyboard/network questions. The user password is embedded only
 /// as a SHA-512 crypt hash (<see cref="Sha512Crypt"/>); the plaintext never reaches the preseed.

@@ -5,13 +5,16 @@ using System.Text;
 namespace Boxwright.Core;
 
 /// <summary>
-/// Injects a file (a debian-installer <c>preseed.cfg</c>) into an installer initrd by <b>appending</b>
-/// a gzipped single-file cpio "newc" archive. A Linux initramfs is a concatenation of gzipped-cpio
-/// segments, so the kernel reads the appended segment too and its files overlay the originals — no
-/// read-modify-write of the existing <c>initrd.gz</c>. Pure managed (<see cref="GZipStream"/> + a
-/// hand-written cpio header), so it behaves identically on Windows, macOS, and Linux.
+/// Injects a file into an installer initrd by <b>appending</b> a gzipped single-file cpio "newc"
+/// archive. A Linux initramfs is a concatenation of (independently-compressed) cpio segments, so the
+/// kernel reads the appended segment too and its files overlay the originals — no read-modify-write of
+/// the existing initrd, and the base initrd's own compression (gzip/xz/zstd) doesn't matter. Used to
+/// drop an unattended-install answer file at the initramfs root: a debian-installer <c>preseed.cfg</c>
+/// (auto-read by d-i) or a Fedora Anaconda <c>ks.cfg</c> (booted with <c>inst.ks=file:/ks.cfg</c>).
+/// Pure managed (<see cref="GZipStream"/> + a hand-written cpio header) — identical on Windows, macOS,
+/// and Linux.
 /// </summary>
-public static class InitrdPreseedInjector
+public static class InitrdFileInjector
 {
     private const string Magic = "070701";              // cpio "newc" magic
     private const int RegularFileMode = 0x81A4;          // S_IFREG | 0644

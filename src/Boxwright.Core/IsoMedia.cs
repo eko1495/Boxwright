@@ -45,6 +45,9 @@ internal sealed class IsoMedia : IDisposable
         }
     }
 
+    /// <summary>The ISO9660 volume label (e.g. for a Fedora <c>inst.stage2=hd:LABEL=…</c> boot arg).</summary>
+    public string VolumeLabel => _reader.VolumeLabel ?? string.Empty;
+
     /// <summary>Whether a file exists at <paramref name="isoPath"/> (DiscUtils uses backslash separators).</summary>
     public bool FileExists(string isoPath) => _reader.FileExists(isoPath);
 
