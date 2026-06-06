@@ -3,6 +3,7 @@
              xmlns:vm="using:Boxwright.App.ViewModels"
              xmlns:core="using:Boxwright.Core"
              xmlns:conv="using:Boxwright.App.Converters"
+             xmlns:controls="using:Boxwright.App.Controls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              x:Class="Boxwright.App.Views.VmDetailView"
              x:DataType="vm:VmListItemViewModel">
@@ -77,6 +78,33 @@
             <!-- Status / honesty message -->
             <ui:InfoBar IsOpen="{Binding HasStatusMessage}" IsClosable="False" Severity="Informational"
                         Message="{Binding StatusMessage}" />
+
+            <!-- Live performance (CPU / RAM / disk) while running -->
+            <Border Classes="card" IsVisible="{Binding HasMetrics}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Performance" FontWeight="SemiBold" />
+                    <Grid ColumnDefinitions="44,*,76">
+                        <TextBlock Grid.Column="0" Text="CPU" Opacity="0.7" VerticalAlignment="Center" />
+                        <controls:Sparkline Grid.Column="1" Height="30" Margin="8,0" Maximum="100"
+                                            Values="{Binding CpuHistory}" Stroke="#4F8DFD" HorizontalAlignment="Stretch" />
+                        <TextBlock Grid.Column="2" Text="{Binding CpuText}" TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                    <Grid ColumnDefinitions="44,*,76">
+                        <TextBlock Grid.Column="0" Text="RAM" Opacity="0.7" VerticalAlignment="Center" />
+                        <controls:Sparkline Grid.Column="1" Height="30" Margin="8,0"
+                                            Values="{Binding MemoryHistory}" Stroke="#46C46A" HorizontalAlignment="Stretch" />
+                        <TextBlock Grid.Column="2" Text="{Binding MemoryText}" TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                    <Grid ColumnDefinitions="44,*,76">
+                        <TextBlock Grid.Column="0" Text="Disk" Opacity="0.7" VerticalAlignment="Center" />
+                        <controls:Sparkline Grid.Column="1" Height="30" Margin="8,0"
+                                            Values="{Binding DiskHistory}" Stroke="#E0A33E" HorizontalAlignment="Stretch" />
+                        <TextBlock Grid.Column="2" Text="{Binding DiskText}" TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                    <TextBlock FontSize="11" Opacity="0.5" TextWrapping="Wrap"
+                               Text="CPU is % of allocated vCPUs · RAM is the VM's host memory · Disk is read + write throughput." />
+                </StackPanel>
+            </Border>
 
             <!-- Saved state -->
             <ui:InfoBar IsOpen="{Binding HasSavedState}" IsClosable="False" Severity="Informational"

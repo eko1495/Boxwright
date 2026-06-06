@@ -71,6 +71,34 @@ public sealed class RunningVm : IRunningVm
     public Task ResetAsync(CancellationToken cancellationToken = default) =>
         _client.ExecuteAsync("system_reset", arguments: null, cancellationToken);
 
+    /// <summary>Reads a live resource sample: CPU/RSS from the QEMU host process + disk bytes via QMP (ADR-0019).</summary>
+    public async Task<VmMetricsSample> GetMetricsSampleAsync(CancellationToken cancellationToken = default)
+    {
+        QmpBlockStats disk = await _client.QueryBlockStatsAsync(cancellationToken);
+        (TimeSpan cpu, long workingSet) = ReadProcessMetrics();
+        return new VmMetricsSample(cpu, workingSet, disk.ReadBytes, disk.WriteBytes);
+    }
+
+    // CPU time + working set of the qemu-system process. Returns zeros if the process is gone or
+    // inaccessible (the caller polls and tolerates a dropped sample). Cross-platform (Win/mac/Linux).
+    private (TimeSpan CpuTime, long WorkingSetBytes) ReadProcessMetrics()
+    {
+        if (_process.ProcessId is not { } pid)
+        {
+            return (TimeSpan.Zero, 0);
+        }
+
+        try
+        {
+            using var process = System.Diagnostics.Process.GetProcessById(pid);
+            return (process.TotalProcessorTime, process.WorkingSet64);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return (TimeSpan.Zero, 0); // process exited or not accessible
+        }
+    }
+
     /// <summary>Ejects the installer ISO from the running guest (QMP <c>eject</c>, forced past a guest lock).</summary>
     public Task EjectIsoAsync(CancellationToken cancellationToken = default) =>
         _client.ExecuteAsync("eject", new { device = CommandLineBuilder.CdromDriveId, force = true }, cancellationToken);

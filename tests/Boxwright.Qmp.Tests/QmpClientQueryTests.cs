@@ -67,4 +67,34 @@ public class QmpClientQueryTests
             _ = QmpClientExtensions.QueryStatusAsync(null!);
         });
     }
+
+    [Fact]
+    public async Task QueryBlockStatsAsync_SumsReadAndWriteAcrossDevices()
+    {
+        await using var server = FakeQmpServer.Start();
+        server.OnCommand("query-blockstats",
+            "[{\"device\":\"d0\",\"stats\":{\"rd_bytes\":1000,\"wr_bytes\":2000}}," +
+            "{\"device\":\"d1\",\"stats\":{\"rd_bytes\":500,\"wr_bytes\":0}}]");
+        await using var client = new QmpClient();
+        await client.ConnectAsync(server.Endpoint);
+
+        QmpBlockStats stats = await client.QueryBlockStatsAsync();
+
+        Assert.Equal(1500, stats.ReadBytes);
+        Assert.Equal(2000, stats.WriteBytes);
+    }
+
+    [Fact]
+    public async Task QueryBlockStatsAsync_ToleratesAMissingStatsObject()
+    {
+        await using var server = FakeQmpServer.Start();
+        server.OnCommand("query-blockstats", "[{\"device\":\"cd0\"}]"); // an optical drive with no stats
+        await using var client = new QmpClient();
+        await client.ConnectAsync(server.Endpoint);
+
+        QmpBlockStats stats = await client.QueryBlockStatsAsync();
+
+        Assert.Equal(0, stats.ReadBytes);
+        Assert.Equal(0, stats.WriteBytes);
+    }
 }
