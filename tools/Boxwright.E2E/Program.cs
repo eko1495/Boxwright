@@ -162,7 +162,7 @@ async Task<int> RunVmLifecycleAsync()
         Check("VM config + qcow2 disk created", File.Exists(vm.ConfigPath) && File.Exists(Path.Combine(vm.FolderPath, "disk.qcow2")));
 
         Console.WriteLine("Step 2: launch qemu-system-x86_64 + connect QMP");
-        var launcher = new VmLauncher(new ProcessLauncher(), new QmpEndpointAllocator(), new DefaultQmpConnector(NullLogger<DefaultQmpConnector>.Instance), new DefaultQgaConnector(), detector, locator, NullLogger<VmLauncher>.Instance);
+        var launcher = new VmLauncher(new ProcessLauncher(), new QmpEndpointAllocator(), new DefaultQmpConnector(NullLogger<DefaultQmpConnector>.Instance), new DefaultQgaConnector(), new VmRuntimeStore(), detector, locator, NullLogger<VmLauncher>.Instance);
         running = await launcher.StartAsync(vm);
         Check("QEMU running + QMP connected", running.State == QemuProcessState.Running);
         Console.WriteLine($"        accelerator in use = {running.Accelerator.ToQemuValue()}, SPICE port = {running.SpicePort}");
