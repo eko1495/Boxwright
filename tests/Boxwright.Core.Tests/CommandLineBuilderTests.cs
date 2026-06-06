@@ -126,6 +126,34 @@ public class CommandLineBuilderTests
     }
 
     [Fact]
+    public void Build_WindowsGuest_VirtioDisk_UsesVirtioBlk_CdsStayOnSata()
+    {
+        // The opt-in perf path (ADR-0018): a virtio-blk disk (PCI, not a SATA port) while the CD-ROMs stay
+        // on AHCI (the Windows ISO must stay bootable/WinPE-readable; the virtio-win CD rides SATA too).
+        VmConfig config = CanonicalConfig() with
+        {
+            OsType = "windows",
+            Disks = [new DiskConfig { File = "disk.qcow2", Format = "qcow2", Interface = "virtio" }],
+            Network = new NetworkConfig { Model = "virtio-net" },
+            RemovableMedia =
+            [
+                new RemovableMediaConfig { Type = "cdrom", File = "windows.iso", Attached = true },
+                new RemovableMediaConfig { Type = "cdrom", File = "virtio-win.iso", Attached = true },
+            ],
+        };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Contains("if=none,id=hd0,file=disk.qcow2,format=qcow2", args);
+        Assert.Contains("virtio-blk-pci,drive=hd0", args);
+        Assert.DoesNotContain("ide-hd,drive=hd0,bus=ide.0", args); // disk is not on SATA
+        // The virtio disk consumed no SATA port, so the CDs start at ide.0.
+        Assert.Contains($"ide-cd,drive={CommandLineBuilder.CdromDriveId},bus=ide.0", args);
+        Assert.Contains("ide-cd,drive=boxwright-cd1,bus=ide.1", args);
+        Assert.Contains("virtio-net,netdev=net0", args); // virtio NIC
+    }
+
+    [Fact]
     public void Build_MacosGuest_UsesVmwareSvga()
     {
         VmConfig config = CanonicalConfig() with { OsType = "macos" };

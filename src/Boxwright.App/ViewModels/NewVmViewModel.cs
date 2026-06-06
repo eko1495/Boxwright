@@ -13,7 +13,7 @@ namespace Boxwright.App.ViewModels;
 /// <b>unattended install</b> from a user-supplied ISO: it bakes an <c>Autounattend.xml</c> seed CD,
 /// attaches it next to the Windows ISO, and puts storage on SATA (ADR-0015). UI-free, so it is unit-testable.
 /// </summary>
-public sealed partial class NewVmViewModel : ObservableObject
+public sealed partial class NewVmViewModel : ObservableObject, IDisposable
 {
     /// <summary>The disk image file name created inside each new VM's folder.</summary>
     public const string DiskFileName = "disk.qcow2";
@@ -24,25 +24,34 @@ public sealed partial class NewVmViewModel : ObservableObject
     private readonly IDiskService _diskService;
     private readonly IFilePicker _filePicker;
     private readonly IAutounattendSeedGenerator _autounattendSeedGenerator;
+    private readonly IIsoDownloader _downloader;
+    private readonly IUiDispatcher _dispatcher;
     private readonly Func<string, bool> _isNameTaken;
+    private CancellationTokenSource? _cts;
 
     public NewVmViewModel(
         VmRepository repository,
         IDiskService diskService,
         IFilePicker filePicker,
         IAutounattendSeedGenerator autounattendSeedGenerator,
+        IIsoDownloader downloader,
+        IUiDispatcher dispatcher,
         Func<string, bool> isNameTaken)
     {
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(diskService);
         ArgumentNullException.ThrowIfNull(filePicker);
         ArgumentNullException.ThrowIfNull(autounattendSeedGenerator);
+        ArgumentNullException.ThrowIfNull(downloader);
+        ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(isNameTaken);
 
         _repository = repository;
         _diskService = diskService;
         _filePicker = filePicker;
         _autounattendSeedGenerator = autounattendSeedGenerator;
+        _downloader = downloader;
+        _dispatcher = dispatcher;
         _isNameTaken = isNameTaken;
     }
 
@@ -114,6 +123,18 @@ public sealed partial class NewVmViewModel : ObservableObject
     [ObservableProperty]
     private string _productKey = string.Empty;
 
+    /// <summary>
+    /// Use the faster paravirtualized <b>virtio</b> disk + NIC (ADR-0018). Boxwright auto-downloads the
+    /// virtio-win driver ISO (or uses <see cref="VirtioWinIsoPath"/> if supplied) and injects the drivers
+    /// into the Autounattend. Off by default — the in-box SATA + e1000e path needs no download.
+    /// </summary>
+    [ObservableProperty]
+    private bool _useVirtio;
+
+    /// <summary>Optional bring-your-own virtio-win.iso path; when set, Boxwright uses it instead of downloading.</summary>
+    [ObservableProperty]
+    private string? _virtioWinIsoPath;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasErrorMessage))]
     private string? _errorMessage;
@@ -121,6 +142,16 @@ public sealed partial class NewVmViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CreateCommand))]
     private bool _isBusy;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CancelDownloadCommand))]
+    private bool _isDownloading;
+
+    [ObservableProperty]
+    private double _progressPercent;
+
+    [ObservableProperty]
+    private string? _progressText;
 
     /// <summary>The firmware choices offered (BIOS is the simplest first-boot default).</summary>
     public IReadOnlyList<string> FirmwareOptions { get; } = ["bios", "uefi"];
@@ -214,6 +245,19 @@ public sealed partial class NewVmViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private async Task PickVirtioWinIsoAsync()
+    {
+        string? iso = await _filePicker.PickIsoAsync();
+        if (!string.IsNullOrWhiteSpace(iso))
+        {
+            VirtioWinIsoPath = iso;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(IsDownloading))]
+    private void CancelDownload() => _cts?.Cancel();
+
     [RelayCommand(CanExecute = nameof(CanCreate))]
     private async Task CreateAsync()
     {
@@ -256,14 +300,28 @@ public sealed partial class NewVmViewModel : ObservableObject
         Created?.Invoke(this, vm);
     }
 
-    // Windows unattended: create the VM (Windows ISO attached, SATA, e1000e), bake the Autounattend.xml
-    // seed CD into the folder and attach it as a second CD, then create the disk. Rolls back on failure.
+    // Windows unattended: optionally fetch the virtio-win driver ISO (perf path), create the VM (Windows ISO
+    // attached, SATA/virtio, e1000e/virtio-net), bake the Autounattend.xml seed CD and attach it, then
+    // create the disk. Rolls back on failure.
     private async Task CreateWindowsUnattendedAsync()
     {
+        // Resolve the virtio-win drivers first (bring-your-own, or download) so a cancel/failure aborts
+        // before any VM is created. Null when not using virtio.
+        string? virtioWinIso = null;
+        if (UseVirtio)
+        {
+            virtioWinIso = await ResolveVirtioWinIsoAsync();
+            if (virtioWinIso is null)
+            {
+                IsBusy = false; // cancelled or failed (ErrorMessage already set on failure)
+                return;
+            }
+        }
+
         Vm vm;
         try
         {
-            vm = await _repository.CreateAsync(BuildWindowsUnattendedConfig(WindowsIsoPath!));
+            vm = await _repository.CreateAsync(BuildWindowsUnattendedConfig(WindowsIsoPath!, virtioWinIso));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -317,6 +375,9 @@ public sealed partial class NewVmViewModel : ObservableObject
     [RelayCommand]
     private void Cancel() => Cancelled?.Invoke(this, EventArgs.Empty);
 
+    /// <summary>Disposes the in-flight download cancellation source, if any.</summary>
+    public void Dispose() => _cts?.Dispose();
+
     private VmConfig BuildConfig() => new()
     {
         Name = Name.Trim(),
@@ -327,21 +388,32 @@ public sealed partial class NewVmViewModel : ObservableObject
         Disks = [new DiskConfig { File = DiskFileName, Format = "qcow2", Interface = "virtio" }],
     };
 
-    // Windows install: SATA disk (in-box driver), e1000e NIC, the Windows ISO attached, and CD-first boot.
-    // WindowsInstallInProgress drives the boot-from-CD auto-keypress and the post-install graduate (ADR-0015).
-    private VmConfig BuildWindowsUnattendedConfig(string windowsIsoPath) => new()
+    // Windows install: in-box SATA disk + e1000e NIC by default, or the faster virtio-blk + virtio-net when
+    // a virtio-win driver ISO is supplied (attached as an extra CD; ADR-0018). The Windows ISO is attached
+    // and CD-first; WindowsInstallInProgress drives the boot-from-CD auto-keypress + graduate (ADR-0015).
+    private VmConfig BuildWindowsUnattendedConfig(string windowsIsoPath, string? virtioWinIsoPath)
     {
-        Name = Name.Trim(),
-        MemoryMiB = MemoryMiB,
-        Cpu = new CpuConfig { Sockets = 1, Cores = CpuCores, Threads = 1 },
-        Firmware = Firmware,
-        OsType = "windows",
-        Disks = [new DiskConfig { File = DiskFileName, Format = "qcow2", Interface = "sata" }],
-        RemovableMedia = [new RemovableMediaConfig { Type = "cdrom", File = windowsIsoPath, Attached = true }],
-        Network = new NetworkConfig { Model = "e1000e" },
-        Boot = new BootConfig { Order = "cd" },
-        WindowsInstallInProgress = true,
-    };
+        bool virtio = virtioWinIsoPath is not null;
+        List<RemovableMediaConfig> media = [new() { Type = "cdrom", File = windowsIsoPath, Attached = true }];
+        if (virtio)
+        {
+            media.Add(new RemovableMediaConfig { Type = "cdrom", File = virtioWinIsoPath, Attached = true });
+        }
+
+        return new()
+        {
+            Name = Name.Trim(),
+            MemoryMiB = MemoryMiB,
+            Cpu = new CpuConfig { Sockets = 1, Cores = CpuCores, Threads = 1 },
+            Firmware = Firmware,
+            OsType = "windows",
+            Disks = [new DiskConfig { File = DiskFileName, Format = "qcow2", Interface = virtio ? "virtio" : "sata" }],
+            RemovableMedia = media,
+            Network = new NetworkConfig { Model = virtio ? "virtio-net" : "e1000e" },
+            Boot = new BootConfig { Order = "cd" },
+            WindowsInstallInProgress = true,
+        };
+    }
 
     private UnattendedAnswers BuildAnswers() => new()
     {
@@ -353,5 +425,58 @@ public sealed partial class NewVmViewModel : ObservableObject
     private WindowsInstallOptions BuildWindowsOptions() => new()
     {
         ProductKey = string.IsNullOrWhiteSpace(ProductKey) ? null : ProductKey.Trim(),
+        UseVirtio = UseVirtio,
     };
+
+    // Bring-your-own virtio-win.iso, or download + cache the pinned one. Returns its path, or null on
+    // cancel/failure (ErrorMessage set on failure). Shows download progress reused from the catalog flow.
+    private async Task<string?> ResolveVirtioWinIsoAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(VirtioWinIsoPath))
+        {
+            return VirtioWinIsoPath;
+        }
+
+        IsDownloading = true;
+        ProgressPercent = 0;
+        ProgressText = null;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            var progress = new DispatchedProgress(_dispatcher, OnProgress);
+            return await _downloader.EnsureAsync(VirtioWin.CatalogEntry, progress, _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return null; // deliberate cancel — no message
+        }
+        catch (DownloadException ex)
+        {
+            ErrorMessage = $"Couldn't download the virtio-win drivers: {ex.Message}";
+            return null;
+        }
+        finally
+        {
+            IsDownloading = false;
+            ProgressText = null;
+            ProgressPercent = 0;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private void OnProgress(IsoDownloadProgress progress)
+    {
+        ProgressPercent = progress.Percent ?? 0;
+        ProgressText = progress.TotalBytes is > 0
+            ? $"{Humanize(progress.BytesReceived)} / {Humanize(progress.TotalBytes.Value)}"
+            : Humanize(progress.BytesReceived);
+    }
+
+    private static string Humanize(long bytes)
+    {
+        const double gb = 1_000_000_000d;
+        const double mb = 1_000_000d;
+        return bytes >= gb ? $"{bytes / gb:0.0} GB" : $"{bytes / mb:0} MB";
+    }
 }

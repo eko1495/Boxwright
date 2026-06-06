@@ -509,11 +509,4 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         const double mb = 1_000_000d;
         return bytes >= gb ? $"{bytes / gb:0.0} GB" : $"{bytes / mb:0} MB";
     }
-
-    /// <summary>Marshals <see cref="IProgress{T}"/> reports onto the UI thread via <see cref="IUiDispatcher"/>.</summary>
-    private sealed class DispatchedProgress(IUiDispatcher dispatcher, Action<IsoDownloadProgress> callback)
-        : IProgress<IsoDownloadProgress>
-    {
-        public void Report(IsoDownloadProgress value) => dispatcher.Post(() => callback(value));
-    }
 }

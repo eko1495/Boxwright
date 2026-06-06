@@ -99,10 +99,6 @@ public sealed class RunningVm : IRunningVm
         }
     }
 
-    /// <summary>Sends a chord of keys to the guest (QMP <c>send-key</c>), e.g. to dismiss a boot-from-CD prompt.</summary>
-    public Task SendKeysAsync(IReadOnlyList<string> qcodes, CancellationToken cancellationToken = default) =>
-        _client.SendKeyAsync(qcodes, cancellationToken);
-
     /// <summary>Presses/releases a single key in the guest (QMP <c>input-send-event</c>), e.g. to hold Enter across a boot-from-CD prompt.</summary>
     public Task SendKeyEventAsync(string qcode, bool down, CancellationToken cancellationToken = default) =>
         _client.SendKeyEventAsync(qcode, down, cancellationToken);

@@ -175,8 +175,18 @@ public static class CommandLineBuilder
             args.Add("-drive");
             args.Add($"if=none,id={id},file={disk.File},format={disk.Format}");
             args.Add("-device");
-            args.Add($"ide-hd,drive={id},bus=ide.{port}");
-            port++;
+            if (string.Equals(disk.Interface, "virtio", StringComparison.OrdinalIgnoreCase))
+            {
+                // Optional perf path: a virtio-blk PCI disk (not a SATA port). Setup can only see it once
+                // the virtio-win storage driver is loaded in WinPE via the Autounattend (ADR-0018).
+                args.Add($"virtio-blk-pci,drive={id}");
+            }
+            else
+            {
+                args.Add($"ide-hd,drive={id},bus=ide.{port}");
+                port++;
+            }
+
             diskIndex++;
         }
 

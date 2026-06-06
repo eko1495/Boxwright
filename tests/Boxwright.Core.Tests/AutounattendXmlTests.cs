@@ -98,6 +98,28 @@ public sealed class AutounattendXmlTests
     }
 
     [Fact]
+    public void Build_Virtio_InjectsViostorInWinPE_AndViostorPlusNetKvmOffline()
+    {
+        string xml = AutounattendXml.Build(Answers(), new WindowsInstallOptions { UseVirtio = true }, uefi: true);
+
+        Assert.Contains("Microsoft-Windows-PnpCustomizationsWinPE", xml); // storage driver for WinPE
+        Assert.Contains(@"<Path>D:\viostor\w11\amd64</Path>", xml);        // candidate drive letter
+        Assert.Contains("<settings pass=\"offlineServicing\">", xml);
+        Assert.Contains("Microsoft-Windows-PnpCustomizationsNonWinPE", xml);
+        Assert.Contains(@"NetKVM\w11\amd64", xml);                         // network driver into the image
+        XDocument.Parse(xml);                                             // still well-formed
+    }
+
+    [Fact]
+    public void Build_WithoutVirtio_AddsNoDriverPaths()
+    {
+        string xml = AutounattendXml.Build(Answers(), new WindowsInstallOptions(), uefi: true);
+
+        Assert.DoesNotContain("DriverPaths", xml);
+        Assert.DoesNotContain("offlineServicing", xml);
+    }
+
+    [Fact]
     public void Build_BypassesWindows11HardwareChecks()
     {
         string xml = AutounattendXml.Build(Answers(), new WindowsInstallOptions(), uefi: true);

@@ -112,7 +112,11 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
         Home/Pro**, so it stops at interactive account setup; a Microsoft limitation (confirmed live). Use an
         Enterprise/Education/LTSC or pre-24H2 ISO for fully hands-free. The "force legacy setup" boot.wim
         slipstream was deliberately not built (out-of-ethos: native WIM tooling + read-only-media rebuild).
-  - [ ] *virtio + auto-attach virtio-win ISO* as a later performance option (faster than SATA).
+  - [x] *virtio performance path* (ADR-0018) — an opt-in checkbox switches the Windows VM to a virtio-blk
+        disk + virtio-net NIC and auto-downloads/caches the pinned virtio-win driver ISO (bring-your-own
+        override), injecting the storage driver in windowsPE + storage/network in offlineServicing so Setup
+        sees the virtio disk. SATA stays the no-download default. Unit-tested; live-smoked (QEMU accepts the
+        virtio devices + Setup boots) — a complete virtio install needs an Ent/Edu/LTSC ISO (ConX wall).
 - [ ] qcow2 internal snapshots (create / list / revert / delete).
 - [ ] First public launch posts: r/qemu, r/linux, r/homelab, r/selfhosted,
       Hacker News — *only* once signed binaries exist for all three OSes.

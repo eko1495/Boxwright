@@ -73,6 +73,17 @@
                             <TextBox Text="{Binding ProductKey}" Watermark="Leave blank for Evaluation ISOs"
                                      Width="240" HorizontalAlignment="Left" />
                         </StackPanel>
+                        <CheckBox Content="Use virtio drivers (faster disk + network)"
+                                  IsChecked="{Binding UseVirtio}" />
+                        <StackPanel Spacing="6" Margin="24,0,0,0" IsVisible="{Binding UseVirtio}">
+                            <TextBlock Opacity="0.55" FontSize="12" TextWrapping="Wrap"
+                                       Text="Downloads the ~750 MB virtio-win driver ISO once (cached afterward) and injects the Windows 11 (amd64) virtio storage + network drivers, or use your own copy below." />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Use my virtio-win ISO…" Command="{Binding PickVirtioWinIsoCommand}" />
+                                <TextBlock Text="{Binding VirtioWinIsoPath}" VerticalAlignment="Center"
+                                           Opacity="0.7" TextTrimming="CharacterEllipsis" MaxWidth="220" />
+                            </StackPanel>
+                        </StackPanel>
                         <TextBlock Opacity="0.55" FontSize="12" TextWrapping="Wrap"
                                    Text="Boxwright writes an Autounattend.xml seed, auto-presses the boot-from-CD key, and bypasses the Windows 11 TPM/Secure Boot checks. Windows on QEMU is slow. Fully hands-free works best with a Windows Enterprise/Education/LTSC ISO (or a pre-24H2 build) — on consumer Home/Pro 24H2/25H2, Microsoft’s new Setup may still pause at account setup." />
                     </StackPanel>
@@ -83,6 +94,13 @@
                        Foreground="#CC8800" TextWrapping="Wrap" />
             <ui:InfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Error"
                         Message="{Binding ErrorMessage}" />
+
+            <!-- virtio-win driver download progress (shown while the create flow fetches it). -->
+            <StackPanel IsVisible="{Binding IsDownloading}" Spacing="4">
+                <ProgressBar Value="{Binding ProgressPercent}" Minimum="0" Maximum="100" />
+                <TextBlock Text="{Binding ProgressText}" Opacity="0.7" FontSize="12" />
+                <Button Content="Cancel download" Command="{Binding CancelDownloadCommand}" HorizontalAlignment="Left" />
+            </StackPanel>
 
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Classes="accent" Content="Create" Command="{Binding CreateCommand}" />

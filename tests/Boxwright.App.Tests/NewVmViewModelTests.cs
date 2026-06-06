@@ -35,8 +35,11 @@ public sealed class NewVmViewModelTests : IDisposable
         IDiskService disk,
         Func<string, bool>? isNameTaken = null,
         FakeFilePicker? filePicker = null,
-        FakeAutounattendSeedGenerator? autounattend = null) =>
-        new(_repository, disk, filePicker ?? new FakeFilePicker(), autounattend ?? new FakeAutounattendSeedGenerator(), isNameTaken ?? (_ => false));
+        FakeAutounattendSeedGenerator? autounattend = null,
+        FakeIsoDownloader? downloader = null) =>
+        new(_repository, disk, filePicker ?? new FakeFilePicker(),
+            autounattend ?? new FakeAutounattendSeedGenerator(),
+            downloader ?? new FakeIsoDownloader(), new ImmediateUiDispatcher(), isNameTaken ?? (_ => false));
 
     [Fact]
     public void Defaults_AreSaneAndValid()
@@ -208,6 +211,58 @@ public sealed class NewVmViewModelTests : IDisposable
 
         // The SATA disk was created.
         Assert.Single(disk.Created);
+    }
+
+    [Fact]
+    public async Task Create_WindowsUnattendedVirtio_DownloadsDrivers_AttachesIso_UsesVirtioDevices()
+    {
+        var downloader = new FakeIsoDownloader();
+        var autounattend = new FakeAutounattendSeedGenerator();
+        var form = NewForm(new FakeDiskService(), autounattend: autounattend, downloader: downloader);
+        form.Name = "Win11v";
+        form.OsType = "windows";
+        form.WindowsUnattended = true;
+        form.WindowsIsoPath = @"C:\isos\win11.iso";
+        form.UnattendedUsername = "alice";
+        form.UnattendedPassword = "hunter2";
+        form.UseVirtio = true;
+        Vm? created = null;
+        form.Created += (_, vm) => created = vm;
+
+        await form.CreateCommand.ExecuteAsync(null);
+
+        Assert.NotNull(created);
+        Assert.Contains(downloader.Requested, e => e.Id.StartsWith("virtio-win", StringComparison.Ordinal)); // pinned ISO fetched
+        Assert.Equal("virtio", Assert.Single(created!.Config.Disks).Interface);   // virtio-blk disk
+        Assert.Equal("virtio-net", created.Config.Network.Model);                 // virtio NIC
+        // Three CDs: Windows ISO, virtio-win ISO, autounattend seed.
+        Assert.Equal(3, created.Config.RemovableMedia.Count);
+        Assert.Contains(created.Config.RemovableMedia, m => m.File == downloader.ReturnPath);
+        Assert.True(autounattend.Calls.Single().Options.UseVirtio); // driver injection on
+    }
+
+    [Fact]
+    public async Task Create_WindowsUnattendedVirtio_WithByoIso_SkipsTheDownload()
+    {
+        var downloader = new FakeIsoDownloader();
+        var form = NewForm(new FakeDiskService(), downloader: downloader);
+        form.Name = "Win11byo";
+        form.OsType = "windows";
+        form.WindowsUnattended = true;
+        form.WindowsIsoPath = @"C:\isos\win11.iso";
+        form.UnattendedUsername = "alice";
+        form.UnattendedPassword = "hunter2";
+        form.UseVirtio = true;
+        form.VirtioWinIsoPath = @"C:\isos\virtio-win.iso";
+        Vm? created = null;
+        form.Created += (_, vm) => created = vm;
+
+        await form.CreateCommand.ExecuteAsync(null);
+
+        Assert.NotNull(created);
+        Assert.Empty(downloader.Requested); // bring-your-own — no download
+        Assert.Contains(created!.Config.RemovableMedia, m => m.File == @"C:\isos\virtio-win.iso");
+        Assert.Equal("virtio", Assert.Single(created.Config.Disks).Interface);
     }
 
     [Fact]

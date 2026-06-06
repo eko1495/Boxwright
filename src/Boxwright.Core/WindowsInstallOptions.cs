@@ -30,6 +30,14 @@ public sealed record WindowsInstallOptions
     /// <summary>Windows time-zone name, e.g. <c>UTC</c> or <c>W. Europe Standard Time</c> (not an IANA id).</summary>
     public string TimeZone { get; init; } = "UTC";
 
+    /// <summary>
+    /// When true, the install targets paravirtualized <b>virtio</b> devices (faster than the in-box SATA +
+    /// e1000e). The Autounattend injects the virtio storage (and network) drivers from the attached
+    /// virtio-win ISO so Setup can see the virtio-blk disk (ADR-0018). The VM's disk interface and NIC are
+    /// set to virtio by the create flow; this flag only drives the driver injection.
+    /// </summary>
+    public bool UseVirtio { get; init; }
+
     /// <summary>The public, non-activating generic install key for Windows 10/11 <b>Pro</b> (a convenience default for retail multi-edition ISOs).</summary>
     public const string GenericProKey = "W269N-WFGWX-YVC9B-4J6C9-T83GX";
 }

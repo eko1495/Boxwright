@@ -112,7 +112,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        var form = new NewVmViewModel(_repository, _diskService, _filePicker, _autounattendSeedGenerator, IsNameTaken);
+        var form = new NewVmViewModel(_repository, _diskService, _filePicker, _autounattendSeedGenerator, _isoDownloader, _dispatcher, IsNameTaken);
         form.Created += OnVmCreated;
         form.Cancelled += OnCreateCancelled;
         Creation = form;
@@ -187,6 +187,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         Creation.Created -= OnVmCreated;
         Creation.Cancelled -= OnCreateCancelled;
+        Creation.Dispose();
         Creation = null;
     }
 

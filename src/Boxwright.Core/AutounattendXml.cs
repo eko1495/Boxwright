@@ -43,6 +43,16 @@ public static class AutounattendXml
         string diskConfiguration = uefi ? UefiDiskConfiguration : BiosDiskConfiguration;
         int installPartitionId = uefi ? 3 : 1;
 
+        // Optional virtio perf path (ADR-0018): inject the virtio-win storage driver in windowsPE (so Setup
+        // sees the virtio-blk disk) and storage + network drivers in offlineServicing (so the installed OS
+        // boots from virtio and has network). Empty when not using virtio.
+        string winpeVirtioDrivers = options.UseVirtio
+            ? $"""<component name="Microsoft-Windows-PnpCustomizationsWinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"><DriverPaths>{DriverPathEntries([VirtioWin.StorageDriver])}</DriverPaths></component>"""
+            : string.Empty;
+        string offlineServicingVirtio = options.UseVirtio
+            ? $"""<settings pass="offlineServicing"><component name="Microsoft-Windows-PnpCustomizationsNonWinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"><DriverPaths>{DriverPathEntries([VirtioWin.StorageDriver, VirtioWin.NetworkDriver])}</DriverPaths></component></settings>"""
+            : string.Empty;
+
         // Only emit a ProductKey when supplied — an Evaluation/single-edition ISO must NOT get one.
         string productKey = string.IsNullOrWhiteSpace(options.ProductKey)
             ? string.Empty
@@ -100,8 +110,9 @@ public static class AutounattendXml
                     <Organization></Organization>
                   </UserData>
                 </component>
+            {winpeVirtioDrivers}
               </settings>
-
+            {offlineServicingVirtio}
               <settings pass="specialize">
                 <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
                   <ComputerName>{computerName}</ComputerName>
@@ -202,6 +213,27 @@ public static class AutounattendXml
                     <WillShowUI>OnError</WillShowUI>
                   </DiskConfiguration>
             """;
+
+    // One <PathAndCredentials> per (candidate WinPE drive letter × driver), e.g. D:\viostor\w11\amd64. The
+    // virtio-win CD's drive letter is unpredictable in WinPE, so we list candidates and let Setup ignore the
+    // ones that don't resolve (ADR-0018). wcm:keyValue must be unique per entry.
+    private static readonly string[] CandidateDriveLetters = ["D", "E", "F", "G"];
+
+    private static string DriverPathEntries(IReadOnlyList<string> drivers)
+    {
+        var sb = new StringBuilder();
+        int key = 1;
+        foreach (string letter in CandidateDriveLetters)
+        {
+            foreach (string driver in drivers)
+            {
+                sb.Append($"""<PathAndCredentials wcm:action="add" wcm:keyValue="{key}"><Path>{letter}:\{driver}\{VirtioWin.WindowsFolder}\{VirtioWin.Arch}</Path></PathAndCredentials>""");
+                key++;
+            }
+        }
+
+        return sb.ToString();
+    }
 
     private static string Esc(string? value) => SecurityElement.Escape(value ?? string.Empty);
 }

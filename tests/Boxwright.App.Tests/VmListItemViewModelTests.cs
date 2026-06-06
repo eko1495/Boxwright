@@ -685,15 +685,4 @@ public sealed class VmListItemViewModelTests : IDisposable
         Assert.NotEmpty(item.DiskHistory);
         Assert.NotNull(item.MemoryText);
     }
-
-    private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs)
-    {
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        while (!condition() && sw.ElapsedMilliseconds < timeoutMs)
-        {
-            await Task.Delay(50);
-        }
-
-        Assert.True(condition(), "condition was not met within the timeout");
-    }
 }
