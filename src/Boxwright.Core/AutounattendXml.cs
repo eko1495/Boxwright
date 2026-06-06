@@ -34,6 +34,7 @@ public static class AutounattendXml
         string computerName = Esc(answers.Hostname);
         string userName = Esc(answers.Username);
         string passwordB64 = EncodePassword(answers.Password);
+        string passwordPlain = Esc(answers.Password);
         string locale = Esc(options.Locale);
         string inputLocale = Esc(options.InputLocale);
         string timeZone = Esc(options.TimeZone);
@@ -106,6 +107,19 @@ public static class AutounattendXml
                   <ComputerName>{computerName}</ComputerName>
                   <TimeZone>{timeZone}</TimeZone>
                 </component>
+                <!-- Create the account + autologon + BypassNRO in the *specialize* pass: the Windows 11
+                     24H2/25H2 "ConX" setup ignores the oobeSystem account, but honours specialize, so this
+                     is the cross-setup-mode path (ADR-0015). Runs on legacy too. -->
+                <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+                  <RunSynchronous>
+                    <RunSynchronousCommand wcm:action="add"><Order>1</Order><Path>cmd /c net user "{userName}" "{passwordPlain}" /add</Path></RunSynchronousCommand>
+                    <RunSynchronousCommand wcm:action="add"><Order>2</Order><Path>cmd /c net localgroup "Administrators" "{userName}" /add</Path></RunSynchronousCommand>
+                    <RunSynchronousCommand wcm:action="add"><Order>3</Order><Path>reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v AutoAdminLogon /t REG_SZ /d 1 /f</Path></RunSynchronousCommand>
+                    <RunSynchronousCommand wcm:action="add"><Order>4</Order><Path>reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultUserName /t REG_SZ /d "{userName}" /f</Path></RunSynchronousCommand>
+                    <RunSynchronousCommand wcm:action="add"><Order>5</Order><Path>reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultPassword /t REG_SZ /d "{passwordPlain}" /f</Path></RunSynchronousCommand>
+                    <RunSynchronousCommand wcm:action="add"><Order>6</Order><Path>reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE" /v BypassNRO /t REG_DWORD /d 1 /f</Path></RunSynchronousCommand>
+                  </RunSynchronous>
+                </component>
               </settings>
 
               <settings pass="oobeSystem">
@@ -126,19 +140,9 @@ public static class AutounattendXml
                     <SkipMachineOOBE>true</SkipMachineOOBE>
                     <SkipUserOOBE>true</SkipUserOOBE>
                   </OOBE>
-                  <UserAccounts>
-                    <LocalAccounts>
-                      <LocalAccount wcm:action="add">
-                        <Name>{userName}</Name>
-                        <DisplayName>{userName}</DisplayName>
-                        <Group>Administrators</Group>
-                        <Password>
-                          <Value>{passwordB64}</Value>
-                          <PlainText>false</PlainText>
-                        </Password>
-                      </LocalAccount>
-                    </LocalAccounts>
-                  </UserAccounts>
+                  <!-- The account is created in the specialize pass above (cross-setup-mode). AutoLogon here
+                       references it; on a ConX setup that ignores oobeSystem, the specialize-pass Winlogon
+                       registry provides autologon instead. -->
                   <AutoLogon>
                     <Enabled>true</Enabled>
                     <Username>{userName}</Username>

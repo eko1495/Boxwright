@@ -415,9 +415,9 @@ public sealed class VmListItemViewModelTests : IDisposable
 
         await item.StartCommand.ExecuteAsync(null);
 
-        // The keypress loop fires ~once a second; the first Enter lands within the wait window.
-        await WaitUntilAsync(() => session.SentKeys.Count > 0, timeoutMs: 4000);
-        Assert.Contains(session.SentKeys, chord => chord.Count == 1 && chord[0] == "ret");
+        // The keypress loop holds Enter down (re-asserting); the first key-down lands within the wait window.
+        await WaitUntilAsync(() => session.KeyEvents.Count > 0, timeoutMs: 4000);
+        Assert.Contains(session.KeyEvents, e => e.Qcode == "ret" && e.Down); // Enter held down (ADR-0015 robustness)
     }
 
     [Fact]

@@ -102,15 +102,16 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
   - [x] *Bring-your-own ISO* — pick a Windows 10/11 ISO in the New-VM flow + credentials; Boxwright bakes
         an `Autounattend.xml` seed CD (local admin + auto-login), bypasses the Win11 TPM/Secure-Boot
         checks (no vTPM), and uses in-box **SATA + e1000e** so Setup needs no virtio-win. Built + unit-tested.
-  - [~] *Hands-free + self-graduating* (ADR-0015 update) — built + unit-tested: a QMP `send-key`
-        auto-keypress (driven by a `WindowsInstallInProgress` flag) to dismiss the firmware's "Press any key
-        to boot from CD", and an Autounattend `FirstLogonCommands` shutdown so the VM graduates (eject media,
-        disk-boot) via the same `OnSessionExited` path as Linux. Live testing booted Setup from CD via the
-        keypress, but surfaced two blockers (see ADR-0015): the OVMF keypress is timing-racy (needs a more
-        robust dismiss), and Windows 11 **24H2/25H2's new "ConX" setup ignores the oobeSystem unattend** so
-        the install can't complete hands-free (workaround: force legacy setup). Both are follow-ups.
-  - [ ] *Robust boot-media keypress* + *force legacy setup on 24H2/25H2* (winpeshl.ini → setup.exe /legacy)
-        — the two blockers above; needed for a verified hands-free Windows install on current ISOs.
+  - [x] *Hands-free + self-graduating* (ADR-0015 + updates) — a **held-key** auto-keypress (QMP
+        `input-send-event`, driven by a `WindowsInstallInProgress` flag) reliably dismisses the firmware's
+        "Press any key to boot from CD" (verified 3/3 on QEMU/OVMF, where discrete presses raced and missed),
+        and an Autounattend that creates the account in the **specialize** pass + a `FirstLogonCommands`
+        shutdown so the VM graduates (eject media, disk-boot) via the same `OnSessionExited` path as Linux.
+        Fully hands-free on **Enterprise/Education/LTSC + legacy/pre-24H2** ISOs.
+  - [ ] *Consumer 24H2/25H2 (ConX)* — Microsoft's new Setup ignores the oobeSystem unattend on **consumer
+        Home/Pro**, so it stops at interactive account setup; a Microsoft limitation (confirmed live). Use an
+        Enterprise/Education/LTSC or pre-24H2 ISO for fully hands-free. The "force legacy setup" boot.wim
+        slipstream was deliberately not built (out-of-ethos: native WIM tooling + read-only-media rebuild).
   - [ ] *virtio + auto-attach virtio-win ISO* as a later performance option (faster than SATA).
 - [ ] qcow2 internal snapshots (create / list / revert / delete).
 - [ ] First public launch posts: r/qemu, r/linux, r/homelab, r/selfhosted,

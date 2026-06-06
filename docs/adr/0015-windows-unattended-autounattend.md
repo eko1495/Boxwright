@@ -104,6 +104,32 @@ and the `FirstLogonCommands` shutdown still works on a legacy-setup (pre-24H2) I
 end-to-end-verified Windows install on 24H2/25H2 is blocked** by the two items above, both tracked as
 follow-ups. No "verified hands-free on current Windows" claim is made until they land.
 
+## Update (2026-06-06): boot keypress solved (held key); ConX wall confirmed & documented
+
+Both follow-ups above were worked. One is **solved**, the other is a **confirmed Microsoft wall**:
+
+1. **Boot keypress — solved with a held key.** The discrete `send-key` (even dense + with `hold-time`) was
+   confirmed genuinely racy against OVMF's brief keyboard poll — ~half of live runs still timed the prompt
+   out to PXE *while keys were being sent*. The fix is to **hold Enter down continuously** rather than tap
+   it: a new QMP `input-send-event` wrapper (`IQmpClient.SendKeyEventAsync` → `IRunningVm.SendKeyEventAsync`)
+   lets `VmListItemViewModel` press the key down, re-assert it every ~2 s across the boot window, then
+   release it. A continuously-held key is reliably seen by the firmware poll — **verified booting Windows
+   Setup from the CD 3/3 on real QEMU/OVMF** where discrete presses were ~2/6. (The `send-key` wrapper +
+   `hold-time` stay in `Boxwright.Qmp` as primitives; the boot keypress uses the held-key path.)
+2. **ConX (consumer 24H2/25H2) — confirmed wall, hardened where possible.** Per Microsoft/community sources,
+   unattend OOBE is *ignored on consumer Home/Pro 24H2/25H2 unless the edition is Enterprise/Education/LTSC
+   or the device is managed*. To be as cross-setup-mode robust as possible, the account creation + autologon
+   + `BypassNRO` now run as a **specialize-pass** `RunSynchronous` script (which ConX honours), with the
+   oobeSystem `LocalAccount` removed (autologon kept). On **Enterprise/Education/LTSC and legacy/pre-24H2**
+   this is fully hands-free; **live testing on the consumer 25H2 ISO confirmed the wall** — Setup still
+   stops at the interactive Product-key/account screens, so it never reaches the graduate. *(Tradeoff: the
+   specialize `net user`/autologon script carries the password in the seed in plaintext; the old oobeSystem
+   value was only Base64 obfuscation that Setup strips anyway — a small, documented downgrade for ConX
+   compatibility.)* The **"force legacy setup" boot.wim slipstream was deliberately not built** — it needs
+   native WIM tooling / Windows-only DISM + rebuilding read-only media, bending the no-native-deps and
+   cross-platform directives for a consumer-only gain. The New-VM panel and this ADR now say so: for a fully
+   hands-free Windows install, use an **Enterprise/Education/LTSC** ISO (or a pre-24H2 build).
+
 ## Alternatives considered
 - **virtio + a bundled/auto-attached virtio-win ISO** (faster guest I/O, with `<DriverPaths>` injection):
   more moving parts (virtio-win acquisition + driver-path correctness). Deferred as a performance follow-up.

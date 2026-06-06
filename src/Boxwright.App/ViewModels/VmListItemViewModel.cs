@@ -881,28 +881,47 @@ public sealed partial class VmListItemViewModel : ObservableObject
     // well before Windows Setup's first reboot (minutes later), so those in-process reboots get no keypress
     // and fall through the prompt to the now-bootable disk. Once Setup has booted with its answer file the
     // install is non-interactive, so the extra Enters are harmless.
-    private const int BootKeypressSeconds = 45;
+    // How long to keep Enter held down. OVMF only shows the "Press any key" prompt after POST (observed
+    // ~15-55 s, varies with host speed and ISO size), so the window is generous; it still ends well before
+    // Windows Setup needs the keyboard, and a fully-answered install ignores the held key.
+    private static readonly TimeSpan BootKeypressWindow = TimeSpan.FromSeconds(70);
 
-    // Presses Enter once a second across the window above so the firmware's "Press any key to boot from CD…"
-    // prompt is dismissed with no human present. Best-effort — it stops as soon as the VM leaves Running, the
-    // session is replaced, or QMP goes away.
+    // Re-assert the key-down this often so it stays held for the whole window.
+    private static readonly TimeSpan BootKeypressReassert = TimeSpan.FromSeconds(2);
+
+    // Holds Enter *down* across the window (re-asserting, then releasing) so the firmware's "Press any key
+    // to boot from CD…" prompt is dismissed with no human present. A continuously-held key is reliably seen
+    // by the firmware's brief keyboard poll — verified 3/3 on real QEMU/OVMF, where discrete presses (even
+    // dense + held) raced the poll and missed ~half the time. Stops if the VM leaves Running, the session is
+    // replaced, or QMP goes away; always releases the key in the end.
     private async Task SendBootMediaKeypressesAsync(IRunningVm session)
     {
-        for (int i = 0; i < BootKeypressSeconds; i++)
+        int reasserts = (int)(BootKeypressWindow / BootKeypressReassert);
+        try
         {
-            await Task.Delay(TimeSpan.FromSeconds(1));
-            if (!ReferenceEquals(_session, session) || Status is not (VmStatus.Running or VmStatus.Starting))
+            for (int i = 0; i < reasserts; i++)
             {
-                return;
-            }
+                if (!ReferenceEquals(_session, session) || Status is not (VmStatus.Running or VmStatus.Starting))
+                {
+                    break;
+                }
 
+                await session.SendKeyEventAsync("ret", down: true);
+                await Task.Delay(BootKeypressReassert);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // QMP went away — fall through and try to release the key.
+        }
+        finally
+        {
             try
             {
-                await session.SendKeysAsync(["ret"]);
+                await session.SendKeyEventAsync("ret", down: false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                return;
             }
         }
     }

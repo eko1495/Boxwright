@@ -61,14 +61,48 @@ public static class QmpClientExtensions
     /// Presses a chord of keys in the guest via QMP <c>send-key</c>. Each entry is a QEMU <c>qcode</c>
     /// (e.g. <c>ret</c>, <c>spc</c>, <c>esc</c>); QEMU presses them together and releases them. Useful to
     /// drive a boot-time firmware prompt — e.g. Windows Setup's "Press any key to boot from CD or DVD…" —
-    /// with no human at the console.
+    /// with no human at the console. <paramref name="holdTimeMs"/> sets the QMP <c>hold-time</c> (how long
+    /// the keys stay down before release); a longer hold helps a firmware poll that samples the keyboard
+    /// only periodically actually register the press. Omitted (QEMU default) when <see langword="null"/>.
     /// </summary>
-    public static Task SendKeyAsync(this IQmpClient client, IReadOnlyList<string> qcodes, CancellationToken cancellationToken = default)
+    public static Task SendKeyAsync(this IQmpClient client, IReadOnlyList<string> qcodes, int? holdTimeMs = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(qcodes);
-        var keys = qcodes.Select(code => new { type = "qcode", data = code }).ToArray();
-        return client.ExecuteAsync("send-key", new { keys }, cancellationToken);
+
+        var args = new Dictionary<string, object>
+        {
+            ["keys"] = qcodes.Select(code => new { type = "qcode", data = code }).ToArray(),
+        };
+        if (holdTimeMs is { } ms)
+        {
+            args["hold-time"] = ms;
+        }
+
+        return client.ExecuteAsync("send-key", args, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sends a single key <b>press</b> (<paramref name="down"/> = <see langword="true"/>) or
+    /// <b>release</b> event via QMP <c>input-send-event</c> for a QEMU <c>qcode</c> (e.g. <c>ret</c>).
+    /// Unlike <see cref="SendKeyAsync"/> (which presses and immediately releases), this lets the caller
+    /// <b>hold</b> a key down and release it later — a continuously-held key is reliably seen by a firmware
+    /// prompt that polls the keyboard only briefly (e.g. "Press any key to boot from CD…"), where discrete
+    /// presses can race the poll and be missed.
+    /// </summary>
+    public static Task SendKeyEventAsync(this IQmpClient client, string qcode, bool down, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentException.ThrowIfNullOrEmpty(qcode);
+
+        var args = new
+        {
+            events = new[]
+            {
+                new { type = "key", data = new { down, key = new { type = "qcode", data = qcode } } },
+            },
+        };
+        return client.ExecuteAsync("input-send-event", args, cancellationToken);
     }
 }
 

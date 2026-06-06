@@ -61,21 +61,40 @@ public sealed class AutounattendXmlTests
     }
 
     [Fact]
-    public void Build_CreatesLocalAdmin_WithEncodedPassword_NeverPlaintext()
+    public void Build_CreatesTheAdminAccount_ViaSpecializePass_AndAutoLogsOn()
     {
         string xml = AutounattendXml.Build(Answers(), new WindowsInstallOptions(), uefi: true);
 
         Assert.Contains("<ComputerName>winbox</ComputerName>", xml);
-        Assert.Contains("<Name>alice</Name>", xml);
-        Assert.Contains("<Group>Administrators</Group>", xml);
-        Assert.Contains("<Enabled>true</Enabled>", xml); // AutoLogon
+        // The account is created in the specialize pass (which ConX honours), not oobeSystem LocalAccounts.
+        Assert.Contains("net user \"alice\"", xml);
+        Assert.Contains("net localgroup \"Administrators\" \"alice\"", xml);
+        Assert.Contains("AutoAdminLogon", xml);
+        Assert.DoesNotContain("<LocalAccount", xml); // the oobeSystem LocalAccount was removed
+        Assert.Contains("<Enabled>true</Enabled>", xml); // oobeSystem AutoLogon (legacy path)
+    }
 
-        Assert.DoesNotContain("hunter2", xml); // plaintext never leaks
-        string expected = AutounattendXml.EncodePassword("hunter2", "Password");
-        Assert.Contains($"<Value>{expected}</Value>", xml);
-        // ...and that value really decodes back to the password (+ suffix).
-        string decoded = Encoding.Unicode.GetString(Convert.FromBase64String(expected));
-        Assert.Equal("hunter2Password", decoded);
+    [Fact]
+    public void Build_OobeAutoLogon_UsesTheObfuscatedPassword()
+    {
+        string xml = AutounattendXml.Build(Answers(), new WindowsInstallOptions(), uefi: true);
+
+        // The oobeSystem AutoLogon value is the Base64(UTF-16LE(pw+"Password")) obfuscation.
+        string encoded = AutounattendXml.EncodePassword("hunter2", "Password");
+        Assert.Contains($"<Value>{encoded}</Value>", xml);
+        Assert.Equal("hunter2Password", Encoding.Unicode.GetString(Convert.FromBase64String(encoded)));
+    }
+
+    [Fact]
+    public void Build_SpecializeAccountScript_CarriesThePasswordInPlaintext_ConxTradeoff()
+    {
+        // The specialize `net user` + Winlogon DefaultPassword script needs the password in plaintext
+        // (ADR-0015) — a documented tradeoff for ConX (24H2/25H2) compatibility. Setup strips it
+        // post-install, and the oobeSystem value was only Base64 obfuscation anyway.
+        string xml = AutounattendXml.Build(Answers(), new WindowsInstallOptions(), uefi: true);
+
+        Assert.Contains("net user \"alice\" \"hunter2\"", xml);
+        Assert.Contains("BypassNRO", xml);
     }
 
     [Fact]

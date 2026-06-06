@@ -74,7 +74,7 @@
                                      Width="240" HorizontalAlignment="Left" />
                         </StackPanel>
                         <TextBlock Opacity="0.55" FontSize="12" TextWrapping="Wrap"
-                                   Text="Boxwright writes an Autounattend.xml seed and bypasses the Windows 11 TPM/Secure Boot checks. Windows on QEMU is slow, and on first boot you may still need to press a key at the “Press any key to boot from CD” prompt." />
+                                   Text="Boxwright writes an Autounattend.xml seed, auto-presses the boot-from-CD key, and bypasses the Windows 11 TPM/Secure Boot checks. Windows on QEMU is slow. Fully hands-free works best with a Windows Enterprise/Education/LTSC ISO (or a pre-24H2 build) — on consumer Home/Pro 24H2/25H2, Microsoft’s new Setup may still pause at account setup." />
                     </StackPanel>
                 </StackPanel>
             </Expander>
