@@ -70,9 +70,11 @@ that before adding anything.
 This is the "Quickemu moment" — the feature most likely to attract stars.
 
 - [x] **Built-in OS catalog** with one-click ISO download — our own bundled JSON
-      behind an interface (remote manifest later). First cut: Ubuntu 24.04
-      Desktop/Server, Debian 13 netinst; Fedora/Mint/Windows to follow (Windows
-      needs a non-direct acquisition flow). See ADR-0010.
+      behind an interface, now fronted by a **remote, community-maintainable
+      manifest** (remote → last-good cache → bundled, best-effort; the catalog grows
+      and refreshes without an app update). First cut: Ubuntu 24.04 Desktop/Server,
+      Debian 13 netinst; Fedora/Mint/Windows to follow (Windows needs a non-direct
+      acquisition flow). See ADR-0010 and ADR-0020.
 - [x] Checksum (SHA-256) verification + provenance display for downloads.
       GPG/PGP *signature* verification is a fast-follow.
 - [ ] **Unattended install** for Ubuntu — seed generation is done (cloud-init NoCloud FAT/`CIDATA`), but the
