@@ -15,6 +15,8 @@ requires cross-platform parity; ADR-0006 says VM state lives in the per-VM folde
   `IOsCatalogSource`. It works offline and is fully under our control; a remote manifest can
   implement the same interface later with no caller changes. First cut: a few checksum-verified
   Linux entries (Ubuntu 24.04 Desktop/Server, Debian 13 netinst); more are appended over time.
+  *(Update: the remote manifest landed — see [ADR-0020](0020-remote-os-catalog.md). The bundled
+  JSON is now the offline fallback behind a remote → cache → bundled source.)*
 - **ISOs download to a shared cache** (`%LOCALAPPDATA%/Boxwright/ISOs` and the OS equivalents),
   referenced from the VM config by absolute path. An installer ISO is a re-downloadable shared
   asset, **not VM state**, so this stays consistent with ADR-0006 (the per-VM folder still holds

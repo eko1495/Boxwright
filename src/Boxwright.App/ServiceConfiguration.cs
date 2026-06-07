@@ -55,7 +55,18 @@ internal static class ServiceConfiguration
         // OS catalog + ISO downloader ("Get an OS"). One shared HttpClient — never per-call.
         services.AddSingleton(_ => new HttpClient());
         services.AddSingleton<IHttpStreamSource, HttpClientStreamSource>();
-        services.AddSingleton<IOsCatalogSource, BundledOsCatalogSource>();
+
+        // Catalog source: the remote (community-maintainable) manifest, wrapping the bundled list as the
+        // offline fallback — remote → last-good cache → bundled, best-effort (ADR-0020). Default-on; a
+        // network failure degrades silently so the catalog UI always gets a usable list.
+        services.AddSingleton<BundledOsCatalogSource>();
+        services.AddSingleton<IOsCatalogSource>(sp => new RemoteOsCatalogSource(
+            sp.GetRequiredService<IHttpStreamSource>(),
+            sp.GetRequiredService<BundledOsCatalogSource>(),
+            new Uri(RemoteOsCatalogSource.DefaultCatalogUrl),
+            RemoteOsCatalogSource.DefaultCacheFilePath,
+            TimeSpan.FromSeconds(5),
+            sp.GetService<ILogger<RemoteOsCatalogSource>>()));
         services.AddSingleton<IIsoDownloader>(sp =>
             new IsoDownloader(sp.GetRequiredService<IHttpStreamSource>(), IsoDownloader.DefaultCacheDirectory));
 
