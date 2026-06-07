@@ -26,4 +26,37 @@ public static class QmpClientExtensions
                 ? name.GetString()
                 : null;
     }
+
+    /// <summary>
+    /// Runs <c>query-blockstats</c> and sums the cumulative read/write byte counters across all block
+    /// devices. The counters only ever grow, so a caller differences successive samples to get a live
+    /// disk-throughput rate. Defensive against the slightly varying per-version shape (missing fields → 0).
+    /// </summary>
+    public static async Task<QmpBlockStats> QueryBlockStatsAsync(this IQmpClient client, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        JsonElement result = await client.ExecuteAsync("query-blockstats", arguments: null, cancellationToken);
+
+        long read = 0;
+        long write = 0;
+        if (result.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement device in result.EnumerateArray())
+            {
+                if (device.TryGetProperty("stats", out JsonElement stats) && stats.ValueKind == JsonValueKind.Object)
+                {
+                    read += ReadLong(stats, "rd_bytes");
+                    write += ReadLong(stats, "wr_bytes");
+                }
+            }
+        }
+
+        return new QmpBlockStats(read, write);
+    }
+
+    private static long ReadLong(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.Number ? value.GetInt64() : 0;
 }
+
+/// <summary>Cumulative block-device byte counters from <c>query-blockstats</c>, summed across devices.</summary>
+public readonly record struct QmpBlockStats(long ReadBytes, long WriteBytes);

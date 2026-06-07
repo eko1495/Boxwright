@@ -102,7 +102,9 @@ Invest here only if Stage 2 metrics trend positive.
       See ADR-0014.
 - [ ] USB passthrough wizard (ship UsbDk on Windows).
 - [ ] Bridged/TAP networking on Linux.
-- [ ] Live performance graphs from QMP `query-stats`.
+- [x] Live performance graphs (ADR-0019) — CPU / RAM / disk sparklines in the VM detail view, polled
+      ~1 s while running. CPU + RAM come from the QEMU host process; disk from QMP `query-blockstats`.
+      Hand-drawn (no charting dependency). Network throughput is a fast-follow.
 - [ ] External/live snapshots via `blockdev-snapshot-sync` (+ `transaction`).
 
 ---

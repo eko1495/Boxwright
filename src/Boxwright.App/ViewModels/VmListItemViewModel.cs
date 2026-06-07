@@ -121,6 +121,29 @@ public sealed partial class VmListItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasStatusMessage))]
     private string? _statusMessage;
 
+    // Live performance metrics (ADR-0019), polled while the VM runs. Histories are reassigned each tick so
+    // the bound Sparkline redraws; the scalar texts label the current value.
+    [ObservableProperty]
+    private bool _hasMetrics;
+
+    [ObservableProperty]
+    private double[] _cpuHistory = [];
+
+    [ObservableProperty]
+    private double[] _memoryHistory = [];
+
+    [ObservableProperty]
+    private double[] _diskHistory = [];
+
+    [ObservableProperty]
+    private string? _cpuText;
+
+    [ObservableProperty]
+    private string? _memoryText;
+
+    [ObservableProperty]
+    private string? _diskText;
+
     [ObservableProperty]
     private bool _isConfirmingDelete;
 
@@ -196,6 +219,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         _session = session;
         Status = VmStatus.Running;
         StatusMessage = DescribeAccelerator(session.Accelerator);
+        _ = PollMetricsAsync(session); // live CPU/RAM/disk graphs while running (ADR-0019)
     }
 
     /// <summary>
@@ -708,6 +732,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     private async Task TeardownSessionAsync()
     {
         GuestAddresses = null; // don't show a stale IP once the VM is gone
+        ResetMetrics();
         IRunningVm? session = _session;
         _session = null;
         if (session is not null)
@@ -715,6 +740,93 @@ public sealed partial class VmListItemViewModel : ObservableObject
             session.Exited -= OnSessionExited;
             await session.DisposeAsync();
         }
+    }
+
+    private const int MetricsHistoryLength = 60;
+    private static readonly TimeSpan MetricsInterval = TimeSpan.FromSeconds(1);
+    private readonly List<double> _cpuSamples = [];
+    private readonly List<double> _memorySamples = [];
+    private readonly List<double> _diskSamples = [];
+
+    // Polls the live session ~every 1.5s while running, differencing successive samples into CPU %, RAM,
+    // and disk MB/s, and publishing ring-buffered histories for the graphs. Fire-and-forget; stops when the
+    // VM leaves Running/Paused or the session is replaced. Marshals UI updates through the dispatcher.
+    private async Task PollMetricsAsync(IRunningVm session)
+    {
+        int vcpus = Math.Max(1, Vm.Config.Cpu.Sockets * Vm.Config.Cpu.Cores * Vm.Config.Cpu.Threads);
+        VmMetricsSample? previous = null;
+        long previousTicks = 0;
+
+        while (ReferenceEquals(_session, session) && Status is VmStatus.Running or VmStatus.Paused)
+        {
+            await Task.Delay(MetricsInterval);
+            if (!ReferenceEquals(_session, session) || Status is not (VmStatus.Running or VmStatus.Paused))
+            {
+                return;
+            }
+
+            VmMetricsSample sample;
+            long nowTicks;
+            try
+            {
+                sample = await session.GetMetricsSampleAsync();
+                nowTicks = System.Diagnostics.Stopwatch.GetTimestamp();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                continue; // transient QMP/process hiccup — try the next tick
+            }
+
+            if (previous is { } prev)
+            {
+                double wallSeconds = System.Diagnostics.Stopwatch.GetElapsedTime(previousTicks, nowTicks).TotalSeconds;
+                if (wallSeconds > 0)
+                {
+                    VmMetricsRate rate = VmMetrics.Derive(prev, sample, wallSeconds, vcpus);
+                    _dispatcher.Post(() => PublishMetrics(rate));
+                }
+            }
+
+            previous = sample;
+            previousTicks = nowTicks;
+        }
+    }
+
+    private void PublishMetrics(VmMetricsRate rate)
+    {
+        Push(_cpuSamples, rate.CpuPercent);
+        Push(_memorySamples, rate.MemoryMegabytes);
+        Push(_diskSamples, rate.DiskMegabytesPerSecond);
+        CpuHistory = [.. _cpuSamples];
+        MemoryHistory = [.. _memorySamples];
+        DiskHistory = [.. _diskSamples];
+        CpuText = $"{rate.CpuPercent:0}%";
+        MemoryText = rate.MemoryMegabytes >= 1000 ? $"{rate.MemoryMegabytes / 1000:0.0} GB" : $"{rate.MemoryMegabytes:0} MB";
+        DiskText = $"{rate.DiskMegabytesPerSecond:0.0} MB/s";
+        HasMetrics = true;
+    }
+
+    private static void Push(List<double> ring, double value)
+    {
+        ring.Add(value);
+        if (ring.Count > MetricsHistoryLength)
+        {
+            ring.RemoveAt(0);
+        }
+    }
+
+    private void ResetMetrics()
+    {
+        _cpuSamples.Clear();
+        _memorySamples.Clear();
+        _diskSamples.Clear();
+        CpuHistory = [];
+        MemoryHistory = [];
+        DiskHistory = [];
+        CpuText = null;
+        MemoryText = null;
+        DiskText = null;
+        HasMetrics = false;
     }
 
     private void OnSessionExited(object? sender, EventArgs e) =>

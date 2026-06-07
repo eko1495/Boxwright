@@ -45,6 +45,23 @@ internal sealed class FakeRunningVm : IRunningVm
     public Task<IReadOnlyList<string>> GetGuestAddressesAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<string>>(GuestAddresses.ToList());
 
+    /// <summary>Scripted metric samples returned in order by GetMetricsSampleAsync; the last one repeats.</summary>
+    public List<VmMetricsSample> MetricSamples { get; } = [];
+    private int _metricIndex;
+
+    public Task<VmMetricsSample> GetMetricsSampleAsync(CancellationToken cancellationToken = default)
+    {
+        Calls.Add("metrics");
+        if (MetricSamples.Count == 0)
+        {
+            return Task.FromResult(default(VmMetricsSample));
+        }
+
+        VmMetricsSample sample = MetricSamples[Math.Min(_metricIndex, MetricSamples.Count - 1)];
+        _metricIndex++;
+        return Task.FromResult(sample);
+    }
+
     public void ForceStop()
     {
         Calls.Add("forcestop");

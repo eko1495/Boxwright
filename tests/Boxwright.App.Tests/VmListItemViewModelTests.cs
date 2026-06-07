@@ -559,4 +559,33 @@ public sealed class VmListItemViewModelTests : IDisposable
         Assert.Equal("boot log", item.LogContent);
         Assert.Equal(item.Vm.LogPath, _logReader.LastPath);
     }
+
+    [Fact]
+    public async Task RunningVm_PollsMetrics_AndPopulatesTheHistories()
+    {
+        var session = new FakeRunningVm();
+        // Two scripted samples so a rate can be derived (the poll loop differences successive samples).
+        session.MetricSamples.Add(new VmMetricsSample(TimeSpan.Zero, 100_000_000, 0, 0));
+        session.MetricSamples.Add(new VmMetricsSample(TimeSpan.FromSeconds(0.5), 120_000_000, 1_000_000, 1_000_000));
+        var item = NewItem(new FakeVmLauncher(session), SnapshottableVm());
+
+        await item.StartCommand.ExecuteAsync(null);
+
+        await WaitUntilAsync(() => item.HasMetrics && item.CpuHistory.Length > 0, timeoutMs: 8000);
+        Assert.NotEmpty(item.CpuHistory);
+        Assert.NotEmpty(item.MemoryHistory);
+        Assert.NotEmpty(item.DiskHistory);
+        Assert.NotNull(item.MemoryText);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (!condition() && sw.ElapsedMilliseconds < timeoutMs)
+        {
+            await Task.Delay(50);
+        }
+
+        Assert.True(condition(), "condition was not met within the timeout");
+    }
 }

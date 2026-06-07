@@ -53,6 +53,13 @@ public interface IRunningVm : IAsyncDisposable
     /// <summary>Returns the guest's IP addresses via the guest agent, or an empty list when no agent is present.</summary>
     Task<IReadOnlyList<string>> GetGuestAddressesAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Reads a live resource sample (ADR-0019): CPU time + working set from the QEMU host process and
+    /// cumulative disk byte counters via QMP <c>query-blockstats</c>. The caller polls and differences
+    /// successive samples to drive the performance graphs.
+    /// </summary>
+    Task<VmMetricsSample> GetMetricsSampleAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Forcibly terminates the VM process (pulls the plug).</summary>
     void ForceStop();
 
