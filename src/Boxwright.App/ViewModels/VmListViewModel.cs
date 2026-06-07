@@ -22,6 +22,7 @@ public sealed partial class VmListViewModel : ObservableObject
     private readonly ILogReader _logReader;
     private readonly ISnapshotService _snapshotService;
     private readonly IVmCloneService _cloneService;
+    private readonly ILiveSnapshotService _liveSnapshotService;
 
     public VmListViewModel(
         VmRepository repository,
@@ -32,7 +33,8 @@ public sealed partial class VmListViewModel : ObservableObject
         IEmbeddedVncDisplay embeddedVnc,
         ILogReader logReader,
         ISnapshotService snapshotService,
-        IVmCloneService cloneService)
+        IVmCloneService cloneService,
+        ILiveSnapshotService liveSnapshotService)
     {
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(launcher);
@@ -43,6 +45,7 @@ public sealed partial class VmListViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(logReader);
         ArgumentNullException.ThrowIfNull(snapshotService);
         ArgumentNullException.ThrowIfNull(cloneService);
+        ArgumentNullException.ThrowIfNull(liveSnapshotService);
 
         _repository = repository;
         _launcher = launcher;
@@ -53,6 +56,7 @@ public sealed partial class VmListViewModel : ObservableObject
         _logReader = logReader;
         _snapshotService = snapshotService;
         _cloneService = cloneService;
+        _liveSnapshotService = liveSnapshotService;
     }
 
     /// <summary>The loaded VMs, sorted by name.</summary>
@@ -67,7 +71,11 @@ public sealed partial class VmListViewModel : ObservableObject
     private VmListItemViewModel? _selectedVm;
 
     // Load the newly-selected VM's snapshots — the detail panel only shows the selection.
-    partial void OnSelectedVmChanged(VmListItemViewModel? value) => value?.RefreshSnapshotsCommand.Execute(null);
+    partial void OnSelectedVmChanged(VmListItemViewModel? value)
+    {
+        value?.RefreshSnapshotsCommand.Execute(null);
+        value?.RefreshLiveSnapshotsCommand.Execute(null);
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -141,7 +149,7 @@ public sealed partial class VmListViewModel : ObservableObject
 
     private VmListItemViewModel CreateItem(Vm vm)
     {
-        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _embeddedVnc, _logReader, _snapshotService, _cloneService);
+        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _embeddedVnc, _logReader, _snapshotService, _cloneService, _liveSnapshotService);
         item.Deleted += OnItemDeleted;
         item.Cloned += OnItemCloned;
         return item;

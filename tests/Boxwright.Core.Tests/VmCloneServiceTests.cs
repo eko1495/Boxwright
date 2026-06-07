@@ -123,5 +123,8 @@ public sealed class VmCloneServiceTests : IDisposable
             Overlays.Add((backingPath, overlayPath));
             return Task.CompletedTask;
         }
+
+        public Task RebaseAsync(string imagePath, string newBackingPath, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 }

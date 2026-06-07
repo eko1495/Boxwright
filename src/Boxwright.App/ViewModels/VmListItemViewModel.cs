@@ -42,6 +42,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     private readonly ILogReader _logReader;
     private readonly ISnapshotService _snapshotService;
     private readonly IVmCloneService _cloneService;
+    private readonly ILiveSnapshotService _liveSnapshotService;
     private IRunningVm? _session;
 
     public VmListItemViewModel(
@@ -54,7 +55,8 @@ public sealed partial class VmListItemViewModel : ObservableObject
         IEmbeddedVncDisplay embeddedVnc,
         ILogReader logReader,
         ISnapshotService snapshotService,
-        IVmCloneService cloneService)
+        IVmCloneService cloneService,
+        ILiveSnapshotService liveSnapshotService)
     {
         ArgumentNullException.ThrowIfNull(vm);
         ArgumentNullException.ThrowIfNull(launcher);
@@ -66,6 +68,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(logReader);
         ArgumentNullException.ThrowIfNull(snapshotService);
         ArgumentNullException.ThrowIfNull(cloneService);
+        ArgumentNullException.ThrowIfNull(liveSnapshotService);
 
         Vm = vm;
         _launcher = launcher;
@@ -77,6 +80,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         _logReader = logReader;
         _snapshotService = snapshotService;
         _cloneService = cloneService;
+        _liveSnapshotService = liveSnapshotService;
     }
 
     /// <summary>The underlying domain VM (replaced when its config is edited).</summary>
@@ -110,11 +114,12 @@ public sealed partial class VmListItemViewModel : ObservableObject
         : "Boots from disk.";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText), nameof(CanManageSnapshots), nameof(CanClone), nameof(CanSaveState))]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(CanManageSnapshots), nameof(CanClone), nameof(CanSaveState),
+        nameof(CanTakeLiveSnapshot), nameof(CanManageLiveSnapshots))]
     [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(StopCommand), nameof(PauseCommand),
         nameof(ResumeCommand), nameof(ResetCommand), nameof(DeleteCommand),
         nameof(ChooseIsoCommand), nameof(RemoveIsoCommand), nameof(OpenDisplayCommand), nameof(SaveStateCommand),
-        nameof(RefreshGuestIpCommand))]
+        nameof(RefreshGuestIpCommand), nameof(TakeLiveSnapshotCommand))]
     private VmStatus _status = VmStatus.Stopped;
 
     [ObservableProperty]
@@ -217,6 +222,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
         // Surface what QEMU wrote (the launch header + any output/errors) without a manual click.
         await RefreshLogAsync();
+        await RefreshLiveSnapshotsAsync(); // show any existing live snapshots (Take is now available)
     }
 
     // Wire a live session (freshly started or re-adopted on restart) into this item: subscribe to its
@@ -298,6 +304,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
             Status = VmStatus.Stopped;
             await RefreshLogAsync();
             await RefreshSnapshotsAsync(); // snapshots are now manageable again
+            await RefreshLiveSnapshotsAsync(); // and revert/delete becomes available
         }
     }
 
@@ -545,6 +552,147 @@ public sealed partial class VmListItemViewModel : ObservableObject
         catch (DiskException ex)
         {
             StatusMessage = $"Couldn't delete the snapshot: {ex.Message}";
+        }
+    }
+
+    // ---- Live snapshots (external; take while running, manage while stopped) ----
+
+    /// <summary>External/live snapshots of this VM (loaded on demand — see ADR-0021).</summary>
+    public ObservableCollection<LiveSnapshotEntry> LiveSnapshots { get; } = [];
+
+    [ObservableProperty]
+    private string? _newLiveSnapshotName;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsConfirmingLiveRevert))]
+    private LiveSnapshotEntry? _liveSnapshotPendingRevert;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsConfirmingLiveDelete))]
+    private LiveSnapshotEntry? _liveSnapshotPendingDelete;
+
+    /// <summary>True while a live-snapshot revert awaits confirmation (it discards changes made since the snapshot).</summary>
+    public bool IsConfirmingLiveRevert => LiveSnapshotPendingRevert is not null;
+
+    /// <summary>True while a live-snapshot delete awaits confirmation.</summary>
+    public bool IsConfirmingLiveDelete => LiveSnapshotPendingDelete is not null;
+
+    /// <summary>True when there are live snapshots to show.</summary>
+    public bool HasLiveSnapshots => LiveSnapshots.Count > 0;
+
+    private bool HasQcow2Disk =>
+        Vm.Config.Disks.Any(d => string.Equals(d.Format, "qcow2", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>A live snapshot can be taken only while the VM is running — it snapshots the live disks with no downtime.</summary>
+    public bool CanTakeLiveSnapshot => Status == VmStatus.Running && _session is not null && HasQcow2Disk;
+
+    /// <summary>Live snapshots can be reverted/deleted only while stopped (offline qcow2 ops), mirroring internal snapshots.</summary>
+    public bool CanManageLiveSnapshots => Status == VmStatus.Stopped && HasQcow2Disk;
+
+    [RelayCommand]
+    private async Task RefreshLiveSnapshotsAsync()
+    {
+        LiveSnapshots.Clear();
+        try
+        {
+            foreach (LiveSnapshotEntry entry in await _liveSnapshotService.ListAsync(Vm))
+            {
+                LiveSnapshots.Add(entry);
+            }
+        }
+        catch (DiskException ex)
+        {
+            StatusMessage = $"Couldn't list live snapshots: {ex.Message}";
+        }
+
+        OnPropertyChanged(nameof(HasLiveSnapshots));
+    }
+
+    [RelayCommand(CanExecute = nameof(CanTakeLiveSnapshot))]
+    private async Task TakeLiveSnapshotAsync()
+    {
+        string name = (NewLiveSnapshotName ?? string.Empty).Trim();
+        if (name.Length == 0)
+        {
+            StatusMessage = "Enter a name for the live snapshot.";
+            return;
+        }
+
+        if (_session is null || !CanTakeLiveSnapshot)
+        {
+            return;
+        }
+
+        try
+        {
+            // Repoints the disks at the new overlays; apply so the item reflects the live chain.
+            Vm updated = await _liveSnapshotService.TakeAsync(Vm, _session, name);
+            ApplyConfig(updated.Config);
+            NewLiveSnapshotName = null;
+            StatusMessage = $"Took live snapshot '{name}'.";
+            await RefreshLiveSnapshotsAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            StatusMessage = $"Couldn't take the live snapshot: {ex.Message}";
+        }
+    }
+
+    // Reverting discards changes made since the snapshot, so it asks first.
+    [RelayCommand]
+    private void RevertLiveSnapshot(LiveSnapshotEntry snapshot) => LiveSnapshotPendingRevert = snapshot;
+
+    [RelayCommand]
+    private void CancelRevertLiveSnapshot() => LiveSnapshotPendingRevert = null;
+
+    [RelayCommand]
+    private async Task ConfirmRevertLiveSnapshotAsync()
+    {
+        LiveSnapshotEntry? snapshot = LiveSnapshotPendingRevert;
+        LiveSnapshotPendingRevert = null;
+        if (snapshot is null || !CanManageLiveSnapshots)
+        {
+            return;
+        }
+
+        try
+        {
+            Vm updated = await _liveSnapshotService.RevertAsync(Vm, snapshot.Id);
+            ApplyConfig(updated.Config);
+            StatusMessage = $"Reverted to live snapshot '{snapshot.Name}'.";
+            await RefreshLiveSnapshotsAsync();
+        }
+        catch (DiskException ex)
+        {
+            StatusMessage = $"Couldn't revert: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void DeleteLiveSnapshot(LiveSnapshotEntry snapshot) => LiveSnapshotPendingDelete = snapshot;
+
+    [RelayCommand]
+    private void CancelDeleteLiveSnapshot() => LiveSnapshotPendingDelete = null;
+
+    [RelayCommand]
+    private async Task ConfirmDeleteLiveSnapshotAsync()
+    {
+        LiveSnapshotEntry? snapshot = LiveSnapshotPendingDelete;
+        LiveSnapshotPendingDelete = null;
+        if (snapshot is null || !CanManageLiveSnapshots)
+        {
+            return;
+        }
+
+        try
+        {
+            await _liveSnapshotService.DeleteAsync(Vm, snapshot.Id);
+            StatusMessage = $"Deleted live snapshot '{snapshot.Name}'.";
+            await RefreshLiveSnapshotsAsync();
+        }
+        catch (DiskException ex)
+        {
+            StatusMessage = $"Couldn't delete the live snapshot: {ex.Message}";
         }
     }
 

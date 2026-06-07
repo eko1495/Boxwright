@@ -30,4 +30,12 @@ public interface IDiskService
     /// <summary>Creates a qcow2 overlay at <paramref name="overlayPath"/> backed by <paramref name="backingPath"/> (linked clone — shares the backing image).</summary>
     /// <exception cref="DiskException">The <c>qemu-img create</c> invocation failed.</exception>
     Task CreateOverlayAsync(string backingPath, string overlayPath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Rewrites <paramref name="imagePath"/>'s backing file to <paramref name="newBackingPath"/> in <b>safe mode</b>
+    /// (qemu-img copies the clusters needed so the image's visible content is unchanged). Used to detach an
+    /// intermediate snapshot from the chain before deleting it. The image must not be open in any QEMU process.
+    /// </summary>
+    /// <exception cref="DiskException">The <c>qemu-img rebase</c> invocation failed.</exception>
+    Task RebaseAsync(string imagePath, string newBackingPath, CancellationToken cancellationToken = default);
 }

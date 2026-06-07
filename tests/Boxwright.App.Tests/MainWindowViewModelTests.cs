@@ -50,7 +50,8 @@ public sealed class MainWindowViewModelTests : IDisposable
             new FakeEmbeddedVncDisplay(),
             new FakeLogReader(),
             new FakeSnapshotService(),
-            new FakeVmCloneService());
+            new FakeVmCloneService(),
+            new FakeLiveSnapshotService());
         return new MainWindowViewModel(
             vms, AcceleratorDetector.CreateDefault(), repository, new FakeDiskService(), opener,
             new FakeOsCatalogSource(), new FakeIsoDownloader(), new FakeSeedGenerator(),

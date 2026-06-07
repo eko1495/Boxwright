@@ -19,6 +19,7 @@ public sealed class VmListItemViewModelTests : IDisposable
     private readonly FakeLogReader _logReader = new();
     private readonly FakeSnapshotService _snapshots = new();
     private readonly FakeVmCloneService _clone = new();
+    private readonly FakeLiveSnapshotService _liveSnapshots = new();
 
     public VmListItemViewModelTests()
     {
@@ -40,7 +41,7 @@ public sealed class VmListItemViewModelTests : IDisposable
 
     private VmListItemViewModel NewItem(IVmLauncher launcher, Vm? vm = null) =>
         new(vm ?? new Vm(Path.Combine(_root, "x"), new VmConfig { Id = "x", Name = "Test" }),
-            launcher, _repository, _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone);
+            launcher, _repository, _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone, _liveSnapshots);
 
     private Vm SnapshottableVm() =>
         new(Path.Combine(_root, "x"), new VmConfig
@@ -121,6 +122,63 @@ public sealed class VmListItemViewModelTests : IDisposable
         await item.StartCommand.ExecuteAsync(null);
 
         Assert.False(item.CanClone);
+    }
+
+    [Fact]
+    public async Task LiveSnapshot_Take_IsRunningOnly_AndManage_IsStoppedOnly()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), SnapshottableVm());
+        Assert.False(item.CanTakeLiveSnapshot);  // stopped → can't take a live snapshot
+        Assert.True(item.CanManageLiveSnapshots); // stopped → revert/delete allowed
+
+        await item.StartCommand.ExecuteAsync(null);
+
+        Assert.True(item.CanTakeLiveSnapshot);    // running → take allowed
+        Assert.False(item.CanManageLiveSnapshots); // running → revert/delete blocked
+    }
+
+    [Fact]
+    public async Task TakeLiveSnapshot_WhileRunning_InvokesService_AndListsIt()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), SnapshottableVm());
+        await item.StartCommand.ExecuteAsync(null);
+        item.NewLiveSnapshotName = "before-update";
+
+        await item.TakeLiveSnapshotCommand.ExecuteAsync(null);
+
+        Assert.Contains("take:before-update", _liveSnapshots.Calls);
+        Assert.Contains(item.LiveSnapshots, s => s.Name == "before-update");
+        Assert.True(item.HasLiveSnapshots);
+    }
+
+    [Fact]
+    public async Task RevertLiveSnapshot_AsksForConfirmation_ThenRevertsViaService()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), SnapshottableVm());
+        var entry = new LiveSnapshotEntry { Id = "s1", Name = "s1" };
+
+        item.RevertLiveSnapshotCommand.Execute(entry);
+        Assert.True(item.IsConfirmingLiveRevert);
+
+        await item.ConfirmRevertLiveSnapshotCommand.ExecuteAsync(null);
+
+        Assert.False(item.IsConfirmingLiveRevert);
+        Assert.Contains("revert:s1", _liveSnapshots.Calls);
+    }
+
+    [Fact]
+    public async Task DeleteLiveSnapshot_AsksForConfirmation_ThenDeletesViaService()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), SnapshottableVm());
+        var entry = new LiveSnapshotEntry { Id = "s1", Name = "s1" };
+
+        item.DeleteLiveSnapshotCommand.Execute(entry);
+        Assert.True(item.IsConfirmingLiveDelete);
+
+        await item.ConfirmDeleteLiveSnapshotCommand.ExecuteAsync(null);
+
+        Assert.False(item.IsConfirmingLiveDelete);
+        Assert.Contains("delete:s1", _liveSnapshots.Calls);
     }
 
     [Fact]

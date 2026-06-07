@@ -147,6 +147,53 @@ public class DiskServiceTests
         });
     }
 
+    [Fact]
+    public async Task GetInfoAsync_ParsesBackingFilenames()
+    {
+        const string infoJson =
+            "{\"filename\":\"overlay.qcow2\",\"format\":\"qcow2\",\"virtual-size\":1024,\"actual-size\":512," +
+            "\"backing-filename\":\"base.qcow2\",\"full-backing-filename\":\"C:\\\\VMs\\\\a\\\\base.qcow2\"}";
+
+        await WithStubQemuImgAsync(async locator =>
+        {
+            var fake = new FakeProcessRunner(exitCode: 0, standardOutput: infoJson);
+            var service = new DiskService(fake, locator);
+
+            DiskInfo info = await service.GetInfoAsync("overlay.qcow2");
+
+            Assert.Equal("base.qcow2", info.BackingFilename);
+            Assert.Equal("C:\\VMs\\a\\base.qcow2", info.FullBackingFilename);
+        });
+    }
+
+    [Fact]
+    public async Task RebaseAsync_InvokesQemuImgRebaseInSafeMode()
+    {
+        await WithStubQemuImgAsync(async locator =>
+        {
+            var fake = new FakeProcessRunner(exitCode: 0);
+            var service = new DiskService(fake, locator);
+
+            await service.RebaseAsync("child.qcow2", "parent.qcow2");
+
+            (string FileName, IReadOnlyList<string> Arguments) invocation = Assert.Single(fake.Invocations);
+            Assert.Equal("rebase -b parent.qcow2 -F qcow2 child.qcow2", string.Join(' ', invocation.Arguments));
+            Assert.DoesNotContain("-u", invocation.Arguments); // never unsafe mode
+        });
+    }
+
+    [Fact]
+    public async Task RebaseAsync_NonZeroExit_ThrowsDiskException()
+    {
+        await WithStubQemuImgAsync(async locator =>
+        {
+            var fake = new FakeProcessRunner(exitCode: 1, standardError: "qemu-img: rebase failed");
+            var service = new DiskService(fake, locator);
+
+            await Assert.ThrowsAsync<DiskException>(() => service.RebaseAsync("child.qcow2", "parent.qcow2"));
+        });
+    }
+
     private static async Task WithStubQemuImgAsync(Func<QemuLocator, Task> body)
     {
         string dir = Path.Combine(Path.GetTempPath(), $"boxwright-disk-{Guid.NewGuid():N}");

@@ -68,6 +68,15 @@ public interface IRunningVm : IAsyncDisposable
     /// </summary>
     Task<VmMetricsSample> GetMetricsSampleAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Takes a live external snapshot of the running disks: resolves each request's active image to its live
+    /// block device via QMP <c>query-block</c> (matched by file path), then issues one
+    /// <c>blockdev-snapshot-sync</c> <c>transaction</c> so all disks are snapshotted atomically. On return,
+    /// the guest is writing into the new overlays and the previously-active images are frozen read-only.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A request's active image has no matching running qcow2 block device.</exception>
+    Task TakeLiveSnapshotAsync(IReadOnlyList<LiveSnapshotDiskRequest> disks, CancellationToken cancellationToken = default);
+
     /// <summary>Forcibly terminates the VM process (pulls the plug).</summary>
     void ForceStop();
 

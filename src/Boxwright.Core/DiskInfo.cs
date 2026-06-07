@@ -26,4 +26,12 @@ public sealed record DiskInfo
     /// <summary>Internal snapshots stored in the image (empty when there are none).</summary>
     [JsonPropertyName("snapshots")]
     public IReadOnlyList<VmSnapshot> Snapshots { get; init; } = [];
+
+    /// <summary>The image's immediate backing file as recorded in the image (relative or absolute), or null when it has none.</summary>
+    [JsonPropertyName("backing-filename")]
+    public string? BackingFilename { get; init; }
+
+    /// <summary>The image's immediate backing file resolved to an absolute path, or null when it has none. Preferred for chain comparisons.</summary>
+    [JsonPropertyName("full-backing-filename")]
+    public string? FullBackingFilename { get; init; }
 }

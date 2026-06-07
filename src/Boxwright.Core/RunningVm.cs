@@ -138,6 +138,55 @@ public sealed class RunningVm : IRunningVm
         return agent is null ? [] : await agent.GetIpAddressesAsync(cancellationToken);
     }
 
+    /// <summary>Takes a live external snapshot of the running disks via a single <c>blockdev-snapshot-sync</c> transaction.</summary>
+    public async Task TakeLiveSnapshotAsync(IReadOnlyList<LiveSnapshotDiskRequest> disks, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(disks);
+        if (disks.Count == 0)
+        {
+            throw new ArgumentException("At least one disk is required to take a live snapshot.", nameof(disks));
+        }
+
+        // Resolve each active image path to its live block-backend device name. The disks are launched
+        // without an explicit id/node-name, so the auto node-name is unstable — match by inserted file.
+        IReadOnlyList<QmpBlockDevice> blockDevices = await _client.QueryBlockDevicesAsync(cancellationToken);
+
+        var actions = new List<(string Device, string SnapshotFile)>(disks.Count);
+        foreach (LiveSnapshotDiskRequest disk in disks)
+        {
+            string device = ResolveQcow2Device(blockDevices, disk.ActiveFilePath)
+                ?? throw new InvalidOperationException(
+                    $"No running qcow2 block device is backing '{disk.ActiveFilePath}'.");
+            actions.Add((device, disk.OverlayFilePath));
+        }
+
+        await _client.BlockdevSnapshotTransactionAsync(actions, cancellationToken);
+    }
+
+    // Finds the qcow2 block-backend device whose inserted file is the same path as activeFilePath.
+    private static string? ResolveQcow2Device(IReadOnlyList<QmpBlockDevice> devices, string activeFilePath)
+    {
+        string target = Path.GetFullPath(activeFilePath);
+        foreach (QmpBlockDevice device in devices)
+        {
+            if (device.File is null
+                || !string.Equals(device.Driver, "qcow2", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            StringComparison comparison = OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+            if (string.Equals(Path.GetFullPath(device.File), target, comparison))
+            {
+                return device.Device;
+            }
+        }
+
+        return null;
+    }
+
     // Tries the guest agent's clean shutdown; false when no agent is present (caller falls back to ACPI).
     private async Task<bool> TryAgentShutdownAsync(CancellationToken cancellationToken)
     {

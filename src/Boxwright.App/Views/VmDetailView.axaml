@@ -191,6 +191,74 @@
                 </StackPanel>
             </Expander>
 
+            <!-- Live snapshots (external; take while running, manage while stopped) -->
+            <Expander HorizontalAlignment="Stretch">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ui:SymbolIcon Symbol="Camera" /><TextBlock Text="Live snapshots" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <TextBlock FontSize="11" Opacity="0.55" TextWrapping="Wrap"
+                               Text="Snapshot a running VM with no downtime. Revert or delete while stopped." />
+
+                    <!-- Take: only while running -->
+                    <StackPanel IsVisible="{Binding CanTakeLiveSnapshot}" Orientation="Horizontal" Spacing="8">
+                        <TextBox Text="{Binding NewLiveSnapshotName}" Watermark="Live snapshot name"
+                                 Width="220" VerticalAlignment="Center" />
+                        <Button Content="Take live snapshot" Command="{Binding TakeLiveSnapshotCommand}" />
+                    </StackPanel>
+                    <TextBlock IsVisible="{Binding !CanTakeLiveSnapshot}" FontSize="12" Opacity="0.55"
+                               TextWrapping="Wrap" Text="Start the VM to take a live snapshot." />
+
+                    <Button Content="Refresh" Command="{Binding RefreshLiveSnapshotsCommand}"
+                            HorizontalAlignment="Left" />
+
+                    <ui:InfoBar IsOpen="{Binding IsConfirmingLiveRevert}" IsClosable="False" Severity="Warning"
+                                Title="Revert to live snapshot?"
+                                Message="{Binding LiveSnapshotPendingRevert.Name, StringFormat='Reverting to “{0}” discards changes made since it was taken.'}">
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                            <Button Content="Revert" Command="{Binding ConfirmRevertLiveSnapshotCommand}" />
+                            <Button Content="Cancel" Command="{Binding CancelRevertLiveSnapshotCommand}" />
+                        </StackPanel>
+                    </ui:InfoBar>
+
+                    <ui:InfoBar IsOpen="{Binding IsConfirmingLiveDelete}" IsClosable="False" Severity="Warning"
+                                Title="Delete live snapshot?"
+                                Message="{Binding LiveSnapshotPendingDelete.Name, StringFormat='Deleting “{0}” folds its data into the chain and removes the snapshot.'}">
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                            <Button Content="Delete" Command="{Binding ConfirmDeleteLiveSnapshotCommand}" />
+                            <Button Content="Cancel" Command="{Binding CancelDeleteLiveSnapshotCommand}" />
+                        </StackPanel>
+                    </ui:InfoBar>
+
+                    <TextBlock IsVisible="{Binding !HasLiveSnapshots}" FontSize="12" Opacity="0.5"
+                               Text="No live snapshots yet." />
+
+                    <ItemsControl ItemsSource="{Binding LiveSnapshots}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="core:LiveSnapshotEntry">
+                                <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2">
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" />
+                                        <TextBlock Text="{Binding CreatedUtc, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
+                                                   Opacity="0.5" FontSize="11" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="Revert" Margin="0,0,6,0"
+                                            IsEnabled="{Binding $parent[ItemsControl].((vm:VmListItemViewModel)DataContext).CanManageLiveSnapshots}"
+                                            Command="{Binding $parent[ItemsControl].((vm:VmListItemViewModel)DataContext).RevertLiveSnapshotCommand}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Grid.Column="2" Content="Delete"
+                                            IsEnabled="{Binding $parent[ItemsControl].((vm:VmListItemViewModel)DataContext).CanManageLiveSnapshots}"
+                                            Command="{Binding $parent[ItemsControl].((vm:VmListItemViewModel)DataContext).DeleteLiveSnapshotCommand}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Expander>
+
             <!-- Clone -->
             <Expander HorizontalAlignment="Stretch">
                 <Expander.Header>

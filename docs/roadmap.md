@@ -145,7 +145,9 @@ Invest here only if Stage 2 metrics trend positive.
 - [x] Live performance graphs (ADR-0019) — CPU / RAM / disk sparklines in the VM detail view, polled
       ~1 s while running. CPU + RAM come from the QEMU host process; disk from QMP `query-blockstats`.
       Hand-drawn (no charting dependency). Network throughput is a fast-follow.
-- [ ] External/live snapshots via `blockdev-snapshot-sync` (+ `transaction`).
+- [x] External/live snapshots via `blockdev-snapshot-sync` (+ `transaction`) — take a point-in-time of a
+      **running** VM with no downtime, atomically across disks; revert/delete while stopped (qcow2 overlay
+      chain, safe-mode `qemu-img rebase` on delete). See ADR-0021.
 
 ---
 
