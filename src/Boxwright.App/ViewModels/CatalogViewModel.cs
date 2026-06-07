@@ -295,7 +295,10 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         try
         {
             var progress = new DispatchedProgress(_dispatcher, OnProgress);
-            downloadedPath = await _downloader.EnsureAsync(entry, progress, _cts.Token);
+            // Re-verify a cached ISO's full content before building a VM from it: a previously-verified
+            // image can rot on disk, and a corrupt installer surfaces as a baffling in-guest kernel panic.
+            // This one-time re-hash (or re-download) at create time turns that into a clear download step.
+            downloadedPath = await _downloader.EnsureAsync(entry, progress, reverifyCachedContent: true, cancellationToken: _cts.Token);
         }
         catch (OperationCanceledException)
         {

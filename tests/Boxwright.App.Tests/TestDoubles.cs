@@ -367,7 +367,7 @@ internal sealed class FakeIsoDownloader : IIsoDownloader
 
     public List<OsCatalogEntry> Requested { get; } = [];
 
-    public Task<string> EnsureAsync(OsCatalogEntry entry, IProgress<IsoDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+    public Task<string> EnsureAsync(OsCatalogEntry entry, IProgress<IsoDownloadProgress>? progress = null, bool reverifyCachedContent = false, CancellationToken cancellationToken = default)
     {
         Requested.Add(entry);
         if (FailWith is not null)
