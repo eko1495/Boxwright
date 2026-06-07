@@ -10,7 +10,7 @@
         <StackPanel Spacing="14" MaxWidth="520" HorizontalAlignment="Left" Margin="0,0,0,8">
             <TextBlock Text="Get an OS" FontSize="24" FontWeight="SemiBold" />
             <TextBlock Opacity="0.6" TextWrapping="Wrap"
-                       Text="Pick an OS — Boxwright downloads the official ISO, verifies it (SHA-256), and sets up a VM ready to boot the installer." />
+                       Text="Pick an OS — Boxwright downloads the official image, verifies it (SHA-256), and sets up a ready-to-boot VM." />
 
             <!-- Gallery -->
             <ListBox Classes="vm-list" MaxHeight="280" ItemsSource="{Binding Entries}"
@@ -64,9 +64,32 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Unattended install (Ubuntu autoinstall) — only when the selected OS supports it. -->
-                <Expander Header="Set up unattended install (experimental)" IsExpanded="False"
-                          HorizontalAlignment="Stretch" IsVisible="{Binding SelectedSupportsUnattended}">
+                <!-- Cloud image: cloud-init creates this login on first boot. Required — the image
+                     ships no default password, so this is the only way in. -->
+                <Border Classes="card" IsVisible="{Binding IsCloudImage}">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Your login" FontWeight="SemiBold" />
+                        <TextBlock Opacity="0.6" FontSize="12" TextWrapping="Wrap"
+                                   Text="This image is already installed — cloud-init sets up this account on first boot. There's no default password, so choose one here." />
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Hostname" Opacity="0.7" />
+                            <TextBox Text="{Binding Hostname}" Width="240" HorizontalAlignment="Left" />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Username" Opacity="0.7" />
+                            <TextBox Text="{Binding UnattendedUsername}" Width="240" HorizontalAlignment="Left" />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Password" Opacity="0.7" />
+                            <TextBox Text="{Binding UnattendedPassword}" PasswordChar="•"
+                                     Width="240" HorizontalAlignment="Left" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Unattended install (Ubuntu autoinstall) — only for installer-ISO entries that support it. -->
+                <Expander Header="Install automatically (unattended)" IsExpanded="False"
+                          HorizontalAlignment="Stretch" IsVisible="{Binding ShowAutoinstallOptIn}">
                     <StackPanel Spacing="12">
                         <CheckBox Content="Install automatically (pre-answer the installer)"
                                   IsChecked="{Binding UnattendedEnabled}" />
@@ -85,7 +108,7 @@
                                          Width="240" HorizontalAlignment="Left" />
                             </StackPanel>
                             <TextBlock Opacity="0.55" FontSize="12" TextWrapping="Wrap"
-                                       Text="Experimental: Boxwright writes an autoinstall seed, but Ubuntu 24.04's installer may still run manually (it needs a boot-time flag Boxwright doesn't set yet). Leave this off for a normal install." />
+                                       Text="Boxwright pre-answers the installer and runs it hands-free, so the whole install completes on its own and the VM is ready when it powers off. Leave this off to click through the installer yourself." />
                         </StackPanel>
                     </StackPanel>
                 </Expander>

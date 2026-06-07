@@ -53,6 +53,8 @@ public sealed class MainWindowViewModelTests : IDisposable
             new FakeVmCloneService());
         return new MainWindowViewModel(
             vms, AcceleratorDetector.CreateDefault(), repository, new FakeDiskService(), opener,
-            new FakeOsCatalogSource(), new FakeIsoDownloader(), new FakeSeedGenerator(), new ImmediateUiDispatcher());
+            new FakeOsCatalogSource(), new FakeIsoDownloader(), new FakeSeedGenerator(),
+            new FakeUnattendedInstallerResolver(new FakeUnattendedInstaller()), new FakeAutounattendSeedGenerator(),
+            new FakeFilePicker(), new ImmediateUiDispatcher());
     }
 }

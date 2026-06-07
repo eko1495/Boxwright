@@ -19,18 +19,38 @@ public sealed class CatalogViewModelTests
         Recommended = new OsRecommendedSpec { MemoryMiB = 4096, CpuCores = 4, DiskGiB = 30, Firmware = "uefi" },
     };
 
+    private static OsCatalogEntry CloudImageEntry() => new()
+    {
+        Id = "ubuntu-cloud",
+        Name = "Ubuntu (cloud)",
+        Version = "24.04",
+        Arch = "x86_64",
+        ImageKind = OsCatalogEntry.ImageKindCloudImage,
+        OsFamily = "ubuntu",
+        SupportsAutoinstall = true,
+        IsoUrl = new Uri("https://example.com/ubuntu-cloud.img"),
+        Sha256 = new string('b', 64),
+        SizeBytes = 1000,
+        SourceName = "Canonical",
+        Recommended = new OsRecommendedSpec { MemoryMiB = 2048, CpuCores = 2, DiskGiB = 20, Firmware = "uefi" },
+    };
+
     private static (CatalogViewModel Vm, FakeIsoDownloader Downloader, FakeDiskService Disk, FakeSeedGenerator Seed) Build(
         VmRepository repository,
         Func<string, bool>? isNameTaken = null,
         Exception? downloadFails = null,
-        DiskException? diskFails = null)
+        DiskException? diskFails = null,
+        DiskException? copyFails = null,
+        FakeUnattendedInstaller? installer = null)
     {
         var source = new FakeOsCatalogSource();
         source.Entries.Add(SampleEntry());
         var downloader = new FakeIsoDownloader { FailWith = downloadFails };
-        var disk = new FakeDiskService { FailWith = diskFails };
+        var disk = new FakeDiskService { FailWith = diskFails, CopyFailWith = copyFails };
         var seed = new FakeSeedGenerator();
-        var vm = new CatalogViewModel(source, downloader, repository, disk, seed, new ImmediateUiDispatcher(), isNameTaken ?? (_ => false));
+        var resolver = new FakeUnattendedInstallerResolver(installer ?? new FakeUnattendedInstaller());
+        var vm = new CatalogViewModel(source, downloader, repository, disk, seed, resolver,
+            new ImmediateUiDispatcher(), isNameTaken ?? (_ => false));
         return (vm, downloader, disk, seed);
     }
 
@@ -100,27 +120,29 @@ public sealed class CatalogViewModelTests
     }
 
     [Fact]
-    public async Task GetIt_UnattendedOptInOffByDefault_GeneratesNoSeed()
+    public async Task GetIt_UnattendedOptInOffByDefault_PreparesNoInstall()
     {
         using var temp = new TempDir();
         var repository = new VmRepository(temp.Path);
-        (CatalogViewModel vm, _, _, FakeSeedGenerator seed) = Build(repository);
-        vm.SelectedEntry = SampleEntry() with { SupportsAutoinstall = true };
+        var installer = new FakeUnattendedInstaller();
+        (CatalogViewModel vm, _, _, _) = Build(repository, installer: installer);
+        vm.SelectedEntry = SampleEntry() with { SupportsAutoinstall = true, OsFamily = "ubuntu" };
 
         Assert.False(vm.UnattendedEnabled); // opt-in: off until the user ticks it
 
         await vm.GetItCommand.ExecuteAsync(null);
 
-        Assert.Empty(seed.Calls);
+        Assert.Empty(installer.Calls);
     }
 
     [Fact]
-    public async Task GetIt_Unattended_GeneratesSeedAndAttachesItAsAnExtraDisk()
+    public async Task GetIt_Unattended_PreparesInstallerAndAttachesItsSeedDisk()
     {
         using var temp = new TempDir();
         var repository = new VmRepository(temp.Path);
-        (CatalogViewModel vm, _, _, FakeSeedGenerator seed) = Build(repository);
-        vm.SelectedEntry = SampleEntry() with { SupportsAutoinstall = true };
+        var installer = new FakeUnattendedInstaller();
+        (CatalogViewModel vm, FakeIsoDownloader downloader, _, _) = Build(repository, installer: installer);
+        vm.SelectedEntry = SampleEntry() with { SupportsAutoinstall = true, OsFamily = "ubuntu" };
         vm.UnattendedEnabled = true;
         vm.UnattendedUsername = "alice";
         vm.UnattendedPassword = "secret";
@@ -132,14 +154,87 @@ public sealed class CatalogViewModelTests
         Assert.NotNull(created);
         Assert.True(vm.SelectedSupportsUnattended);
 
-        // A seed was generated into the VM folder, carrying the entered answers.
-        (UnattendedAnswers Answers, string VmFolder) call = Assert.Single(seed.Calls);
-        Assert.Equal(created!.FolderPath, call.VmFolder);
-        Assert.Equal("alice", call.Answers.Username);
+        // The per-family installer was prepared against the downloaded ISO, carrying the entered answers.
+        (string iso, string folder, UnattendedAnswers answers) = Assert.Single(installer.Calls);
+        Assert.Equal(downloader.ReturnPath, iso);
+        Assert.Equal(created!.FolderPath, folder);
+        Assert.Equal("alice", answers.Username);
 
-        // The persisted config now has the primary disk plus the raw seed disk.
+        // The plan's seed disk (Ubuntu-style) is attached alongside the primary disk, and InstallBoot is set.
         Assert.Equal(2, created.Config.Disks.Count);
         Assert.Contains(created.Config.Disks, d => d.File == "seed.img" && d.Format == "raw");
+        Assert.NotNull(created.Config.InstallBoot);
+    }
+
+    [Fact]
+    public async Task GetIt_Unattended_ResolvesInstallerByOsFamily()
+    {
+        using var temp = new TempDir();
+        var repository = new VmRepository(temp.Path);
+        var source = new FakeOsCatalogSource();
+        source.Entries.Add(SampleEntry());
+        var resolver = new FakeUnattendedInstallerResolver(new FakeUnattendedInstaller());
+        var vm = new CatalogViewModel(source, new FakeIsoDownloader(), repository, new FakeDiskService(),
+            new FakeSeedGenerator(), resolver, new ImmediateUiDispatcher(), _ => false);
+        vm.SelectedEntry = SampleEntry() with { SupportsAutoinstall = true, OsFamily = "debian" };
+        vm.UnattendedEnabled = true;
+        vm.UnattendedUsername = "alice";
+        vm.UnattendedPassword = "secret";
+
+        await vm.GetItCommand.ExecuteAsync(null);
+
+        Assert.Contains("debian", resolver.ResolvedFamilies);
+    }
+
+    [Fact]
+    public async Task GetIt_Unattended_NoSeedDisks_AttachesOnlyPrimaryDisk_AndSetsInstallBoot()
+    {
+        // A Debian-style installer keeps its preseed inside the initrd, so the plan returns no seed disks.
+        var installer = new FakeUnattendedInstaller
+        {
+            OsFamily = "debian",
+            Result = new UnattendedInstallPlan
+            {
+                Boot = new InstallBootConfig { KernelFile = "vmlinuz", InitrdFile = "initrd", Append = "auto=true priority=critical" },
+                SeedDisks = [],
+            },
+        };
+        using var temp = new TempDir();
+        var repository = new VmRepository(temp.Path);
+        (CatalogViewModel vm, _, _, _) = Build(repository, installer: installer);
+        vm.SelectedEntry = SampleEntry() with { SupportsAutoinstall = true, OsFamily = "debian" };
+        vm.UnattendedEnabled = true;
+        vm.UnattendedUsername = "alice";
+        vm.UnattendedPassword = "secret";
+        Vm? created = null;
+        vm.Created += (_, v) => created = v;
+
+        await vm.GetItCommand.ExecuteAsync(null);
+
+        Assert.NotNull(created);
+        Assert.Single(created!.Config.Disks); // only the primary disk — the preseed lives in the initrd
+        Assert.NotNull(created.Config.InstallBoot);
+        Assert.Equal("vmlinuz", created.Config.InstallBoot!.KernelFile);
+        Assert.Equal("auto=true priority=critical", created.Config.InstallBoot.Append);
+    }
+
+    [Fact]
+    public async Task GetIt_CloudImage_DoesNotPrepareInstaller_AndLeavesInstallBootNull()
+    {
+        using var temp = new TempDir();
+        var repository = new VmRepository(temp.Path);
+        var installer = new FakeUnattendedInstaller();
+        (CatalogViewModel vm, _, _, _) = Build(repository, installer: installer);
+        vm.SelectedEntry = CloudImageEntry();
+        vm.UnattendedPassword = "secret";
+        Vm? created = null;
+        vm.Created += (_, v) => created = v;
+
+        await vm.GetItCommand.ExecuteAsync(null);
+
+        Assert.NotNull(created);
+        Assert.Empty(installer.Calls);            // a cloud image is pre-installed — no installer prepares it
+        Assert.Null(created!.Config.InstallBoot);
     }
 
     [Fact]
@@ -193,6 +288,100 @@ public sealed class CatalogViewModelTests
         Assert.Null(created);
         Assert.NotNull(vm.ErrorMessage);
         Assert.Empty(await repository.ListAsync()); // the half-created VM was deleted
+    }
+
+    [Fact]
+    public void CloudImage_RequiresCredentials_AndHidesAutoinstallOptIn()
+    {
+        using var temp = new TempDir();
+        (CatalogViewModel vm, _, _, _) = Build(new VmRepository(temp.Path));
+
+        vm.SelectedEntry = CloudImageEntry();
+
+        Assert.True(vm.IsCloudImage);
+        Assert.False(vm.ShowAutoinstallOptIn); // no experimental opt-in for a pre-installed image
+        Assert.True(vm.HasValidationError);    // password is required (the image has no default login)
+        Assert.False(vm.GetItCommand.CanExecute(null));
+
+        vm.UnattendedPassword = "secret";
+
+        Assert.False(vm.HasValidationError);
+        Assert.True(vm.GetItCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task GetIt_CloudImage_FlattensResizesSeedsAndAttaches()
+    {
+        using var temp = new TempDir();
+        var repository = new VmRepository(temp.Path);
+        (CatalogViewModel vm, FakeIsoDownloader downloader, FakeDiskService disk, FakeSeedGenerator seed) = Build(repository);
+        vm.SelectedEntry = CloudImageEntry();
+        vm.UnattendedUsername = "alice";
+        vm.UnattendedPassword = "secret";
+        Vm? created = null;
+        vm.Created += (_, v) => created = v;
+
+        await vm.GetItCommand.ExecuteAsync(null);
+
+        Assert.NotNull(created);
+        Assert.Null(vm.ErrorMessage);
+
+        // The downloaded cloud image is flattened into the VM folder as the disk (not freshly created).
+        Assert.Empty(disk.Created);
+        (string Source, string Destination, string Format) copy = Assert.Single(disk.Copied);
+        Assert.Equal(downloader.ReturnPath, copy.Source);
+        Assert.Equal(Path.Combine(created!.FolderPath, "disk.qcow2"), copy.Destination);
+
+        // Grown to the requested 20 GiB (the fake image's virtual size is smaller).
+        (string Path, long SizeBytes) resize = Assert.Single(disk.Resized);
+        Assert.Equal(20L * 1024 * 1024 * 1024, resize.SizeBytes);
+
+        // A CLOUD-IMAGE seed (plain cloud-init, not autoinstall) carrying the login, attached as a raw disk.
+        (UnattendedAnswers Answers, string VmFolder, SeedProfile Profile) seedCall = Assert.Single(seed.Calls);
+        Assert.Equal(SeedProfile.CloudImage, seedCall.Profile);
+        Assert.Equal("alice", seedCall.Answers.Username);
+
+        // No installer media; boot straight from the disk; primary disk + seed disk.
+        Assert.Empty(created.Config.RemovableMedia);
+        Assert.Equal("c", created.Config.Boot.Order);
+        Assert.Equal(2, created.Config.Disks.Count);
+        Assert.Contains(created.Config.Disks, d => d.File == "seed.img" && d.Format == "raw");
+
+        Assert.Single(await repository.ListAsync());
+    }
+
+    [Fact]
+    public async Task GetIt_CloudImage_SkipsResizeWhenRequestedFitsInImage()
+    {
+        using var temp = new TempDir();
+        var repository = new VmRepository(temp.Path);
+        (CatalogViewModel vm, _, FakeDiskService disk, _) = Build(repository);
+        disk.VirtualSizeBytes = 50L * 1024 * 1024 * 1024; // image is already larger than the request
+        vm.SelectedEntry = CloudImageEntry();
+        vm.DiskSizeGiB = 20;
+        vm.UnattendedPassword = "secret";
+
+        await vm.GetItCommand.ExecuteAsync(null);
+
+        Assert.Empty(disk.Resized); // never shrink below the image's own virtual size
+    }
+
+    [Fact]
+    public async Task GetIt_CloudImagePrepFailure_RollsBackTheVm()
+    {
+        using var temp = new TempDir();
+        var repository = new VmRepository(temp.Path);
+        (CatalogViewModel vm, _, _, _) = Build(repository, copyFails: new DiskException("copy failed"));
+        vm.SelectedEntry = CloudImageEntry();
+        vm.UnattendedPassword = "secret";
+        Vm? created = null;
+        vm.Created += (_, v) => created = v;
+
+        await vm.GetItCommand.ExecuteAsync(null);
+
+        Assert.Null(created);
+        Assert.NotNull(vm.ErrorMessage);
+        Assert.Empty(await repository.ListAsync()); // the half-prepared VM was deleted
     }
 
     [Fact]

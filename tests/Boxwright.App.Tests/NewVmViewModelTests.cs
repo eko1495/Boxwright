@@ -31,8 +31,15 @@ public sealed class NewVmViewModelTests : IDisposable
         }
     }
 
-    private NewVmViewModel NewForm(IDiskService disk, Func<string, bool>? isNameTaken = null) =>
-        new(_repository, disk, isNameTaken ?? (_ => false));
+    private NewVmViewModel NewForm(
+        IDiskService disk,
+        Func<string, bool>? isNameTaken = null,
+        FakeFilePicker? filePicker = null,
+        FakeAutounattendSeedGenerator? autounattend = null,
+        FakeIsoDownloader? downloader = null) =>
+        new(_repository, disk, filePicker ?? new FakeFilePicker(),
+            autounattend ?? new FakeAutounattendSeedGenerator(),
+            downloader ?? new FakeIsoDownloader(), new ImmediateUiDispatcher(), isNameTaken ?? (_ => false));
 
     [Fact]
     public void Defaults_AreSaneAndValid()
@@ -123,6 +130,159 @@ public sealed class NewVmViewModelTests : IDisposable
         Assert.True(form.HasErrorMessage);
         Assert.Contains("qemu-img boom", form.ErrorMessage, StringComparison.Ordinal);
         Assert.Empty(await _repository.ListAsync());
+    }
+
+    [Fact]
+    public void SelectingWindows_DefaultsFirmwareToUefi()
+    {
+        var form = NewForm(new FakeDiskService());
+
+        form.OsType = "windows";
+
+        Assert.True(form.IsWindows);
+        Assert.Equal("uefi", form.Firmware); // Windows 11 needs UEFI
+    }
+
+    [Fact]
+    public async Task PickWindowsIso_SetsThePath()
+    {
+        var picker = new FakeFilePicker { IsoToReturn = @"C:\isos\win11.iso" };
+        var form = NewForm(new FakeDiskService(), filePicker: picker);
+
+        await form.PickWindowsIsoCommand.ExecuteAsync(null);
+
+        Assert.Equal(@"C:\isos\win11.iso", form.WindowsIsoPath);
+        Assert.True(form.HasWindowsIso);
+    }
+
+    [Fact]
+    public void WindowsUnattended_RequiresIsoAndCredentials()
+    {
+        var form = NewForm(new FakeDiskService());
+        form.Name = "Win11";
+        form.OsType = "windows";
+        form.WindowsUnattended = true;
+
+        Assert.True(form.HasValidationError); // no ISO yet
+        form.WindowsIsoPath = @"C:\isos\win11.iso";
+        Assert.True(form.HasValidationError); // no password yet
+        form.UnattendedPassword = "hunter2";
+        Assert.False(form.HasValidationError);
+        Assert.True(form.CreateCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Create_WindowsUnattended_GeneratesSeedAndAttachesBothCds()
+    {
+        var disk = new FakeDiskService();
+        var autounattend = new FakeAutounattendSeedGenerator();
+        var form = NewForm(disk, autounattend: autounattend);
+        form.Name = "Win11";
+        form.OsType = "windows";          // also defaults firmware to uefi
+        form.WindowsUnattended = true;
+        form.WindowsIsoPath = @"C:\isos\win11.iso";
+        form.UnattendedUsername = "alice";
+        form.UnattendedPassword = "hunter2";
+        Vm? created = null;
+        form.Created += (_, vm) => created = vm;
+
+        await form.CreateCommand.ExecuteAsync(null);
+
+        Assert.NotNull(created);
+        Assert.Equal("windows", created!.Config.OsType);
+        Assert.Equal("uefi", created.Config.Firmware);
+
+        DiskConfig diskCfg = Assert.Single(created.Config.Disks);
+        Assert.Equal("sata", diskCfg.Interface);             // in-box AHCI, not virtio
+        Assert.Equal("e1000e", created.Config.Network.Model); // in-box NIC
+        Assert.Equal("cd", created.Config.Boot.Order);        // disk-first, then installer CD
+        Assert.True(created.Config.WindowsInstallInProgress); // drives the boot-CD keypress + graduate (ADR-0015)
+
+        // Both CDs attached: the Windows ISO and the generated autounattend ISO.
+        Assert.Equal(2, created.Config.RemovableMedia.Count);
+        Assert.Contains(created.Config.RemovableMedia, m => m.File == @"C:\isos\win11.iso");
+        Assert.Contains(created.Config.RemovableMedia, m => m.File == AutounattendSeedGenerator.SeedFileName);
+
+        // The seed was generated into the VM folder with the entered answers + UEFI layout.
+        (UnattendedAnswers answers, WindowsInstallOptions _, bool uefi, string folder) = Assert.Single(autounattend.Calls);
+        Assert.Equal("alice", answers.Username);
+        Assert.True(uefi);
+        Assert.Equal(created.FolderPath, folder);
+
+        // The SATA disk was created.
+        Assert.Single(disk.Created);
+    }
+
+    [Fact]
+    public async Task Create_WindowsUnattendedVirtio_DownloadsDrivers_AttachesIso_UsesVirtioDevices()
+    {
+        var downloader = new FakeIsoDownloader();
+        var autounattend = new FakeAutounattendSeedGenerator();
+        var form = NewForm(new FakeDiskService(), autounattend: autounattend, downloader: downloader);
+        form.Name = "Win11v";
+        form.OsType = "windows";
+        form.WindowsUnattended = true;
+        form.WindowsIsoPath = @"C:\isos\win11.iso";
+        form.UnattendedUsername = "alice";
+        form.UnattendedPassword = "hunter2";
+        form.UseVirtio = true;
+        Vm? created = null;
+        form.Created += (_, vm) => created = vm;
+
+        await form.CreateCommand.ExecuteAsync(null);
+
+        Assert.NotNull(created);
+        Assert.Contains(downloader.Requested, e => e.Id.StartsWith("virtio-win", StringComparison.Ordinal)); // pinned ISO fetched
+        Assert.Equal("virtio", Assert.Single(created!.Config.Disks).Interface);   // virtio-blk disk
+        Assert.Equal("virtio-net", created.Config.Network.Model);                 // virtio NIC
+        // Three CDs: Windows ISO, virtio-win ISO, autounattend seed.
+        Assert.Equal(3, created.Config.RemovableMedia.Count);
+        Assert.Contains(created.Config.RemovableMedia, m => m.File == downloader.ReturnPath);
+        Assert.True(autounattend.Calls.Single().Options.UseVirtio); // driver injection on
+    }
+
+    [Fact]
+    public async Task Create_WindowsUnattendedVirtio_WithByoIso_SkipsTheDownload()
+    {
+        var downloader = new FakeIsoDownloader();
+        var form = NewForm(new FakeDiskService(), downloader: downloader);
+        form.Name = "Win11byo";
+        form.OsType = "windows";
+        form.WindowsUnattended = true;
+        form.WindowsIsoPath = @"C:\isos\win11.iso";
+        form.UnattendedUsername = "alice";
+        form.UnattendedPassword = "hunter2";
+        form.UseVirtio = true;
+        form.VirtioWinIsoPath = @"C:\isos\virtio-win.iso";
+        Vm? created = null;
+        form.Created += (_, vm) => created = vm;
+
+        await form.CreateCommand.ExecuteAsync(null);
+
+        Assert.NotNull(created);
+        Assert.Empty(downloader.Requested); // bring-your-own — no download
+        Assert.Contains(created!.Config.RemovableMedia, m => m.File == @"C:\isos\virtio-win.iso");
+        Assert.Equal("virtio", Assert.Single(created.Config.Disks).Interface);
+    }
+
+    [Fact]
+    public async Task Create_WindowsUnattended_WhenSeedFails_RollsBackTheVm()
+    {
+        var autounattend = new FakeAutounattendSeedGenerator { FailWith = new IOException("no space") };
+        var form = NewForm(new FakeDiskService(), autounattend: autounattend);
+        form.Name = "Win11";
+        form.OsType = "windows";
+        form.WindowsUnattended = true;
+        form.WindowsIsoPath = @"C:\isos\win11.iso";
+        form.UnattendedPassword = "hunter2";
+        bool createdRaised = false;
+        form.Created += (_, _) => createdRaised = true;
+
+        await form.CreateCommand.ExecuteAsync(null);
+
+        Assert.False(createdRaised);
+        Assert.True(form.HasErrorMessage);
+        Assert.Empty(await _repository.ListAsync()); // the half-created VM was deleted
     }
 
     [Fact]

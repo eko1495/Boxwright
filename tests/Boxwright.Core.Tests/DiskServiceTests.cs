@@ -80,6 +80,44 @@ public class DiskServiceTests
     }
 
     [Fact]
+    public async Task ResizeAsync_InvokesQemuImgResize()
+    {
+        await WithStubQemuImgAsync(async locator =>
+        {
+            var fake = new FakeProcessRunner(exitCode: 0);
+            var service = new DiskService(fake, locator);
+
+            await service.ResizeAsync("disk.qcow2", 42949672960L);
+
+            (string FileName, IReadOnlyList<string> Arguments) invocation = Assert.Single(fake.Invocations);
+            Assert.Equal("resize disk.qcow2 42949672960", string.Join(' ', invocation.Arguments));
+        });
+    }
+
+    [Fact]
+    public async Task ResizeAsync_NonZeroExit_ThrowsDiskException()
+    {
+        await WithStubQemuImgAsync(async locator =>
+        {
+            var fake = new FakeProcessRunner(exitCode: 1, standardError: "qemu-img: shrink not allowed");
+            var service = new DiskService(fake, locator);
+
+            await Assert.ThrowsAsync<DiskException>(() => service.ResizeAsync("disk.qcow2", 1024));
+        });
+    }
+
+    [Fact]
+    public async Task ResizeAsync_RejectsNonPositiveSize()
+    {
+        await WithStubQemuImgAsync(async locator =>
+        {
+            var service = new DiskService(new FakeProcessRunner(0), locator);
+
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.ResizeAsync("disk.qcow2", 0));
+        });
+    }
+
+    [Fact]
     public async Task CopyAsync_InvokesQemuImgConvert()
     {
         await WithStubQemuImgAsync(async locator =>

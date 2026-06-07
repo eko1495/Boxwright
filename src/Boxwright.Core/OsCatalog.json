@@ -36,8 +36,29 @@
       "requiresLicense": false
     },
     {
+      // Pre-installed cloud image (qcow2), not an installer ISO: it is flattened into the VM disk and
+      // boots straight into cloud-init, which applies the seed on first boot — a genuinely hands-free
+      // install (no installer screens). Server image (no desktop). The SHA-256 below is the source of
+      // truth; sizeBytes is approximate (progress only) and, like the hash, rotates each point release.
+      "id": "ubuntu-24.04-server-cloudimage",
+      "imageKind": "cloudimage",
+      "osFamily": "ubuntu",
+      "supportsAutoinstall": true,
+      "name": "Ubuntu Server (cloud image)",
+      "version": "24.04 LTS",
+      "arch": "x86_64",
+      "isoUrl": "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img",
+      "sha256": "53fdde898feed8b027d94baa9cfe8229867f330a1d9c49dc7d84465ee7f229f7",
+      "sizeBytes": 628097024,
+      "recommended": { "memoryMiB": 2048, "cpuCores": 2, "diskGiB": 20, "firmware": "uefi" },
+      "sourceName": "Canonical · cloud-images.ubuntu.com",
+      "requiresLicense": false,
+      "notes": "Hands-free: a pre-installed server image set up by cloud-init on first boot. Headless server (no desktop) — sign in at the console with the username and password you set."
+    },
+    {
       "id": "debian-13-netinst",
       "osFamily": "debian",
+      "supportsAutoinstall": true,
       "name": "Debian",
       "version": "13.5.0 (netinst)",
       "arch": "x86_64",
@@ -46,7 +67,7 @@
       "sizeBytes": 696254464,
       "recommended": { "memoryMiB": 2048, "cpuCores": 2, "diskGiB": 20, "firmware": "uefi" },
       "sourceName": "Debian · cdimage.debian.org",
-      "notes": "Minimal network installer — needs an internet connection during installation."
+      "notes": "Network installer — needs an internet connection during installation. Unattended installs a GNOME desktop, so the first install downloads a lot of packages and takes a while."
     },
     {
       "id": "fedora-44-workstation",
@@ -59,7 +80,26 @@
       "sizeBytes": 2851612672,
       "recommended": { "memoryMiB": 4096, "cpuCores": 2, "diskGiB": 25, "firmware": "uefi" },
       "sourceName": "Fedora Project · mirrors.edge.kernel.org",
-      "requiresLicense": false
+      "requiresLicense": false,
+      "notes": "Live image — boots to a trial desktop and installs interactively. For a hands-free install pick \"Fedora Workstation (netinst)\"."
+    },
+    {
+      // Network installer (Anaconda): unattended via a kickstart injected into the installer initrd
+      // (ADR-0017). A Live image can't kickstart, so unattended Fedora uses this netinst. The osFamily
+      // routes to FedoraKickstartInstaller; supportsAutoinstall surfaces the "Install automatically" opt-in.
+      "id": "fedora-44-netinst",
+      "osFamily": "fedora",
+      "supportsAutoinstall": true,
+      "name": "Fedora Workstation (netinst)",
+      "version": "44 (netinst)",
+      "arch": "x86_64",
+      "isoUrl": "https://mirrors.edge.kernel.org/fedora/releases/44/Everything/x86_64/iso/Fedora-Everything-netinst-x86_64-44-1.7.iso",
+      "sha256": "bd285201494dd0ba09b54d05ac707de1401668b8512a573edb5922dcf9d7067e",
+      "sizeBytes": 1217329152,
+      "recommended": { "memoryMiB": 4096, "cpuCores": 2, "diskGiB": 25, "firmware": "uefi" },
+      "sourceName": "Fedora Project · mirrors.edge.kernel.org",
+      "requiresLicense": false,
+      "notes": "Network installer — needs an internet connection during installation. Unattended installs the GNOME (Workstation) desktop, so the first install downloads a lot of packages and takes a while."
     },
     {
       "id": "linuxmint-22.3-cinnamon",

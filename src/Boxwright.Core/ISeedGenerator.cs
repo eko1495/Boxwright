@@ -8,7 +8,9 @@ namespace Boxwright.Core;
 public interface ISeedGenerator
 {
     /// <summary>
-    /// Writes a seed image into <paramref name="vmFolderPath"/> and returns its absolute path.
+    /// Writes a seed image into <paramref name="vmFolderPath"/> and returns its absolute path. The
+    /// <paramref name="profile"/> selects which cloud-init <c>user-data</c> is baked in (installer
+    /// autoinstall vs. a pre-installed cloud image).
     /// </summary>
-    string Generate(UnattendedAnswers answers, string vmFolderPath);
+    string Generate(UnattendedAnswers answers, string vmFolderPath, SeedProfile profile = SeedProfile.InstallerAutoinstall);
 }

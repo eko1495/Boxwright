@@ -23,6 +23,12 @@ public sealed record OsCatalogDocument
 /// </summary>
 public sealed record OsCatalogEntry
 {
+    /// <summary><see cref="ImageKind"/> value for a bootable installer ISO (the default).</summary>
+    public const string ImageKindIso = "iso";
+
+    /// <summary><see cref="ImageKind"/> value for a pre-installed cloud image (qcow2) consumed via cloud-init.</summary>
+    public const string ImageKindCloudImage = "cloudimage";
+
     /// <summary>Stable identifier, e.g. <c>ubuntu-24.04-desktop</c>.</summary>
     public string Id { get; init; } = string.Empty;
 
@@ -35,7 +41,15 @@ public sealed record OsCatalogEntry
     /// <summary>Guest architecture (e.g. <c>x86_64</c>).</summary>
     public string Arch { get; init; } = "x86_64";
 
-    /// <summary>Direct download URL of the installer ISO (https).</summary>
+    /// <summary>
+    /// Whether <see cref="IsoUrl"/> points at an installer ISO (<see cref="ImageKindIso"/>, the
+    /// default) or a pre-installed cloud image (<see cref="ImageKindCloudImage"/>). A cloud image is
+    /// flattened into the VM as its disk and boots straight into cloud-init — no installer runs, so
+    /// the unattended seed is required (it carries the only login the guest will have). See ADR-0013.
+    /// </summary>
+    public string ImageKind { get; init; } = ImageKindIso;
+
+    /// <summary>Direct download URL (https) of the installer ISO or cloud image (see <see cref="ImageKind"/>).</summary>
     public Uri IsoUrl { get; init; } = null!;
 
     /// <summary>Expected SHA-256 of the ISO, lowercase hex.</summary>

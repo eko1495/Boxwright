@@ -35,6 +35,14 @@ public interface IRunningVm : IAsyncDisposable
     Task ResetAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Presses (<paramref name="down"/> = <see langword="true"/>) or releases a single key in the guest
+    /// (QMP <c>input-send-event</c>, qcode e.g. <c>ret</c>). Holding a key <i>down</i> across a boot-time
+    /// firmware prompt — such as Windows Setup's "Press any key to boot from CD" — is reliably registered,
+    /// where discrete presses race the firmware's brief keyboard poll and can be missed.
+    /// </summary>
+    Task SendKeyEventAsync(string qcode, bool down, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Ejects the optical medium (installer ISO) from the running guest via QMP — a
     /// VirtualBox-style live eject, e.g. for the post-install "remove the installation
     /// medium" prompt. No-op-safe targets the drive launched as <see cref="CommandLineBuilder.CdromDriveId"/>.

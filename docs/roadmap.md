@@ -75,10 +75,48 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
       needs a non-direct acquisition flow). See ADR-0010.
 - [x] Checksum (SHA-256) verification + provenance display for downloads.
       GPG/PGP *signature* verification is a fast-follow.
-- [ ] **Unattended install** for Ubuntu — seed generation is done (cloud-init NoCloud FAT/`CIDATA`), but the
-      24.04 live-server ignores it without an `autoinstall` kernel arg, so it ships opt-in/experimental
-      pending that (Phase B) or a switch to cloud images. Other distros are capability-gated. See ADR-0013.
-- [ ] **Auto-attach virtio-win ISO** when creating a Windows guest.
+- **Unattended install** for Ubuntu — two paths (see ADR-0013):
+  - [x] *Cloud image* — the pre-installed `…-server-cloudimg-amd64.img` is flattened into the VM disk
+        (`qemu-img convert`), grown to size (`qemu-img resize`), and booted with the cloud-init
+        `CIDATA` seed. Runs hands-free on first boot — **no installer, no kernel arg**. This is the
+        "pick it, click, walk away" path; credentials are required (a cloud image has no default login).
+  - [x] *Desktop/Server ISO autoinstall* (Phase B) — `InstallMediaExtractor` pulls the ISO's
+        `vmlinuz`/`initrd` and the VM boots `-kernel/-initrd -append "autoinstall …"`, so subiquity runs
+        fully non-interactively (no "Review your choices" prompt); the one-shot kernel boot is dropped once
+        the install powers off. Verified end-to-end on real QEMU (q35/UEFI).
+- **Unattended install** for Debian (see ADR-0016):
+  - [x] *Netinst preseed* — a per-family installer seam (`IUnattendedInstaller`, resolved by OS family)
+        adds Debian: `DebianPreseedInstaller` extracts the text installer's `install.amd/vmlinuz` +
+        `initrd.gz`, **injects** a generated `preseed.cfg` into the initrd (a gzipped cpio segment — no
+        external tool), and boots `-append "auto=true priority=critical"` so d-i runs fully non-interactively
+        (auto-confirming the partman disk-write prompts). Installs a GNOME desktop and powers off, after which
+        the VM graduates to a disk boot (same finalize path as Ubuntu).
+- **Unattended install** for Fedora (see ADR-0017):
+  - [x] *Netinst kickstart* — a new Fedora **Everything netinst** catalog entry routes (by `osFamily`) to
+        `FedoraKickstartInstaller`, which extracts `images/pxeboot/{vmlinuz,initrd.img}`, **injects** a
+        generated `ks.cfg` into the initrd (same primitive as Debian), and boots
+        `-append "inst.ks=file:/ks.cfg inst.stage2=hd:LABEL=… inst.text"` so Anaconda runs fully
+        non-interactively. Installs the GNOME (Workstation) environment and powers off → graduates like the
+        others. The Fedora **Live** entry stays interactive (Live media can't kickstart).
+- **Unattended Windows** install (see ADR-0015):
+  - [x] *Bring-your-own ISO* — pick a Windows 10/11 ISO in the New-VM flow + credentials; Boxwright bakes
+        an `Autounattend.xml` seed CD (local admin + auto-login), bypasses the Win11 TPM/Secure-Boot
+        checks (no vTPM), and uses in-box **SATA + e1000e** so Setup needs no virtio-win. Built + unit-tested.
+  - [x] *Hands-free + self-graduating* (ADR-0015 + updates) — a **held-key** auto-keypress (QMP
+        `input-send-event`, driven by a `WindowsInstallInProgress` flag) reliably dismisses the firmware's
+        "Press any key to boot from CD" (verified 3/3 on QEMU/OVMF, where discrete presses raced and missed),
+        and an Autounattend that creates the account in the **specialize** pass + a `FirstLogonCommands`
+        shutdown so the VM graduates (eject media, disk-boot) via the same `OnSessionExited` path as Linux.
+        Fully hands-free on **Enterprise/Education/LTSC + legacy/pre-24H2** ISOs.
+  - [ ] *Consumer 24H2/25H2 (ConX)* — Microsoft's new Setup ignores the oobeSystem unattend on **consumer
+        Home/Pro**, so it stops at interactive account setup; a Microsoft limitation (confirmed live). Use an
+        Enterprise/Education/LTSC or pre-24H2 ISO for fully hands-free. The "force legacy setup" boot.wim
+        slipstream was deliberately not built (out-of-ethos: native WIM tooling + read-only-media rebuild).
+  - [x] *virtio performance path* (ADR-0018) — an opt-in checkbox switches the Windows VM to a virtio-blk
+        disk + virtio-net NIC and auto-downloads/caches the pinned virtio-win driver ISO (bring-your-own
+        override), injecting the storage driver in windowsPE + storage/network in offlineServicing so Setup
+        sees the virtio disk. SATA stays the no-download default. Unit-tested; live-smoked (QEMU accepts the
+        virtio devices + Setup boots) — a complete virtio install needs an Ent/Edu/LTSC ISO (ConX wall).
 - [ ] qcow2 internal snapshots (create / list / revert / delete).
 - [ ] First public launch posts: r/qemu, r/linux, r/homelab, r/selfhosted,
       Hacker News — *only* once signed binaries exist for all three OSes.

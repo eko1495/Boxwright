@@ -65,6 +65,23 @@ public sealed record VmConfig
 
     /// <summary>Boot order and menu options.</summary>
     public BootConfig Boot { get; init; } = new();
+
+    /// <summary>
+    /// Direct-kernel boot for a one-shot unattended install (ADR-0013 Phase B). When non-null, the VM
+    /// boots the extracted installer kernel/initrd with an <c>autoinstall</c> command line so the install
+    /// runs hands-free; it is cleared (back to null) once the install finishes and the guest powers off,
+    /// after which the VM boots the installed disk normally. Null for an ordinary VM.
+    /// </summary>
+    public InstallBootConfig? InstallBoot { get; init; }
+
+    /// <summary>
+    /// True while a from-scratch unattended <b>Windows</b> install is in progress (ADR-0015). The Windows
+    /// analogue of <see cref="InstallBoot"/>: while set, the app auto-presses a key at boot to start Windows
+    /// Setup from the CD ("Press any key to boot from CD…"), and once Setup finishes and the guest powers
+    /// off (the Autounattend's final shutdown) the install media is ejected and boot switches to the disk.
+    /// False for an ordinary VM.
+    /// </summary>
+    public bool WindowsInstallInProgress { get; init; }
 }
 
 /// <summary>CPU model and topology.</summary>
@@ -157,4 +174,22 @@ public sealed record BootConfig
 
     /// <summary>Whether to show the firmware boot menu.</summary>
     public bool Menu { get; init; }
+}
+
+/// <summary>
+/// A one-shot direct-kernel boot for an unattended ISO install (ADR-0013 Phase B): QEMU boots the kernel
+/// and initrd extracted from the installer ISO with <see cref="Append"/> on the kernel command line, which
+/// is what makes the installer (e.g. Ubuntu subiquity) run fully non-interactively. File names are relative
+/// to the VM folder (QEMU's working directory). See <see cref="InstallMediaExtractor"/>.
+/// </summary>
+public sealed record InstallBootConfig
+{
+    /// <summary>Extracted kernel image file name (relative to the VM folder), e.g. <c>vmlinuz</c>.</summary>
+    public string KernelFile { get; init; } = string.Empty;
+
+    /// <summary>Extracted initrd file name (relative to the VM folder), e.g. <c>initrd</c>.</summary>
+    public string InitrdFile { get; init; } = string.Empty;
+
+    /// <summary>The kernel command line, e.g. <c>autoinstall ds=nocloud layerfs-path=…</c>.</summary>
+    public string Append { get; init; } = string.Empty;
 }

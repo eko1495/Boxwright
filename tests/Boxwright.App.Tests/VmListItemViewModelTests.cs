@@ -352,6 +352,114 @@ public sealed class VmListItemViewModelTests : IDisposable
         Assert.True(item.StartCommand.CanExecute(null));
     }
 
+    private Vm UnattendedInstallVm() =>
+        new(Path.Combine(_root, "ua"), new VmConfig
+        {
+            Id = "ua",
+            Name = "ua-install",
+            Disks = [new DiskConfig { File = "disk.qcow2", Format = "qcow2", Interface = "virtio" }],
+            RemovableMedia = [new RemovableMediaConfig { Type = "cdrom", File = "ubuntu.iso", Attached = true }],
+            Boot = new BootConfig { Order = "dc" },
+            InstallBoot = new InstallBootConfig { KernelFile = "vmlinuz", InitrdFile = "initrd", Append = "autoinstall ds=nocloud" },
+        });
+
+    [Fact]
+    public async Task SessionExit_AfterUnattendedInstall_GraduatesToDiskBoot_AndEjectsInstaller()
+    {
+        Vm vm = await _repository.CreateAsync(UnattendedInstallVm().Config);
+        var session = new FakeRunningVm();
+        var item = NewItem(new FakeVmLauncher(session), vm);
+        await item.StartCommand.ExecuteAsync(null);
+
+        session.RaiseExited(); // the install ran to completion and the guest powered off
+
+        Assert.Equal(VmStatus.Stopped, item.Status);
+        await WaitUntilAsync(() => item.Vm.Config.InstallBoot is null);   // one-shot kernel boot dropped
+        Assert.Equal("c", item.Vm.Config.Boot.Order);                     // boots the installed disk now
+        Assert.DoesNotContain(item.Vm.Config.RemovableMedia, m => m.Attached); // installer ejected
+        // ...and it was persisted.
+        Assert.Null((await _repository.ListAsync()).Single().Config.InstallBoot);
+    }
+
+    [Fact]
+    public async Task DeliberateStop_DuringUnattendedInstall_DoesNotGraduate()
+    {
+        Vm vm = await _repository.CreateAsync(UnattendedInstallVm().Config);
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), vm);
+        await item.StartCommand.ExecuteAsync(null);
+
+        await item.StopCommand.ExecuteAsync(null); // user stops mid-install
+
+        // The install was interrupted, not finished — keep the install boot so it can be retried.
+        Assert.NotNull(item.Vm.Config.InstallBoot);
+    }
+
+    private Vm WindowsInstallVm() =>
+        new(Path.Combine(_root, "win"), new VmConfig
+        {
+            Id = "win",
+            Name = "win-install",
+            OsType = "windows",
+            Disks = [new DiskConfig { File = "disk.qcow2", Format = "qcow2", Interface = "sata" }],
+            RemovableMedia = [new RemovableMediaConfig { Type = "cdrom", File = "win11.iso", Attached = true }],
+            Boot = new BootConfig { Order = "cd" },
+            WindowsInstallInProgress = true,
+        });
+
+    [Fact]
+    public async Task Start_WindowsInstall_AutoPressesTheBootFromCdKey()
+    {
+        Vm vm = await _repository.CreateAsync(WindowsInstallVm().Config);
+        var session = new FakeRunningVm();
+        var item = NewItem(new FakeVmLauncher(session), vm);
+
+        await item.StartCommand.ExecuteAsync(null);
+
+        // The keypress loop holds Enter down (re-asserting); the first key-down lands within the wait window.
+        await WaitUntilAsync(() => session.KeyEvents.Count > 0, timeoutMs: 4000);
+        Assert.Contains(session.KeyEvents, e => e.Qcode == "ret" && e.Down); // Enter held down (ADR-0015 robustness)
+    }
+
+    [Fact]
+    public async Task SessionExit_AfterWindowsInstall_GraduatesToDiskBoot_AndEjectsInstaller()
+    {
+        Vm vm = await _repository.CreateAsync(WindowsInstallVm().Config);
+        var session = new FakeRunningVm();
+        var item = NewItem(new FakeVmLauncher(session), vm);
+        await item.StartCommand.ExecuteAsync(null);
+
+        session.RaiseExited(); // Setup finished and the Autounattend shut the guest down
+
+        Assert.Equal(VmStatus.Stopped, item.Status);
+        await WaitUntilAsync(() => !item.Vm.Config.WindowsInstallInProgress); // install flag cleared
+        Assert.Equal("c", item.Vm.Config.Boot.Order);                         // boots the installed disk now
+        Assert.DoesNotContain(item.Vm.Config.RemovableMedia, m => m.Attached); // installer ejected
+        Assert.False((await _repository.ListAsync()).Single().Config.WindowsInstallInProgress); // persisted
+    }
+
+    [Fact]
+    public async Task DeliberateStop_DuringWindowsInstall_DoesNotGraduate()
+    {
+        Vm vm = await _repository.CreateAsync(WindowsInstallVm().Config);
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), vm);
+        await item.StartCommand.ExecuteAsync(null);
+
+        await item.StopCommand.ExecuteAsync(null); // user stops mid-install
+
+        Assert.True(item.Vm.Config.WindowsInstallInProgress); // not finished — keep it for a retry
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 2000)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (!condition() && sw.ElapsedMilliseconds < timeoutMs)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.True(condition(), "condition was not met within the timeout");
+    }
+
     [Fact]
     public async Task Delete_IsTwoStep_RemovesFolder_AndRaisesDeleted()
     {
@@ -576,16 +684,5 @@ public sealed class VmListItemViewModelTests : IDisposable
         Assert.NotEmpty(item.MemoryHistory);
         Assert.NotEmpty(item.DiskHistory);
         Assert.NotNull(item.MemoryText);
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs)
-    {
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        while (!condition() && sw.ElapsedMilliseconds < timeoutMs)
-        {
-            await Task.Delay(50);
-        }
-
-        Assert.True(condition(), "condition was not met within the timeout");
     }
 }

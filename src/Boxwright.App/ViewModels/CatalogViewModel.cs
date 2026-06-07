@@ -22,6 +22,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
     private readonly VmRepository _repository;
     private readonly IDiskService _diskService;
     private readonly ISeedGenerator _seedGenerator;
+    private readonly IUnattendedInstallerResolver _installerResolver;
     private readonly IUiDispatcher _dispatcher;
     private readonly Func<string, bool> _isNameTaken;
     private CancellationTokenSource? _cts;
@@ -32,6 +33,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         VmRepository repository,
         IDiskService diskService,
         ISeedGenerator seedGenerator,
+        IUnattendedInstallerResolver installerResolver,
         IUiDispatcher dispatcher,
         Func<string, bool> isNameTaken)
     {
@@ -40,6 +42,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(diskService);
         ArgumentNullException.ThrowIfNull(seedGenerator);
+        ArgumentNullException.ThrowIfNull(installerResolver);
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(isNameTaken);
 
@@ -48,6 +51,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         _repository = repository;
         _diskService = diskService;
         _seedGenerator = seedGenerator;
+        _installerResolver = installerResolver;
         _dispatcher = dispatcher;
         _isNameTaken = isNameTaken;
     }
@@ -59,6 +63,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(HasSelection), nameof(ProvenanceText), nameof(HasNotes),
         nameof(NotesText), nameof(RequiresLicense), nameof(LicenseText),
         nameof(SelectedSupportsUnattended), nameof(ShowManualInstallNote),
+        nameof(IsCloudImage), nameof(ShowAutoinstallOptIn),
         nameof(ValidationError), nameof(HasValidationError))]
     [NotifyCanExecuteChangedFor(nameof(GetItCommand))]
     private OsCatalogEntry? _selectedEntry;
@@ -103,9 +108,9 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
     private string _firmware = "uefi";
 
     /// <summary>
-    /// Whether to set up an unattended (autoinstall) install for the selected OS. Opt-in/off by
-    /// default: the seed-only approach doesn't yet trigger autoinstall on Ubuntu 24.04's live-server
-    /// (it needs an <c>autoinstall</c> kernel arg — ADR-0013), so this is experimental.
+    /// Whether to set up an unattended (autoinstall) install for the selected OS. Opt-in/off by default.
+    /// When on, Boxwright bakes the cloud-init seed and boots the installer with the <c>autoinstall</c>
+    /// kernel arg (ADR-0013 Phase B), so the install runs fully hands-free.
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ValidationError), nameof(HasValidationError))]
@@ -172,8 +177,19 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
     /// <summary>True when an OS is selected but can't be installed unattended (show a manual-install note).</summary>
     public bool ShowManualInstallNote => HasSelection && !SelectedSupportsUnattended;
 
-    // Whether a seed should actually be baked for the current selection.
-    private bool UnattendedActive => SelectedSupportsUnattended && UnattendedEnabled;
+    /// <summary>True when the selected entry is a pre-installed cloud image (vs. an installer ISO).</summary>
+    public bool IsCloudImage => SelectedEntry?.ImageKind == OsCatalogEntry.ImageKindCloudImage;
+
+    /// <summary>
+    /// True when the selected OS shows the experimental autoinstall opt-in — i.e. it supports
+    /// unattended install AND is an installer ISO. A cloud image instead requires credentials (the
+    /// seed is the guest's only login), so it shows a required-credentials panel, not the opt-in.
+    /// </summary>
+    public bool ShowAutoinstallOptIn => SelectedSupportsUnattended && !IsCloudImage;
+
+    // Whether a seed should actually be baked for the current selection. Always for a cloud image
+    // (its login lives only in the seed); for an installer ISO, only when the user opts in.
+    private bool UnattendedActive => IsCloudImage || (SelectedSupportsUnattended && UnattendedEnabled);
 
     /// <summary>The first validation problem with the confirm fields, or null when valid.</summary>
     public string? ValidationError
@@ -210,7 +226,7 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
                 return "Disk size must be greater than 0 GiB.";
             }
 
-            if (SelectedSupportsUnattended && UnattendedEnabled)
+            if (UnattendedActive)
             {
                 if (string.IsNullOrWhiteSpace(Hostname))
                 {
@@ -275,11 +291,11 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         ProgressText = null;
         _cts = new CancellationTokenSource();
 
-        string isoPath;
+        string downloadedPath;
         try
         {
             var progress = new DispatchedProgress(_dispatcher, OnProgress);
-            isoPath = await _downloader.EnsureAsync(entry, progress, _cts.Token);
+            downloadedPath = await _downloader.EnsureAsync(entry, progress, _cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -298,11 +314,18 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
             _cts = null;
         }
 
+        // A cloud image is a pre-installed disk, not an installer — it follows a different create flow.
+        if (IsCloudImage)
+        {
+            await CreateFromCloudImageAsync(downloadedPath);
+            return;
+        }
+
         // ISO is downloaded and verified — create the VM (same flow as NewVmViewModel).
         Vm vm;
         try
         {
-            vm = await _repository.CreateAsync(BuildConfig(isoPath));
+            vm = await _repository.CreateAsync(BuildConfig(downloadedPath));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -311,23 +334,28 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
             return;
         }
 
-        // Optionally bake an unattended-install seed and attach it as a tiny extra disk (Ubuntu autoinstall).
+        // Unattended install: the per-family installer (resolved by OS family — ADR-0016) prepares the
+        // installer media and returns how to boot it. For Ubuntu that's a cloud-init seed disk plus an
+        // `autoinstall` kernel boot; for Debian it's a preseed injected into the installer initrd. The
+        // one-shot InstallBoot is what makes the installer skip the manual disk-erase confirmation; it is
+        // cleared automatically once the install finishes (see VmListItemViewModel.OnSessionExited).
         if (UnattendedActive)
         {
             try
             {
-                _seedGenerator.Generate(BuildAnswers(), vm.FolderPath);
+                UnattendedInstallPlan plan = _installerResolver.Resolve(entry.OsFamily).Prepare(downloadedPath, vm.FolderPath, BuildAnswers());
                 VmConfig withSeed = vm.Config with
                 {
-                    Disks = [.. vm.Config.Disks, new DiskConfig { File = CloudInitSeedGenerator.SeedFileName, Format = "raw", Interface = "virtio" }],
+                    Disks = [.. vm.Config.Disks, .. plan.SeedDisks],
+                    InstallBoot = plan.Boot,
                 };
                 await _repository.SaveAsync(withSeed);
                 vm = vm with { Config = withSeed };
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InstallMediaException)
             {
                 await _repository.DeleteAsync(vm.Config.Id);
-                ErrorMessage = $"Couldn't create the unattended-install seed: {ex.Message}";
+                ErrorMessage = $"Couldn't set up the unattended install: {ex.Message}";
                 ResetDownloadState();
                 return;
             }
@@ -343,6 +371,66 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
             // Roll back so the list never shows a VM without its disk.
             await _repository.DeleteAsync(vm.Config.Id);
             ErrorMessage = $"Couldn't create the disk: {ex.Message}";
+            ResetDownloadState();
+            return;
+        }
+
+        ResetDownloadState();
+        Created?.Invoke(this, vm);
+    }
+
+    // Cloud-image flow: the download is a pre-installed qcow2. Flatten it into the VM folder as the
+    // disk (keeping the folder self-contained/portable — ADR-0006), grow it to the requested size,
+    // then attach the cloud-init seed that sets up the login (required — the image has no default one).
+    private async Task CreateFromCloudImageAsync(string imagePath)
+    {
+        Vm vm;
+        try
+        {
+            vm = await _repository.CreateAsync(BuildCloudImageConfig());
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ErrorMessage = $"Couldn't create the VM: {ex.Message}";
+            ResetDownloadState();
+            return;
+        }
+
+        try
+        {
+            string diskPath = Path.Combine(vm.FolderPath, NewVmViewModel.DiskFileName);
+            await _diskService.CopyAsync(imagePath, diskPath);
+
+            // Only grow — never shrink below the image's own virtual size (qemu-img would refuse).
+            long requestedBytes = (long)DiskSizeGiB * BytesPerGiB;
+            DiskInfo info = await _diskService.GetInfoAsync(diskPath);
+            if (requestedBytes > info.VirtualSize)
+            {
+                await _diskService.ResizeAsync(diskPath, requestedBytes);
+            }
+        }
+        catch (DiskException ex)
+        {
+            await _repository.DeleteAsync(vm.Config.Id); // roll back the half-prepared VM
+            ErrorMessage = $"Couldn't prepare the cloud image: {ex.Message}";
+            ResetDownloadState();
+            return;
+        }
+
+        try
+        {
+            _seedGenerator.Generate(BuildAnswers(), vm.FolderPath, SeedProfile.CloudImage);
+            VmConfig withSeed = vm.Config with
+            {
+                Disks = [.. vm.Config.Disks, new DiskConfig { File = CloudInitSeedGenerator.SeedFileName, Format = "raw", Interface = "virtio" }],
+            };
+            await _repository.SaveAsync(withSeed);
+            vm = vm with { Config = withSeed };
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            await _repository.DeleteAsync(vm.Config.Id);
+            ErrorMessage = $"Couldn't create the cloud-init seed: {ex.Message}";
             ResetDownloadState();
             return;
         }
@@ -402,17 +490,23 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         Boot = new BootConfig { Order = "dc" }, // boot the installer first, then disk
     };
 
+    // A cloud image is already installed onto its disk, so there's no installer media and the VM
+    // boots straight from the disk.
+    private VmConfig BuildCloudImageConfig() => new()
+    {
+        Name = Name.Trim(),
+        MemoryMiB = MemoryMiB,
+        Cpu = new CpuConfig { Sockets = 1, Cores = CpuCores, Threads = 1 },
+        Firmware = Firmware,
+        OsType = "linux",
+        Disks = [new DiskConfig { File = NewVmViewModel.DiskFileName, Format = "qcow2", Interface = "virtio" }],
+        Boot = new BootConfig { Order = "c" }, // boot the pre-installed disk; no installer media
+    };
+
     private static string Humanize(long bytes)
     {
         const double gb = 1_000_000_000d;
         const double mb = 1_000_000d;
         return bytes >= gb ? $"{bytes / gb:0.0} GB" : $"{bytes / mb:0} MB";
-    }
-
-    /// <summary>Marshals <see cref="IProgress{T}"/> reports onto the UI thread via <see cref="IUiDispatcher"/>.</summary>
-    private sealed class DispatchedProgress(IUiDispatcher dispatcher, Action<IsoDownloadProgress> callback)
-        : IProgress<IsoDownloadProgress>
-    {
-        public void Report(IsoDownloadProgress value) => dispatcher.Post(() => callback(value));
     }
 }

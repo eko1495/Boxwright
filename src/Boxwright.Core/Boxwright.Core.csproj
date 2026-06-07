@@ -14,6 +14,8 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <!-- Pure-managed FAT writer for the cloud-init NoCloud seed image (ADR-0013). MIT; cross-platform. -->
     <PackageReference Include="LTRData.DiscUtils.Fat" />
+    <!-- Pure-managed ISO9660 (Joliet) writer for the Windows Autounattend.xml seed CD (ADR-0015). MIT; cross-platform. -->
+    <PackageReference Include="LTRData.DiscUtils.Iso9660" />
   </ItemGroup>
 
   <ItemGroup>

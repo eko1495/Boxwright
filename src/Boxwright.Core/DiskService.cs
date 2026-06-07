@@ -43,6 +43,24 @@ public sealed class DiskService : IDiskService
         }
     }
 
+    /// <summary>Grows the disk image at <paramref name="path"/> to <paramref name="sizeBytes"/> bytes.</summary>
+    /// <exception cref="DiskException">The <c>qemu-img resize</c> invocation failed.</exception>
+    public async Task ResizeAsync(string path, long sizeBytes, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sizeBytes);
+
+        ProcessResult result = await _processRunner.RunAsync(
+            _locator.ResolveImageTool(),
+            ["resize", path, $"{sizeBytes}"],
+            cancellationToken);
+
+        if (result.ExitCode != 0)
+        {
+            throw new DiskException($"qemu-img resize failed (exit {result.ExitCode}): {result.StandardError.Trim()}");
+        }
+    }
+
     /// <summary>Inspects a disk image, returning its parsed metadata.</summary>
     /// <exception cref="DiskException">The <c>qemu-img info</c> invocation failed or its output could not be parsed.</exception>
     public async Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default)

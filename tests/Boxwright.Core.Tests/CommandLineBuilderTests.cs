@@ -98,6 +98,62 @@ public class CommandLineBuilderTests
     }
 
     [Fact]
+    public void Build_WindowsGuest_PutsStorageOnAhciSata_NotVirtio()
+    {
+        // Windows Setup has no in-box virtio driver: disks/CDs go on the q35 AHCI controller (ide.N),
+        // so Setup sees the disk and the install + autounattend media with no extra drivers.
+        VmConfig config = CanonicalConfig() with
+        {
+            OsType = "windows",
+            Disks = [new DiskConfig { File = "disk.qcow2", Format = "qcow2", Interface = "sata" }],
+            RemovableMedia =
+            [
+                new RemovableMediaConfig { Type = "cdrom", File = "windows.iso", Attached = true },
+                new RemovableMediaConfig { Type = "cdrom", File = "autounattend.iso", Attached = true },
+            ],
+        };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Contains("if=none,id=hd0,file=disk.qcow2,format=qcow2", args);
+        Assert.Contains("ide-hd,drive=hd0,bus=ide.0", args);
+        // First cdrom keeps CdromDriveId (live-eject target); media land on successive SATA ports.
+        Assert.Contains($"if=none,id={CommandLineBuilder.CdromDriveId},file=windows.iso,format=raw,media=cdrom", args);
+        Assert.Contains($"ide-cd,drive={CommandLineBuilder.CdromDriveId},bus=ide.1", args);
+        Assert.Contains("if=none,id=boxwright-cd1,file=autounattend.iso,format=raw,media=cdrom", args);
+        Assert.Contains("ide-cd,drive=boxwright-cd1,bus=ide.2", args);
+        Assert.DoesNotContain("file=disk.qcow2,format=qcow2,if=virtio", args); // never virtio for Windows
+    }
+
+    [Fact]
+    public void Build_WindowsGuest_VirtioDisk_UsesVirtioBlk_CdsStayOnSata()
+    {
+        // The opt-in perf path (ADR-0018): a virtio-blk disk (PCI, not a SATA port) while the CD-ROMs stay
+        // on AHCI (the Windows ISO must stay bootable/WinPE-readable; the virtio-win CD rides SATA too).
+        VmConfig config = CanonicalConfig() with
+        {
+            OsType = "windows",
+            Disks = [new DiskConfig { File = "disk.qcow2", Format = "qcow2", Interface = "virtio" }],
+            Network = new NetworkConfig { Model = "virtio-net" },
+            RemovableMedia =
+            [
+                new RemovableMediaConfig { Type = "cdrom", File = "windows.iso", Attached = true },
+                new RemovableMediaConfig { Type = "cdrom", File = "virtio-win.iso", Attached = true },
+            ],
+        };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Contains("if=none,id=hd0,file=disk.qcow2,format=qcow2", args);
+        Assert.Contains("virtio-blk-pci,drive=hd0", args);
+        Assert.DoesNotContain("ide-hd,drive=hd0,bus=ide.0", args); // disk is not on SATA
+        // The virtio disk consumed no SATA port, so the CDs start at ide.0.
+        Assert.Contains($"ide-cd,drive={CommandLineBuilder.CdromDriveId},bus=ide.0", args);
+        Assert.Contains("ide-cd,drive=boxwright-cd1,bus=ide.1", args);
+        Assert.Contains("virtio-net,netdev=net0", args); // virtio NIC
+    }
+
+    [Fact]
     public void Build_MacosGuest_UsesVmwareSvga()
     {
         VmConfig config = CanonicalConfig() with { OsType = "macos" };
@@ -319,6 +375,38 @@ public class CommandLineBuilderTests
         IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
 
         Assert.DoesNotContain("file=ubuntu.iso,media=cdrom", args);
+    }
+
+    [Fact]
+    public void Build_InstallBoot_EmitsKernelInitrdAppend()
+    {
+        // ADR-0013 Phase B: a one-shot direct-kernel boot with `autoinstall` so the installer runs hands-free.
+        VmConfig config = CanonicalConfig() with
+        {
+            InstallBoot = new InstallBootConfig
+            {
+                KernelFile = "vmlinuz",
+                InitrdFile = "initrd",
+                Append = "autoinstall ds=nocloud quiet",
+            },
+        };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Equal("vmlinuz", ArgValue(args, "-kernel"));
+        Assert.Equal("initrd", ArgValue(args, "-initrd"));
+        Assert.Equal("autoinstall ds=nocloud quiet", ArgValue(args, "-append"));
+    }
+
+    [Fact]
+    public void Build_NoInstallBoot_EmitsNoKernelArgs()
+    {
+        // The default (post-install or ordinary VM) boots off disk — no -kernel override.
+        IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());
+
+        Assert.DoesNotContain("-kernel", args);
+        Assert.DoesNotContain("-initrd", args);
+        Assert.DoesNotContain("-append", args);
     }
 
     private static string ArgValue(IReadOnlyList<string> args, string flag)
