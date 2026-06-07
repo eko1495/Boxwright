@@ -104,7 +104,92 @@ public static class QmpClientExtensions
         };
         return client.ExecuteAsync("input-send-event", args, cancellationToken);
     }
+
+    /// <summary>
+    /// Runs <c>query-block</c> and returns each block backend's name plus its inserted medium's file and
+    /// driver. Used to resolve a disk image path back to the <c>device</c> name that
+    /// <see cref="BlockdevSnapshotTransactionAsync"/> targets (the drives are launched without an explicit
+    /// id/node-name, so matching by inserted file is the robust route).
+    /// </summary>
+    public static async Task<IReadOnlyList<QmpBlockDevice>> QueryBlockDevicesAsync(this IQmpClient client, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        JsonElement result = await client.ExecuteAsync("query-block", arguments: null, cancellationToken);
+
+        var devices = new List<QmpBlockDevice>();
+        if (result.ValueKind != JsonValueKind.Array)
+        {
+            return devices;
+        }
+
+        foreach (JsonElement entry in result.EnumerateArray())
+        {
+            string device = entry.TryGetProperty("device", out JsonElement d) && d.ValueKind == JsonValueKind.String
+                ? d.GetString() ?? string.Empty
+                : string.Empty;
+
+            string? file = null;
+            string? driver = null;
+            if (entry.TryGetProperty("inserted", out JsonElement inserted) && inserted.ValueKind == JsonValueKind.Object)
+            {
+                if (inserted.TryGetProperty("file", out JsonElement f) && f.ValueKind == JsonValueKind.String)
+                {
+                    file = f.GetString();
+                }
+
+                if (inserted.TryGetProperty("drv", out JsonElement drv) && drv.ValueKind == JsonValueKind.String)
+                {
+                    driver = drv.GetString();
+                }
+            }
+
+            devices.Add(new QmpBlockDevice(device, file, driver));
+        }
+
+        return devices;
+    }
+
+    /// <summary>
+    /// Issues a single <c>transaction</c> of <c>blockdev-snapshot-sync</c> actions — one per
+    /// (device, snapshot-file) pair — so a live external snapshot is taken atomically across all disks.
+    /// Each target disk's current image becomes a read-only backing file and the guest continues writing
+    /// into the new overlay at <c>snapshot-file</c> (qcow2, absolute path).
+    /// </summary>
+    public static Task BlockdevSnapshotTransactionAsync(
+        this IQmpClient client,
+        IReadOnlyList<(string Device, string SnapshotFile)> actions,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(actions);
+        if (actions.Count == 0)
+        {
+            throw new ArgumentException("At least one snapshot action is required.", nameof(actions));
+        }
+
+        var transactionActions = new List<object>(actions.Count);
+        foreach ((string device, string snapshotFile) in actions)
+        {
+            transactionActions.Add(new Dictionary<string, object>
+            {
+                ["type"] = "blockdev-snapshot-sync",
+                ["data"] = new Dictionary<string, object>
+                {
+                    ["device"] = device,
+                    ["snapshot-file"] = snapshotFile,
+                    ["format"] = "qcow2",
+                    ["mode"] = "absolute-paths",
+                },
+            });
+        }
+
+        var arguments = new Dictionary<string, object> { ["actions"] = transactionActions };
+        return client.ExecuteAsync("transaction", arguments, cancellationToken);
+    }
 }
 
 /// <summary>Cumulative block-device byte counters from <c>query-blockstats</c>, summed across devices.</summary>
 public readonly record struct QmpBlockStats(long ReadBytes, long WriteBytes);
+
+/// <summary>A block backend reported by <c>query-block</c>: its <c>device</c> name and the inserted medium's file and driver.</summary>
+public readonly record struct QmpBlockDevice(string Device, string? File, string? Driver);

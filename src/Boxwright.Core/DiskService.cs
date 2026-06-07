@@ -124,4 +124,23 @@ public sealed class DiskService : IDiskService
             throw new DiskException($"qemu-img create overlay failed (exit {result.ExitCode}): {result.StandardError.Trim()}");
         }
     }
+
+    /// <inheritdoc />
+    public async Task RebaseAsync(string imagePath, string newBackingPath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(imagePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newBackingPath);
+
+        // SAFE MODE — never pass -u. Unsafe mode only rewrites the backing pointer without copying clusters,
+        // which silently changes the image's content unless the old and new backings are bitwise-equivalent.
+        ProcessResult result = await _processRunner.RunAsync(
+            _locator.ResolveImageTool(),
+            ["rebase", "-b", newBackingPath, "-F", "qcow2", imagePath],
+            cancellationToken);
+
+        if (result.ExitCode != 0)
+        {
+            throw new DiskException($"qemu-img rebase failed (exit {result.ExitCode}): {result.StandardError.Trim()}");
+        }
+    }
 }

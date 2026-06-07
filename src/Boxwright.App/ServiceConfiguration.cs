@@ -44,6 +44,7 @@ internal static class ServiceConfiguration
         // Core services (orchestration).
         services.AddSingleton<IDiskService, DiskService>();
         services.AddSingleton<ISnapshotService, SnapshotService>();
+        services.AddSingleton<ILiveSnapshotService, LiveSnapshotService>();
         services.AddSingleton<IVmCloneService, VmCloneService>();
         services.AddSingleton<IDisplayLauncher, DisplayLauncher>();
         services.AddSingleton<IVmLauncher, VmLauncher>();

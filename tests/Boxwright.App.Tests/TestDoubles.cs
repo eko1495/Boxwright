@@ -49,6 +49,9 @@ internal sealed class FakeRunningVm : IRunningVm
 
     public Task DeleteStateAsync(string tag, CancellationToken cancellationToken = default) => Record("deletestate");
 
+    public Task TakeLiveSnapshotAsync(IReadOnlyList<LiveSnapshotDiskRequest> disks, CancellationToken cancellationToken = default) =>
+        Record("take-live-snapshot");
+
     public List<string> GuestAddresses { get; } = [];
 
     public Task<IReadOnlyList<string>> GetGuestAddressesAsync(CancellationToken cancellationToken = default) =>
@@ -184,6 +187,9 @@ internal sealed class FakeDiskService : IDiskService
 
     public Task CreateOverlayAsync(string backingPath, string overlayPath, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
+
+    public Task RebaseAsync(string imagePath, string newBackingPath, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
 }
 
 /// <summary>A fake file picker returning a preset path (or null to simulate cancellation).</summary>
@@ -279,6 +285,49 @@ internal sealed class FakeVmCloneService : IVmCloneService
         Clones.Add((newName, mode));
         VmConfig config = source.Config with { Id = $"clone-{newName}", Name = newName };
         return Task.FromResult(new Vm(Path.Combine(Path.GetTempPath(), config.Id), config));
+    }
+}
+
+/// <summary>A fake live-snapshot service: records calls and serves a scriptable snapshot list (or fails on demand).</summary>
+internal sealed class FakeLiveSnapshotService : ILiveSnapshotService
+{
+    public List<string> Calls { get; } = [];
+
+    public List<LiveSnapshotEntry> Snapshots { get; } = [];
+
+    public DiskException? FailWith { get; set; }
+
+    public Task<Vm> TakeAsync(Vm vm, IRunningVm session, string name, CancellationToken cancellationToken = default)
+    {
+        Calls.Add($"take:{name}");
+        if (FailWith is not null)
+        {
+            return Task.FromException<Vm>(FailWith);
+        }
+
+        Snapshots.Add(new LiveSnapshotEntry { Id = name, Name = name });
+        return Task.FromResult(vm);
+    }
+
+    public Task<IReadOnlyList<LiveSnapshotEntry>> ListAsync(Vm vm, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<LiveSnapshotEntry>>(Snapshots.ToList());
+
+    public Task<Vm> RevertAsync(Vm vm, string snapshotId, CancellationToken cancellationToken = default)
+    {
+        Calls.Add($"revert:{snapshotId}");
+        return FailWith is not null ? Task.FromException<Vm>(FailWith) : Task.FromResult(vm);
+    }
+
+    public Task<Vm> DeleteAsync(Vm vm, string snapshotId, CancellationToken cancellationToken = default)
+    {
+        Calls.Add($"delete:{snapshotId}");
+        if (FailWith is not null)
+        {
+            return Task.FromException<Vm>(FailWith);
+        }
+
+        Snapshots.RemoveAll(s => s.Id == snapshotId);
+        return Task.FromResult(vm);
     }
 }
 
