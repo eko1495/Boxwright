@@ -11,19 +11,26 @@ can be started, stopped, or adopted by the other — no daemon, no IPC.
 ## Commands
 
 ```
-boxwright list                         # all VMs + run status
-boxwright info <id|name>               # a VM's configuration
+boxwright list [--json]                # all VMs + run status
+boxwright info <id|name> [--json]      # a VM's configuration
 boxwright create <name> [options]      # blank VM + fresh disk (optionally --iso=PATH)
+boxwright clone <id|name> <new-name> [--linked]   # full copy, or qcow2 overlay
 boxwright start <id|name> [--detach] [--display] [--timeout=SECONDS]
 boxwright stop <id|name> [--force] [--timeout=SECONDS]
 boxwright display <id|name>            # open remote-viewer against a running VM
 boxwright delete <id|name> --yes
-boxwright os list                      # OS catalog ids the GUI's one-click flow uses
-boxwright snapshot list|create|delete <id|name> [tag]   # offline qcow2 snapshots
+boxwright os list [--json]             # OS catalog ids the GUI's one-click flow uses
+boxwright snapshot list [--json]|create|restore|delete <id|name> [tag]   # offline qcow2 snapshots
 ```
 
 VMs are addressed by **id, exact name, or a unique id prefix**. Options are `--flag` or
 `--key=value`.
+
+- **`--json`** on the read commands (`list`, `info`, `os list`, `snapshot list`) emits
+  camelCase JSON for `jq`-friendly scripting instead of the human table.
+- **`clone`** requires the source stopped; `--linked` makes an instant qcow2 overlay backed by
+  the source's disks (keep the source in place), otherwise it's a full independent copy.
+- **`snapshot restore`** rolls the disk back to a tag (VM stopped — offline qcow2 access).
 
 - **`start`** runs in the foreground by default (Ctrl+C → graceful shutdown). `--detach` leaves
   the VM running for a later `stop`/`display`.

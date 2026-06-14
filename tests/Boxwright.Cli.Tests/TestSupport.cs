@@ -79,6 +79,8 @@ internal sealed class FakeSnapshotService : ISnapshotService
 
     public List<(string Disk, string Tag)> Created { get; } = [];
 
+    public List<(string Disk, string Tag)> Restored { get; } = [];
+
     public List<(string Disk, string Tag)> Deleted { get; } = [];
 
     public Task<IReadOnlyList<VmSnapshot>> ListAsync(string diskPath, CancellationToken cancellationToken = default) =>
@@ -90,8 +92,11 @@ internal sealed class FakeSnapshotService : ISnapshotService
         return Task.CompletedTask;
     }
 
-    public Task RestoreAsync(string diskPath, string tag, CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
+    public Task RestoreAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    {
+        Restored.Add((diskPath, tag));
+        return Task.CompletedTask;
+    }
 
     public Task DeleteAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
     {
@@ -124,6 +129,22 @@ internal sealed class FakeDiskService : IDiskService
 
     public Task RebaseAsync(string imagePath, string newBackingPath, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
+}
+
+/// <summary>Records clone requests and produces a clone VM under the given store.</summary>
+internal sealed class FakeVmCloneService : IVmCloneService
+{
+    private readonly TempVmStore _store;
+
+    public FakeVmCloneService(TempVmStore store) => _store = store;
+
+    public List<(string SourceId, string NewName, CloneMode Mode)> Clones { get; } = [];
+
+    public Task<Vm> CloneAsync(Vm source, string newName, CloneMode mode, CancellationToken cancellationToken = default)
+    {
+        Clones.Add((source.Config.Id, newName, mode));
+        return Task.FromResult(_store.Add(newName));
+    }
 }
 
 /// <summary>Returns a fixed catalog.</summary>

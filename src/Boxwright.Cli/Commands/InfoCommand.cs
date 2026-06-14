@@ -1,3 +1,4 @@
+using Boxwright.Cli.Json;
 using Boxwright.Core;
 
 namespace Boxwright.Cli.Commands;
@@ -23,7 +24,7 @@ internal sealed class InfoCommand : ICliCommand
 
     public string Summary => "Show a VM's configuration in detail.";
 
-    public string Usage => "info <id|name>";
+    public string Usage => "info <id|name> [--json]";
 
     public async Task<int> RunAsync(ParsedArgs args, CancellationToken cancellationToken)
     {
@@ -31,10 +32,17 @@ internal sealed class InfoCommand : ICliCommand
             ?? throw new CliException($"Usage: boxwright {Usage}");
         Vm vm = await _resolver.ResolveAsync(reference, cancellationToken);
         VmConfig config = vm.Config;
+        string status = _statusProbe.IsRunning(vm) ? "running" : "stopped";
+
+        if (args.HasFlag("json"))
+        {
+            _output.Line(CliJson.Write(ToJson(vm, status)));
+            return 0;
+        }
 
         _output.Line($"Name:        {config.Name}");
         _output.Line($"Id:          {config.Id}");
-        _output.Line($"Status:      {(_statusProbe.IsRunning(vm) ? "running" : "stopped")}");
+        _output.Line($"Status:      {status}");
         _output.Line($"Folder:      {vm.FolderPath}");
         _output.Line($"OS type:     {config.OsType}");
         _output.Line($"Arch:        {config.Arch}");
@@ -68,5 +76,32 @@ internal sealed class InfoCommand : ICliCommand
         }
 
         return 0;
+    }
+
+    private static VmInfoJson ToJson(Vm vm, string status)
+    {
+        VmConfig c = vm.Config;
+        return new VmInfoJson(
+            c.Id,
+            c.Name,
+            status,
+            vm.FolderPath,
+            c.OsType,
+            c.Arch,
+            c.Machine,
+            c.Firmware,
+            c.Accelerator,
+            c.Cpu.Model,
+            c.Cpu.Sockets,
+            c.Cpu.Cores,
+            c.Cpu.Threads,
+            c.MemoryMiB,
+            c.Display.Protocol,
+            c.Display.Gl,
+            c.Network.Mode,
+            c.Network.Model,
+            c.Audio.Enabled,
+            c.Disks.Select(d => new DiskJson(d.File, d.Format, d.Interface)).ToList(),
+            c.RemovableMedia.Select(m => new MediaJson(m.Type, m.File, m.Attached)).ToList());
     }
 }

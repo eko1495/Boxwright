@@ -1,3 +1,4 @@
+using Boxwright.Cli.Json;
 using Boxwright.Core;
 
 namespace Boxwright.Cli.Commands;
@@ -23,7 +24,7 @@ internal sealed class OsCommand : ICliCommand
 
     public string Summary => "Browse the OS catalog (os list).";
 
-    public string Usage => "os list";
+    public string Usage => "os list [--json]";
 
     public async Task<int> RunAsync(ParsedArgs args, CancellationToken cancellationToken)
     {
@@ -34,6 +35,16 @@ internal sealed class OsCommand : ICliCommand
         }
 
         IReadOnlyList<OsCatalogEntry> entries = await _catalog.GetEntriesAsync(cancellationToken);
+
+        if (args.HasFlag("json"))
+        {
+            OsEntryJson[] payload = entries
+                .Select(e => new OsEntryJson(e.Id, e.Name, e.Version, e.Arch, e.SupportsAutoinstall))
+                .ToArray();
+            _output.Line(CliJson.Write(payload));
+            return 0;
+        }
+
         if (entries.Count == 0)
         {
             _output.Line("The OS catalog is empty.");

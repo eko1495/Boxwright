@@ -23,8 +23,9 @@ just another process that reads/writes the same folders and talks QMP to the sam
   QEMU/process/QMP logic of its own — that all stays in Core (Directive 8 / anti-pattern
   "no business logic in the shell"). The CLI is parsing + presentation + a composition
   root that mirrors the App's `ServiceConfiguration` **minus Avalonia**.
-- **Commands (MVP):** `list`, `info`, `create`, `start`, `stop`, `display`, `delete`,
-  `os list`, and `snapshot list|create|delete`. VMs are addressed by **id, exact name,
+- **Commands (MVP):** `list`, `info`, `create`, `clone`, `start`, `stop`, `display`, `delete`,
+  `os list`, and `snapshot list|create|restore|delete`. The read commands (`list`, `info`,
+  `os list`, `snapshot list`) take `--json` for scripting. VMs are addressed by **id, exact name,
   or a unique id prefix** (`VmResolver`).
 - **Start is foreground by default; `--detach` leaves it running.** Foreground start
   blocks (draining QEMU output to the per-VM log) until the guest exits or Ctrl+C, which

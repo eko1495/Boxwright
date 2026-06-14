@@ -1,11 +1,12 @@
+using Boxwright.Cli.Json;
 using Boxwright.Core;
 
 namespace Boxwright.Cli.Commands;
 
 /// <summary>
 /// Manages a VM's offline qcow2 internal snapshots on its primary disk via
-/// <see cref="ISnapshotService"/>. <c>create</c>/<c>delete</c> need exclusive image access, so
-/// they require the VM to be stopped (live snapshots are a separate, GUI-side feature — ADR-0021).
+/// <see cref="ISnapshotService"/>. <c>create</c>/<c>restore</c>/<c>delete</c> need exclusive image
+/// access, so they require the VM to be stopped (live snapshots are a separate, GUI-side feature — ADR-0021).
 /// </summary>
 internal sealed class SnapshotCommand : ICliCommand
 {
@@ -28,9 +29,9 @@ internal sealed class SnapshotCommand : ICliCommand
 
     public string Name => "snapshot";
 
-    public string Summary => "Manage a VM's offline disk snapshots (list/create/delete).";
+    public string Summary => "Manage a VM's offline disk snapshots (list/create/restore/delete).";
 
-    public string Usage => "snapshot <list|create|delete> <id|name> [tag]";
+    public string Usage => "snapshot <list [--json]|create|restore|delete> <id|name> [tag]";
 
     public async Task<int> RunAsync(ParsedArgs args, CancellationToken cancellationToken)
     {
@@ -45,9 +46,11 @@ internal sealed class SnapshotCommand : ICliCommand
         switch (sub.ToLowerInvariant())
         {
             case "list":
-                return await ListAsync(diskPath, cancellationToken);
+                return await ListAsync(diskPath, args.HasFlag("json"), cancellationToken);
             case "create":
                 return await CreateAsync(vm, diskPath, RequireTag(args), cancellationToken);
+            case "restore":
+                return await RestoreAsync(vm, diskPath, RequireTag(args), cancellationToken);
             case "delete":
                 return await DeleteAsync(vm, diskPath, RequireTag(args), cancellationToken);
             default:
@@ -55,9 +58,19 @@ internal sealed class SnapshotCommand : ICliCommand
         }
     }
 
-    private async Task<int> ListAsync(string diskPath, CancellationToken cancellationToken)
+    private async Task<int> ListAsync(string diskPath, bool asJson, CancellationToken cancellationToken)
     {
         IReadOnlyList<VmSnapshot> snapshots = await _snapshots.ListAsync(diskPath, cancellationToken);
+
+        if (asJson)
+        {
+            SnapshotJson[] payload = snapshots
+                .Select(s => new SnapshotJson(s.Name, s.VmStateSize > 0, s.Created.ToString("yyyy-MM-ddTHH:mm:ssZ")))
+                .ToArray();
+            _output.Line(CliJson.Write(payload));
+            return 0;
+        }
+
         if (snapshots.Count == 0)
         {
             _output.Line("No snapshots.");
@@ -82,6 +95,14 @@ internal sealed class SnapshotCommand : ICliCommand
         RequireStopped(vm, "create a snapshot");
         await _snapshots.CreateAsync(diskPath, tag, cancellationToken);
         _output.Line($"Created snapshot '{tag}' on '{vm.Config.Name}'.");
+        return 0;
+    }
+
+    private async Task<int> RestoreAsync(Vm vm, string diskPath, string tag, CancellationToken cancellationToken)
+    {
+        RequireStopped(vm, "restore a snapshot");
+        await _snapshots.RestoreAsync(diskPath, tag, cancellationToken);
+        _output.Line($"Restored '{vm.Config.Name}' to snapshot '{tag}'.");
         return 0;
     }
 
