@@ -158,10 +158,13 @@ Invest here only if Stage 2 metrics trend positive.
       parity, and remote-viewer is already smooth. See ADR-0013.)
 - [ ] VM templates + linked clones.
 - [~] Headless mode / CLI parity (the GUI becomes optional, not mandatory). The `boxwright`
-      CLI (`Boxwright.Cli`, ADR-0022) drives Core directly — `list`/`info`/`create`/`start`
-      (with `--detach`)/`stop`/`display`/`delete`, `os list`, and offline `snapshot`. It shares
-      the per-VM folders and `runtime.json` with the GUI, so they interoperate. Not yet at full
-      parity: `create` is blank-VM + BYO-ISO (no catalog download or unattended-install seed yet).
+      CLI (`Boxwright.Cli`, ADR-0022) drives Core directly — `list`/`info`/`create` (blank or
+      `--os <id>` from the catalog, with `--unattended`)/`clone`/`start` (with `--detach`)/`stop`/
+      `display`/`delete`, `os list`, and offline `snapshot` (list/create/restore/delete); `--json`
+      on the read commands. Catalog create runs the GUI's New-VM orchestration, now lifted into Core
+      (`ICatalogVmInstaller`). It shares the per-VM folders and `runtime.json` with the GUI, so they
+      interoperate. Remaining gaps: Windows unattended stays GUI-only, and the App still uses its own
+      copy of the catalog orchestration (a migration onto the shared Core service is a follow-up).
 - [ ] Plugin/recipe API for community-contributed OS definitions.
 
 ---

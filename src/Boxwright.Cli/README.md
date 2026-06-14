@@ -11,24 +11,39 @@ can be started, stopped, or adopted by the other — no daemon, no IPC.
 ## Commands
 
 ```
-boxwright list                         # all VMs + run status
-boxwright info <id|name>               # a VM's configuration
-boxwright create <name> [options]      # blank VM + fresh disk (optionally --iso=PATH)
+boxwright list [--json]                # all VMs + run status
+boxwright info <id|name> [--json]      # a VM's configuration
+boxwright create <name> --os <id> [--unattended --user U --password P [--hostname H]]
+boxwright create <name> [options]      # blank VM + fresh disk (optionally --iso PATH)
+boxwright clone <id|name> <new-name> [--linked]   # full copy, or qcow2 overlay
 boxwright start <id|name> [--detach] [--display] [--timeout=SECONDS]
 boxwright stop <id|name> [--force] [--timeout=SECONDS]
 boxwright display <id|name>            # open remote-viewer against a running VM
 boxwright delete <id|name> --yes
-boxwright os list                      # OS catalog ids the GUI's one-click flow uses
-boxwright snapshot list|create|delete <id|name> [tag]   # offline qcow2 snapshots
+boxwright os list [--json]             # OS catalog ids the GUI's one-click flow uses
+boxwright snapshot list [--json]|create|restore|delete <id|name> [tag]   # offline qcow2 snapshots
 ```
 
-VMs are addressed by **id, exact name, or a unique id prefix**. Options are `--flag` or
-`--key=value`.
+VMs are addressed by **id, exact name, or a unique id prefix**. Options are `--flag`, `--key value`,
+or `--key=value`.
+
+- **`create --os <id>`** builds from a catalog OS (`os list` shows the ids), running the same Core
+  orchestration as the GUI: download + verify the image, prep the disk, and seed it. Resource sizes
+  default from the catalog's recommended spec; `--memory`/`--cpus`/`--disk`/`--firmware` override them.
+  - An **installer ISO** boots interactively by default; add `--unattended --user --password` for a
+    hands-free install (where the OS family supports it — Ubuntu/Debian/Fedora).
+  - A **cloud image** is always seeded, so `--user` and `--password` are required (the seed is the
+    only login the guest gets).
+  - Windows (which needs a user-supplied ISO + virtio + Autounattend) stays **GUI-only** for now.
+
+- **`--json`** on the read commands (`list`, `info`, `os list`, `snapshot list`) emits
+  camelCase JSON for `jq`-friendly scripting instead of the human table.
+- **`clone`** requires the source stopped; `--linked` makes an instant qcow2 overlay backed by
+  the source's disks (keep the source in place), otherwise it's a full independent copy.
+- **`snapshot restore`** rolls the disk back to a tag (VM stopped — offline qcow2 access).
 
 - **`start`** runs in the foreground by default (Ctrl+C → graceful shutdown). `--detach` leaves
   the VM running for a later `stop`/`display`.
-- **`create`** is intentionally minimal — bring your own ISO via `--iso`. The one-click catalog
-  download and unattended-install seeds stay GUI-side for now (ADR-0022).
 - `snapshot create`/`delete` require the VM to be stopped (offline qcow2 access). Live snapshots
   of a running VM are a separate, GUI-side feature (ADR-0021).
 

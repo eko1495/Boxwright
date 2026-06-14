@@ -43,6 +43,7 @@ internal static class CliServices
         // Core services (orchestration).
         services.AddSingleton<IDiskService, DiskService>();
         services.AddSingleton<ISnapshotService, SnapshotService>();
+        services.AddSingleton<IVmCloneService, VmCloneService>();
         services.AddSingleton<IDisplayLauncher, DisplayLauncher>();
         services.AddSingleton<IVmLauncher, VmLauncher>();
         services.AddSingleton<IVmRuntimeStore, VmRuntimeStore>();
@@ -60,6 +61,19 @@ internal static class CliServices
             RemoteOsCatalogSource.DefaultCacheFilePath,
             TimeSpan.FromSeconds(5),
             sp.GetService<ILogger<RemoteOsCatalogSource>>()));
+        services.AddSingleton<IIsoDownloader>(sp =>
+            new IsoDownloader(sp.GetRequiredService<IHttpStreamSource>(), IsoDownloader.DefaultCacheDirectory));
+
+        // Unattended-install seed generators + the per-family installer resolver (ADR-0013/0016/0017),
+        // and the catalog-VM orchestration that ties download + disk + seed together (ADR-0022) so
+        // 'create --os <id>' runs the same path as the GUI's New-VM flow.
+        services.AddSingleton<ISeedGenerator, CloudInitSeedGenerator>();
+        services.AddSingleton<IInstallMediaExtractor, InstallMediaExtractor>();
+        services.AddSingleton<IUnattendedInstaller, UbuntuAutoinstaller>();
+        services.AddSingleton<IUnattendedInstaller, DebianPreseedInstaller>();
+        services.AddSingleton<IUnattendedInstaller, FedoraKickstartInstaller>();
+        services.AddSingleton<IUnattendedInstallerResolver, UnattendedInstallerResolver>();
+        services.AddSingleton<ICatalogVmInstaller, CatalogVmInstaller>();
 
         // CLI helpers.
         services.AddSingleton<VmResolver>();
@@ -69,6 +83,7 @@ internal static class CliServices
         AddCommand<ListCommand>(services);
         AddCommand<InfoCommand>(services);
         AddCommand<CreateCommand>(services);
+        AddCommand<CloneCommand>(services);
         AddCommand<StartCommand>(services);
         AddCommand<StopCommand>(services);
         AddCommand<DisplayCommand>(services);

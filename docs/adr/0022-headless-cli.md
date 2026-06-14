@@ -23,8 +23,9 @@ just another process that reads/writes the same folders and talks QMP to the sam
   QEMU/process/QMP logic of its own — that all stays in Core (Directive 8 / anti-pattern
   "no business logic in the shell"). The CLI is parsing + presentation + a composition
   root that mirrors the App's `ServiceConfiguration` **minus Avalonia**.
-- **Commands (MVP):** `list`, `info`, `create`, `start`, `stop`, `display`, `delete`,
-  `os list`, and `snapshot list|create|delete`. VMs are addressed by **id, exact name,
+- **Commands (MVP):** `list`, `info`, `create`, `clone`, `start`, `stop`, `display`, `delete`,
+  `os list`, and `snapshot list|create|restore|delete`. The read commands (`list`, `info`,
+  `os list`, `snapshot list`) take `--json` for scripting. VMs are addressed by **id, exact name,
   or a unique id prefix** (`VmResolver`).
 - **Start is foreground by default; `--detach` leaves it running.** Foreground start
   blocks (draining QEMU output to the per-VM log) until the guest exits or Ctrl+C, which
@@ -33,10 +34,16 @@ just another process that reads/writes the same folders and talks QMP to the sam
   (ADR-0014). Detach inherits the existing orphaned-stdout-pipe caveat of the reconnect
   model — acceptable because a booted guest is quiet on stderr; documented, not hidden
   (Directive 9).
-- **`create` is deliberately minimal:** a blank VM with a freshly-`qemu-img`'d disk and
-  an optional `--iso` installer attached. The one-click OS catalog download and
-  unattended-install seed generation (ADR-0010/0013/0015…) stay GUI-only for now; the CLI
-  exposes `os list` so scripts can see catalog ids, but ISO acquisition is the user's job.
+- **`create` has two modes.** Without `--os` it makes a blank VM with a freshly-`qemu-img`'d disk
+  and an optional bring-your-own `--iso`. With `--os <id>` it builds from a catalog OS by calling a
+  new Core orchestration service, **`ICatalogVmInstaller`**, that lifts the GUI's New-VM sequence
+  (download + verify → disk prep → unattended/cloud-init seed; ADR-0010/0013/0016/0017) out of the
+  App's view-models into Core, so both shells run the identical path. An installer ISO installs
+  interactively unless `--unattended` (with `--user`/`--password`) is given and the OS family
+  supports it (Ubuntu/Debian/Fedora); a cloud image is always seeded (the seed is the guest's only
+  login, so credentials are required). Windows unattended (user-supplied ISO + virtio + Autounattend)
+  stays GUI-only for now. The App still has its own copy of this orchestration; migrating
+  `CatalogViewModel` onto `ICatalogVmInstaller` is a follow-up.
 - **Testable by construction:** commands take their Core collaborators via constructor
   injection and write to an injected pair of `TextWriter`s, so the parser, the resolver,
   the table renderer, and the read-only/disk commands are unit-tested with fakes and temp

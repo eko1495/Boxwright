@@ -1,12 +1,21 @@
 namespace Boxwright.Cli;
 
 /// <summary>
-/// A parsed argument vector: ordered positionals plus options. Two unambiguous option
-/// shapes are recognized — a boolean <c>--flag</c> and a valued <c>--key=value</c> — so
-/// parsing never needs a per-command schema to know whether the next token is a value.
+/// A parsed argument vector: ordered positionals plus options. Three shapes are recognized — a
+/// boolean <c>--flag</c>, and a valued option as either <c>--key=value</c> or <c>--key value</c>.
+/// Because a bare <c>--key</c> could be either a boolean or a valued option awaiting its value, the
+/// known boolean flag names are listed in <see cref="BooleanFlags"/>; any other <c>--key</c> followed
+/// by a non-option token consumes that token as its value.
 /// </summary>
 internal sealed class ParsedArgs
 {
+    // Every boolean flag the commands understand. Listed so the parser never mistakes the token that
+    // follows a boolean flag (e.g. a positional) for the flag's "value".
+    private static readonly HashSet<string> BooleanFlags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "detach", "display", "force", "yes", "linked", "unattended", "json", "help",
+    };
+
     private readonly List<string> _positionals;
     private readonly Dictionary<string, string> _options;
     private readonly HashSet<string> _flags;
@@ -21,7 +30,7 @@ internal sealed class ParsedArgs
     /// <summary>The positional arguments, in order.</summary>
     public IReadOnlyList<string> Positionals => _positionals;
 
-    /// <summary>Parses a raw argument vector into positionals, <c>--flag</c>s, and <c>--key=value</c> options.</summary>
+    /// <summary>Parses a raw argument vector into positionals, boolean flags, and valued options (<c>--key=value</c> or <c>--key value</c>).</summary>
     public static ParsedArgs Parse(IReadOnlyList<string> args)
     {
         ArgumentNullException.ThrowIfNull(args);
@@ -30,24 +39,34 @@ internal sealed class ParsedArgs
         var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var flags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (string token in args)
+        for (int i = 0; i < args.Count; i++)
         {
-            if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
+            string token = args[i];
+            if (!token.StartsWith("--", StringComparison.Ordinal) || token.Length <= 2)
             {
-                string body = token[2..];
-                int eq = body.IndexOf('=', StringComparison.Ordinal);
-                if (eq >= 0)
-                {
-                    options[body[..eq]] = body[(eq + 1)..];
-                }
-                else
-                {
-                    flags.Add(body);
-                }
+                positionals.Add(token);
+                continue;
+            }
+
+            string body = token[2..];
+            int eq = body.IndexOf('=', StringComparison.Ordinal);
+            if (eq >= 0)
+            {
+                options[body[..eq]] = body[(eq + 1)..];
+            }
+            else if (BooleanFlags.Contains(body))
+            {
+                flags.Add(body);
+            }
+            else if (i + 1 < args.Count && !args[i + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                // A valued option in space form: --key value. Consume the following token.
+                options[body] = args[++i];
             }
             else
             {
-                positionals.Add(token);
+                // An unknown bare flag (or a valued option with no value) — record it as a flag.
+                flags.Add(body);
             }
         }
 

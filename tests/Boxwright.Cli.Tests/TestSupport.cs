@@ -79,6 +79,8 @@ internal sealed class FakeSnapshotService : ISnapshotService
 
     public List<(string Disk, string Tag)> Created { get; } = [];
 
+    public List<(string Disk, string Tag)> Restored { get; } = [];
+
     public List<(string Disk, string Tag)> Deleted { get; } = [];
 
     public Task<IReadOnlyList<VmSnapshot>> ListAsync(string diskPath, CancellationToken cancellationToken = default) =>
@@ -90,8 +92,11 @@ internal sealed class FakeSnapshotService : ISnapshotService
         return Task.CompletedTask;
     }
 
-    public Task RestoreAsync(string diskPath, string tag, CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
+    public Task RestoreAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    {
+        Restored.Add((diskPath, tag));
+        return Task.CompletedTask;
+    }
 
     public Task DeleteAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
     {
@@ -124,6 +129,46 @@ internal sealed class FakeDiskService : IDiskService
 
     public Task RebaseAsync(string imagePath, string newBackingPath, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
+}
+
+/// <summary>Records clone requests and produces a clone VM under the given store.</summary>
+internal sealed class FakeVmCloneService : IVmCloneService
+{
+    private readonly TempVmStore _store;
+
+    public FakeVmCloneService(TempVmStore store) => _store = store;
+
+    public List<(string SourceId, string NewName, CloneMode Mode)> Clones { get; } = [];
+
+    public Task<Vm> CloneAsync(Vm source, string newName, CloneMode mode, CancellationToken cancellationToken = default)
+    {
+        Clones.Add((source.Config.Id, newName, mode));
+        return Task.FromResult(_store.Add(newName));
+    }
+}
+
+/// <summary>Records catalog-install requests and returns a VM created under the given store.</summary>
+internal sealed class FakeCatalogVmInstaller : ICatalogVmInstaller
+{
+    private readonly TempVmStore _store;
+
+    public FakeCatalogVmInstaller(TempVmStore store) => _store = store;
+
+    public OsCatalogEntry? Entry { get; private set; }
+
+    public CatalogInstallOptions? Options { get; private set; }
+
+    public Task<Vm> CreateAsync(
+        OsCatalogEntry entry,
+        CatalogInstallOptions options,
+        IProgress<IsoDownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        Entry = entry;
+        Options = options;
+        progress?.Report(new IsoDownloadProgress(50, 100));
+        return Task.FromResult(_store.Add(options.Name));
+    }
 }
 
 /// <summary>Returns a fixed catalog.</summary>

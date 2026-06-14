@@ -82,6 +82,37 @@ public sealed class SnapshotCommandTests
     }
 
     [Fact]
+    public async Task Restore_passes_tag_through_when_stopped()
+    {
+        using var store = new TempVmStore();
+        Vm vm = store.Add("vm");
+        var snapshots = new FakeSnapshotService();
+        SnapshotCommand command = Build(store, new FakeStatusProbe(), snapshots, new CapturingOutput());
+
+        await command.RunAsync(ParsedArgs.Parse(["restore", "vm", "s1"]), CancellationToken.None);
+
+        (string disk, string tag) = Assert.Single(snapshots.Restored);
+        Assert.Equal("s1", tag);
+        Assert.Equal(Path.Combine(vm.FolderPath, "disk.qcow2"), disk);
+    }
+
+    [Fact]
+    public async Task Restore_is_refused_while_running()
+    {
+        using var store = new TempVmStore();
+        Vm vm = store.Add("vm");
+        var probe = new FakeStatusProbe();
+        probe.MarkRunning(vm.Config.Id);
+        var snapshots = new FakeSnapshotService();
+        SnapshotCommand command = Build(store, probe, snapshots, new CapturingOutput());
+
+        await Assert.ThrowsAsync<CliException>(() =>
+            command.RunAsync(ParsedArgs.Parse(["restore", "vm", "s1"]), CancellationToken.None));
+
+        Assert.Empty(snapshots.Restored);
+    }
+
+    [Fact]
     public async Task Delete_passes_tag_through()
     {
         using var store = new TempVmStore();

@@ -1,3 +1,4 @@
+using Boxwright.Cli.Json;
 using Boxwright.Core;
 
 namespace Boxwright.Cli.Commands;
@@ -23,11 +24,27 @@ internal sealed class ListCommand : ICliCommand
 
     public string Summary => "List all VMs and their run status.";
 
-    public string Usage => "list";
+    public string Usage => "list [--json]";
 
     public async Task<int> RunAsync(ParsedArgs args, CancellationToken cancellationToken)
     {
-        IReadOnlyList<Vm> vms = await _repository.ListAsync(cancellationToken);
+        List<Vm> vms = (await _repository.ListAsync(cancellationToken))
+            .OrderBy(v => v.Config.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (args.HasFlag("json"))
+        {
+            VmSummaryJson[] payload = vms.Select(vm => new VmSummaryJson(
+                vm.Config.Id,
+                vm.Config.Name,
+                _statusProbe.IsRunning(vm) ? "running" : "stopped",
+                vm.Config.OsType,
+                vm.Config.Arch,
+                vm.Config.MemoryMiB)).ToArray();
+            _output.Line(CliJson.Write(payload));
+            return 0;
+        }
+
         if (vms.Count == 0)
         {
             _output.Line("No VMs found.");
@@ -36,7 +53,7 @@ internal sealed class ListCommand : ICliCommand
         }
 
         var table = new TextTable("NAME", "ID", "STATUS", "OS", "ARCH", "MEMORY");
-        foreach (Vm vm in vms.OrderBy(v => v.Config.Name, StringComparer.OrdinalIgnoreCase))
+        foreach (Vm vm in vms)
         {
             table.AddRow(
                 string.IsNullOrEmpty(vm.Config.Name) ? "(unnamed)" : vm.Config.Name,
