@@ -1,0 +1,117 @@
+using Boxwright.Core;
+
+namespace Boxwright.Cli.Commands;
+
+/// <summary>
+/// Manages a VM's offline qcow2 internal snapshots on its primary disk via
+/// <see cref="ISnapshotService"/>. <c>create</c>/<c>delete</c> need exclusive image access, so
+/// they require the VM to be stopped (live snapshots are a separate, GUI-side feature — ADR-0021).
+/// </summary>
+internal sealed class SnapshotCommand : ICliCommand
+{
+    private readonly VmResolver _resolver;
+    private readonly IVmStatusProbe _statusProbe;
+    private readonly ISnapshotService _snapshots;
+    private readonly CliOutput _output;
+
+    public SnapshotCommand(VmResolver resolver, IVmStatusProbe statusProbe, ISnapshotService snapshots, CliOutput output)
+    {
+        ArgumentNullException.ThrowIfNull(resolver);
+        ArgumentNullException.ThrowIfNull(statusProbe);
+        ArgumentNullException.ThrowIfNull(snapshots);
+        ArgumentNullException.ThrowIfNull(output);
+        _resolver = resolver;
+        _statusProbe = statusProbe;
+        _snapshots = snapshots;
+        _output = output;
+    }
+
+    public string Name => "snapshot";
+
+    public string Summary => "Manage a VM's offline disk snapshots (list/create/delete).";
+
+    public string Usage => "snapshot <list|create|delete> <id|name> [tag]";
+
+    public async Task<int> RunAsync(ParsedArgs args, CancellationToken cancellationToken)
+    {
+        string sub = args.PositionalOrNull(0)
+            ?? throw new CliException($"Usage: boxwright {Usage}");
+        string reference = args.PositionalOrNull(1)
+            ?? throw new CliException($"Usage: boxwright {Usage}");
+
+        Vm vm = await _resolver.ResolveAsync(reference, cancellationToken);
+        string diskPath = PrimaryDiskPath(vm);
+
+        switch (sub.ToLowerInvariant())
+        {
+            case "list":
+                return await ListAsync(diskPath, cancellationToken);
+            case "create":
+                return await CreateAsync(vm, diskPath, RequireTag(args), cancellationToken);
+            case "delete":
+                return await DeleteAsync(vm, diskPath, RequireTag(args), cancellationToken);
+            default:
+                throw new CliException($"Unknown 'snapshot' subcommand '{sub}'. Usage: boxwright {Usage}");
+        }
+    }
+
+    private async Task<int> ListAsync(string diskPath, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<VmSnapshot> snapshots = await _snapshots.ListAsync(diskPath, cancellationToken);
+        if (snapshots.Count == 0)
+        {
+            _output.Line("No snapshots.");
+            return 0;
+        }
+
+        var table = new TextTable("TAG", "VM STATE", "CREATED");
+        foreach (VmSnapshot snapshot in snapshots)
+        {
+            table.AddRow(
+                snapshot.Name,
+                snapshot.VmStateSize > 0 ? "yes" : "no",
+                snapshot.Created.ToString("yyyy-MM-dd HH:mm:ss"));
+        }
+
+        _output.Out.Write(table.Render());
+        return 0;
+    }
+
+    private async Task<int> CreateAsync(Vm vm, string diskPath, string tag, CancellationToken cancellationToken)
+    {
+        RequireStopped(vm, "create a snapshot");
+        await _snapshots.CreateAsync(diskPath, tag, cancellationToken);
+        _output.Line($"Created snapshot '{tag}' on '{vm.Config.Name}'.");
+        return 0;
+    }
+
+    private async Task<int> DeleteAsync(Vm vm, string diskPath, string tag, CancellationToken cancellationToken)
+    {
+        RequireStopped(vm, "delete a snapshot");
+        await _snapshots.DeleteAsync(diskPath, tag, cancellationToken);
+        _output.Line($"Deleted snapshot '{tag}' from '{vm.Config.Name}'.");
+        return 0;
+    }
+
+    private void RequireStopped(Vm vm, string action)
+    {
+        if (_statusProbe.IsRunning(vm))
+        {
+            throw new CliException(
+                $"VM '{vm.Config.Name}' is running; stop it to {action} (offline snapshots need exclusive disk access).");
+        }
+    }
+
+    private static string RequireTag(ParsedArgs args) =>
+        args.PositionalOrNull(2) ?? throw new CliException("A snapshot tag is required.");
+
+    private static string PrimaryDiskPath(Vm vm)
+    {
+        if (vm.Config.Disks.Count == 0)
+        {
+            throw new CliException($"VM '{vm.Config.Name}' has no disks to snapshot.");
+        }
+
+        return Path.Combine(vm.FolderPath, vm.Config.Disks[0].File);
+    }
+}

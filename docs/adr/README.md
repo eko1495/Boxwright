@@ -43,3 +43,11 @@ What we rejected and why.
 | [0012](0012-embedded-vnc-display.md) | Embedded VNC display via MarcusW.VncClient (App-layer dep; opt-in by protocol) | Accepted |
 | [0013](0013-unattended-install-cloud-init.md) | Unattended install via a cloud-init NoCloud seed (Ubuntu autoinstall; FAT seed) | Accepted |
 | [0014](0014-vm-runtime-state-and-reconnect.md) | Persist VM runtime state; re-adopt running QEMU on restart (no daemon) | Accepted |
+| [0015](0015-windows-unattended-autounattend.md) | Windows unattended install via an auto-discovered Autounattend.xml seed CD | Accepted |
+| [0016](0016-debian-preseed-unattended.md) | Debian unattended install via initrd-injected preseed | Accepted |
+| [0017](0017-fedora-kickstart-unattended.md) | Fedora unattended install via initrd-injected kickstart | Accepted |
+| [0018](0018-virtio-win-performance-path.md) | Opt-in virtio-win driver injection for the Windows performance path | Accepted |
+| [0019](0019-live-vm-performance-metrics.md) | Live VM performance metrics (CPU/RAM/disk) via the host process + QMP | Accepted |
+| [0020](0020-remote-os-catalog.md) | Remote, community-maintainable OS catalog wrapping the bundled list | Accepted |
+| [0021](0021-external-live-snapshots.md) | External / live snapshots of a running VM (blockdev-snapshot-sync + transaction) | Accepted |
+| [0022](0022-headless-cli.md) | Headless command-line interface (`boxwright`) over Core, sharing on-disk state with the GUI | Accepted |

@@ -1,0 +1,138 @@
+using Boxwright.Cli;
+using Boxwright.Core;
+
+namespace Boxwright.Cli.Tests;
+
+/// <summary>Captures CLI output for assertions.</summary>
+internal sealed class CapturingOutput : IDisposable
+{
+    private readonly StringWriter _out = new();
+    private readonly StringWriter _error = new();
+
+    public CliOutput Cli => new(_out, _error);
+
+    public string Out => _out.ToString();
+
+    public string Error => _error.ToString();
+
+    public void Dispose()
+    {
+        _out.Dispose();
+        _error.Dispose();
+    }
+}
+
+/// <summary>A temp VMs directory plus its repository; deleted on dispose.</summary>
+internal sealed class TempVmStore : IDisposable
+{
+    public TempVmStore()
+    {
+        Root = Path.Combine(Path.GetTempPath(), "boxwright-cli-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Root);
+        Repository = new VmRepository(Root);
+    }
+
+    public string Root { get; }
+
+    public VmRepository Repository { get; }
+
+    /// <summary>Creates and persists a VM with the given name (and optional id), returning it.</summary>
+    public Vm Add(string name, string? id = null, IReadOnlyList<DiskConfig>? disks = null)
+    {
+        var config = new VmConfig
+        {
+            Id = id ?? Guid.NewGuid().ToString(),
+            Name = name,
+            Disks = disks ?? [new DiskConfig { File = "disk.qcow2" }],
+        };
+        Repository.SaveAsync(config).GetAwaiter().GetResult();
+        return new Vm(Path.Combine(Root, config.Id), config);
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(Root, recursive: true);
+        }
+        catch (IOException)
+        {
+            // Best-effort cleanup.
+        }
+    }
+}
+
+/// <summary>An <see cref="IVmStatusProbe"/> that reports a fixed set of VM ids as running.</summary>
+internal sealed class FakeStatusProbe : IVmStatusProbe
+{
+    private readonly HashSet<string> _running = new(StringComparer.Ordinal);
+
+    public void MarkRunning(string vmId) => _running.Add(vmId);
+
+    public bool IsRunning(Vm vm) => _running.Contains(vm.Config.Id);
+}
+
+/// <summary>Records snapshot operations and returns a canned list.</summary>
+internal sealed class FakeSnapshotService : ISnapshotService
+{
+    public List<VmSnapshot> Snapshots { get; } = [];
+
+    public List<(string Disk, string Tag)> Created { get; } = [];
+
+    public List<(string Disk, string Tag)> Deleted { get; } = [];
+
+    public Task<IReadOnlyList<VmSnapshot>> ListAsync(string diskPath, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<VmSnapshot>>(Snapshots);
+
+    public Task CreateAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    {
+        Created.Add((diskPath, tag));
+        return Task.CompletedTask;
+    }
+
+    public Task RestoreAsync(string diskPath, string tag, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+
+    public Task DeleteAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    {
+        Deleted.Add((diskPath, tag));
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Records disk operations without invoking qemu-img.</summary>
+internal sealed class FakeDiskService : IDiskService
+{
+    public List<(string Path, long SizeBytes, string Format)> Created { get; } = [];
+
+    public Task CreateAsync(string path, long sizeBytes, string format = "qcow2", CancellationToken cancellationToken = default)
+    {
+        Created.Add((path, sizeBytes, format));
+        return Task.CompletedTask;
+    }
+
+    public Task ResizeAsync(string path, long sizeBytes, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    public Task CopyAsync(string sourcePath, string destinationPath, string format = "qcow2", CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+
+    public Task CreateOverlayAsync(string backingPath, string overlayPath, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+
+    public Task RebaseAsync(string imagePath, string newBackingPath, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+}
+
+/// <summary>Returns a fixed catalog.</summary>
+internal sealed class FakeOsCatalogSource : IOsCatalogSource
+{
+    private readonly IReadOnlyList<OsCatalogEntry> _entries;
+
+    public FakeOsCatalogSource(params OsCatalogEntry[] entries) => _entries = entries;
+
+    public Task<IReadOnlyList<OsCatalogEntry>> GetEntriesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(_entries);
+}

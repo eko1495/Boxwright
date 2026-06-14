@@ -110,23 +110,30 @@ boxwright/
 ├── src/
 │   ├── Boxwright.Qmp/        ← QEMU Machine Protocol client (NuGet-publishable)
 │   ├── Boxwright.Core/       ← domain: VM model, config, process mgmt, accel detect
+│   ├── Boxwright.Cli/        ← headless `boxwright` CLI over Core (ADR-0022)
 │   └── Boxwright.App/        ← Avalonia GUI (views + viewmodels only)
 └── tests/
     ├── Boxwright.Qmp.Tests/
-    └── Boxwright.Core.Tests/
+    ├── Boxwright.Core.Tests/
+    └── Boxwright.Cli.Tests/
 ```
 
 **Dependency direction (must not be violated):**
 
 ```
-Boxwright.App   ──►  Boxwright.Core  ──►  Boxwright.Qmp
-   (UI/MVVM)          (orchestration)        (protocol)
+Boxwright.App   ──┐
+   (UI/MVVM)      ├─►  Boxwright.Core  ──►  Boxwright.Qmp
+Boxwright.Cli   ──┘     (orchestration)        (protocol)
+   (headless)
 ```
 
 - `Qmp` depends on nothing of ours.
 - `Core` may depend on `Qmp`. It must NOT depend on Avalonia.
 - `App` may depend on `Core` (and `Qmp`). No QEMU/process/business logic lives
   in `App` — views and viewmodels only.
+- `Cli` is a second front end over `Core` — parsing + presentation only, no
+  Avalonia, no QEMU/process logic of its own. Both shells share the same on-disk
+  state, so a feature belongs in `Core` if both could use it (ADR-0022).
 
 ---
 
@@ -148,6 +155,7 @@ dotnet build
 dotnet test
 dotnet format                       # apply .editorconfig style
 dotnet run --project src/Boxwright.App
+dotnet run --project src/Boxwright.Cli -- list   # the headless CLI (ADR-0022)
 ```
 
 Running a VM requires a QEMU install on PATH during development (Linux:
