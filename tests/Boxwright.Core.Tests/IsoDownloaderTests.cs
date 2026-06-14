@@ -60,7 +60,7 @@ public sealed class IsoDownloaderTests
         var downloader = new IsoDownloader(http, temp.Path);
 
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            downloader.EnsureAsync(Entry(new string('a', 64)), progress: null, cts.Token));
+            downloader.EnsureAsync(Entry(new string('a', 64)), progress: null, cancellationToken: cts.Token));
 
         Assert.Empty(Directory.GetFiles(temp.Path)); // the .part was cleaned up
     }
@@ -99,6 +99,90 @@ public sealed class IsoDownloaderTests
 
         Assert.Equal(content, await File.ReadAllBytesAsync(path));
         Assert.Equal(1, http.OpenCount);
+    }
+
+    [Fact]
+    public async Task EnsureAsync_CacheHit_WrongSize_PurgesAndReDownloads()
+    {
+        // A marker that still matches the catalog, but a file whose length no longer does (truncated /
+        // partially overwritten on disk). The O(1) size guard must reject it even without reverify.
+        using var temp = new TempDir();
+        byte[] content = [1, 2, 3, 4, 5, 6, 7, 8];
+        string hash = Sha256Hex(content);
+        string cached = Path.Combine(temp.Path, "test.iso");
+        await File.WriteAllBytesAsync(cached, [1, 2, 3]); // wrong length
+        await File.WriteAllTextAsync(cached + ".sha256", hash);
+        var http = new FakeHttpStreamSource(content);
+        var downloader = new IsoDownloader(http, temp.Path);
+
+        string path = await downloader.EnsureAsync(Entry(hash, size: content.Length));
+
+        Assert.Equal(content, await File.ReadAllBytesAsync(path));
+        Assert.Equal(1, http.OpenCount); // the corrupt cache was rejected and re-fetched
+    }
+
+    [Fact]
+    public async Task EnsureAsync_CacheHit_RottedSameSizeContent_ReusedWithoutReverify()
+    {
+        // Same length, matching marker, but the bytes rotted. Without opt-in reverification the cheap
+        // guards can't see this — the fast path reuses it (documents the cost/safety trade-off).
+        using var temp = new TempDir();
+        byte[] good = [1, 2, 3, 4, 5, 6, 7, 8];
+        byte[] rotted = [8, 7, 6, 5, 4, 3, 2, 1]; // identical length, different content
+        string hash = Sha256Hex(good);
+        string cached = Path.Combine(temp.Path, "test.iso");
+        await File.WriteAllBytesAsync(cached, rotted);
+        await File.WriteAllTextAsync(cached + ".sha256", hash);
+        var http = new FakeHttpStreamSource(good);
+        var downloader = new IsoDownloader(http, temp.Path);
+
+        string path = await downloader.EnsureAsync(Entry(hash, size: good.Length));
+
+        Assert.Equal(rotted, await File.ReadAllBytesAsync(path)); // reused as-is
+        Assert.Equal(0, http.OpenCount);
+    }
+
+    [Fact]
+    public async Task EnsureAsync_CacheHit_RottedSameSizeContent_Reverify_PurgesAndReDownloads()
+    {
+        // Same setup as above, but with reverifyCachedContent: the full re-hash detects the rot,
+        // purges the file + marker, and fetches a fresh, correct copy.
+        using var temp = new TempDir();
+        byte[] good = [1, 2, 3, 4, 5, 6, 7, 8];
+        byte[] rotted = [8, 7, 6, 5, 4, 3, 2, 1];
+        string hash = Sha256Hex(good);
+        string cached = Path.Combine(temp.Path, "test.iso");
+        await File.WriteAllBytesAsync(cached, rotted);
+        await File.WriteAllTextAsync(cached + ".sha256", hash);
+        var http = new FakeHttpStreamSource(good);
+        var downloader = new IsoDownloader(http, temp.Path);
+
+        string path = await downloader.EnsureAsync(
+            Entry(hash, size: good.Length), progress: null, reverifyCachedContent: true);
+
+        Assert.Equal(good, await File.ReadAllBytesAsync(path));
+        Assert.Equal(hash, (await File.ReadAllTextAsync(path + ".sha256")).Trim());
+        Assert.Equal(1, http.OpenCount);
+    }
+
+    [Fact]
+    public async Task EnsureAsync_CacheHit_GoodContent_Reverify_DoesNotReDownload()
+    {
+        // A healthy cache must survive reverification: re-hash matches, so it is reused, never re-fetched.
+        using var temp = new TempDir();
+        byte[] content = [1, 2, 3, 4, 5, 6, 7, 8];
+        string hash = Sha256Hex(content);
+        string cached = Path.Combine(temp.Path, "test.iso");
+        await File.WriteAllBytesAsync(cached, content);
+        await File.WriteAllTextAsync(cached + ".sha256", hash);
+        var http = new FakeHttpStreamSource([0xFF]); // would mismatch if ever read
+        var downloader = new IsoDownloader(http, temp.Path);
+
+        string path = await downloader.EnsureAsync(
+            Entry(hash, size: content.Length), progress: null, reverifyCachedContent: true);
+
+        Assert.Equal(cached, path);
+        Assert.Equal(0, http.OpenCount);
     }
 
     [Fact]

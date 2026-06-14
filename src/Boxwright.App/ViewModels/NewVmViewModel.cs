@@ -444,7 +444,9 @@ public sealed partial class NewVmViewModel : ObservableObject, IDisposable
         try
         {
             var progress = new DispatchedProgress(_dispatcher, OnProgress);
-            return await _downloader.EnsureAsync(VirtioWin.CatalogEntry, progress, _cts.Token);
+            // Re-verify the cached virtio-win ISO before an install relies on it; a rotted copy would
+            // otherwise fail the Windows install obscurely. One-time re-hash/re-download at use time.
+            return await _downloader.EnsureAsync(VirtioWin.CatalogEntry, progress, reverifyCachedContent: true, cancellationToken: _cts.Token);
         }
         catch (OperationCanceledException)
         {
