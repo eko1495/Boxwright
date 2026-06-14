@@ -1,0 +1,93 @@
+using Boxwright.Cli.Commands;
+using Boxwright.Core;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace Boxwright.Cli;
+
+/// <summary>
+/// The CLI composition root: registers the Core orchestration services (the same ones the App
+/// wires up, minus everything Avalonia) plus the CLI's commands and helpers. Registration only —
+/// no QEMU/process logic lives here (Directive 8). Mirrors
+/// <c>Boxwright.App.ServiceConfiguration</c> so both front ends drive identical Core behavior.
+/// </summary>
+internal static class CliServices
+{
+    /// <summary>Environment variable that overrides the VMs root (e.g. for tests or a shared store).</summary>
+    public const string VmsDirectoryEnvVar = "BOXWRIGHT_VMS_DIR";
+
+    /// <summary>Builds the configured service provider for the CLI.</summary>
+    public static ServiceProvider Build(CliOutput output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+
+        var services = new ServiceCollection();
+        services.AddSingleton(output);
+
+        // Logging: registered so ILogger<T> dependencies resolve, but with no provider the CLI stays
+        // quiet — commands speak to the user through CliOutput, not the log. BOXWRIGHT_LOG_LEVEL could
+        // later attach a console provider without touching call sites.
+        services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Warning));
+
+        // Core infrastructure (process, sockets, tool discovery). QemuLocator points at a "qemu" folder
+        // beside the executable (packaged layout, ADR-0009); inert in dev, where QEMU resolves from PATH.
+        services.AddSingleton<IProcessRunner, ProcessRunner>();
+        services.AddSingleton<IProcessLauncher, ProcessLauncher>();
+        services.AddSingleton<IEndpointAllocator, QmpEndpointAllocator>();
+        services.AddSingleton<IQmpConnector, DefaultQmpConnector>();
+        services.AddSingleton<IQgaConnector, DefaultQgaConnector>();
+        services.AddSingleton<IRemoteViewerLocator>(_ => new RemoteViewerLocator());
+        services.AddSingleton(_ => new QemuLocator(Path.Combine(AppContext.BaseDirectory, "qemu")));
+        services.AddSingleton(_ => AcceleratorDetector.CreateDefault());
+
+        // Core services (orchestration).
+        services.AddSingleton<IDiskService, DiskService>();
+        services.AddSingleton<ISnapshotService, SnapshotService>();
+        services.AddSingleton<IDisplayLauncher, DisplayLauncher>();
+        services.AddSingleton<IVmLauncher, VmLauncher>();
+        services.AddSingleton<IVmRuntimeStore, VmRuntimeStore>();
+        services.AddSingleton(_ => new VmRepository(ResolveVmsRoot()));
+
+        // OS catalog ("Get an OS"): remote manifest wrapping the bundled list as the offline fallback
+        // (ADR-0020). One shared HttpClient. A network failure degrades to the bundled catalog.
+        services.AddSingleton(_ => new HttpClient());
+        services.AddSingleton<IHttpStreamSource, HttpClientStreamSource>();
+        services.AddSingleton<BundledOsCatalogSource>();
+        services.AddSingleton<IOsCatalogSource>(sp => new RemoteOsCatalogSource(
+            sp.GetRequiredService<IHttpStreamSource>(),
+            sp.GetRequiredService<BundledOsCatalogSource>(),
+            new Uri(RemoteOsCatalogSource.DefaultCatalogUrl),
+            RemoteOsCatalogSource.DefaultCacheFilePath,
+            TimeSpan.FromSeconds(5),
+            sp.GetService<ILogger<RemoteOsCatalogSource>>()));
+
+        // CLI helpers.
+        services.AddSingleton<VmResolver>();
+        services.AddSingleton<IVmStatusProbe, VmStatusProbe>();
+
+        // Commands. Each is also exposed as ICliCommand for the dispatcher to enumerate.
+        AddCommand<ListCommand>(services);
+        AddCommand<InfoCommand>(services);
+        AddCommand<CreateCommand>(services);
+        AddCommand<StartCommand>(services);
+        AddCommand<StopCommand>(services);
+        AddCommand<DisplayCommand>(services);
+        AddCommand<DeleteCommand>(services);
+        AddCommand<OsCommand>(services);
+        AddCommand<SnapshotCommand>(services);
+
+        services.AddSingleton<CommandDispatcher>();
+
+        return services.BuildServiceProvider();
+    }
+
+    private static void AddCommand<TCommand>(IServiceCollection services)
+        where TCommand : class, ICliCommand =>
+        services.AddSingleton<ICliCommand, TCommand>();
+
+    private static string ResolveVmsRoot()
+    {
+        string? overridden = Environment.GetEnvironmentVariable(VmsDirectoryEnvVar);
+        return string.IsNullOrWhiteSpace(overridden) ? VmRepository.DefaultRootDirectory : overridden;
+    }
+}

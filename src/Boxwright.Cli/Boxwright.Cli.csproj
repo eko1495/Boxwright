@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Boxwright.Cli — the headless command-line front end (ADR-0022).
+    A thin shell over Boxwright.Core: parsing + presentation only.
+    No QEMU/process/QMP logic lives here (that stays in Core). No Avalonia.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>boxwright</AssemblyName>
+    <RootNamespace>Boxwright.Cli</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- Friendly Ctrl+C handling: we cancel a CancellationToken rather than letting the
+         runtime tear the process down mid-shutdown. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Boxwright.Core\Boxwright.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Commands and helpers are internal; the test project drives them directly. -->
+    <InternalsVisibleTo Include="Boxwright.Cli.Tests" />
+  </ItemGroup>
+
+</Project>

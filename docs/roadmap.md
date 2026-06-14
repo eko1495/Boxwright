@@ -157,7 +157,11 @@ Invest here only if Stage 2 metrics trend positive.
       (Evaluated 2026-06 and deferred — no .NET SPICE client, native FFI risks cross-platform
       parity, and remote-viewer is already smooth. See ADR-0013.)
 - [ ] VM templates + linked clones.
-- [ ] Headless mode / CLI parity (the GUI becomes optional, not mandatory).
+- [~] Headless mode / CLI parity (the GUI becomes optional, not mandatory). The `boxwright`
+      CLI (`Boxwright.Cli`, ADR-0022) drives Core directly — `list`/`info`/`create`/`start`
+      (with `--detach`)/`stop`/`display`/`delete`, `os list`, and offline `snapshot`. It shares
+      the per-VM folders and `runtime.json` with the GUI, so they interoperate. Not yet at full
+      parity: `create` is blank-VM + BYO-ISO (no catalog download or unattended-install seed yet).
 - [ ] Plugin/recipe API for community-contributed OS definitions.
 
 ---
