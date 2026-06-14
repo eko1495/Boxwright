@@ -147,6 +147,30 @@ internal sealed class FakeVmCloneService : IVmCloneService
     }
 }
 
+/// <summary>Records catalog-install requests and returns a VM created under the given store.</summary>
+internal sealed class FakeCatalogVmInstaller : ICatalogVmInstaller
+{
+    private readonly TempVmStore _store;
+
+    public FakeCatalogVmInstaller(TempVmStore store) => _store = store;
+
+    public OsCatalogEntry? Entry { get; private set; }
+
+    public CatalogInstallOptions? Options { get; private set; }
+
+    public Task<Vm> CreateAsync(
+        OsCatalogEntry entry,
+        CatalogInstallOptions options,
+        IProgress<IsoDownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        Entry = entry;
+        Options = options;
+        progress?.Report(new IsoDownloadProgress(50, 100));
+        return Task.FromResult(_store.Add(options.Name));
+    }
+}
+
 /// <summary>Returns a fixed catalog.</summary>
 internal sealed class FakeOsCatalogSource : IOsCatalogSource
 {

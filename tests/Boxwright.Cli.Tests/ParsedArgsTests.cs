@@ -77,4 +77,44 @@ public sealed class ParsedArgsTests
 
         Assert.Equal(["--"], args.Positionals);
     }
+
+    [Fact]
+    public void Valued_option_accepts_the_space_form()
+    {
+        ParsedArgs args = ParsedArgs.Parse(["create", "vm", "--os", "ubuntu-24.04", "--memory", "4096"]);
+
+        Assert.Equal(["create", "vm"], args.Positionals);
+        Assert.Equal("ubuntu-24.04", args.Option("os"));
+        Assert.Equal(4096, args.IntOption("memory", 0));
+    }
+
+    [Fact]
+    public void Boolean_flag_does_not_consume_the_following_positional()
+    {
+        // --detach is a known boolean; "extra" must stay a positional, not become its value.
+        ParsedArgs args = ParsedArgs.Parse(["start", "vm", "--detach", "extra"]);
+
+        Assert.Equal(["start", "vm", "extra"], args.Positionals);
+        Assert.True(args.HasFlag("detach"));
+        Assert.Null(args.Option("detach"));
+    }
+
+    [Fact]
+    public void Valued_option_before_another_option_has_no_value()
+    {
+        // --password is valued, but the next token is another option, so it gets no value.
+        ParsedArgs args = ParsedArgs.Parse(["--password", "--user=x"]);
+
+        Assert.Null(args.Option("password"));
+        Assert.Equal("x", args.Option("user"));
+    }
+
+    [Fact]
+    public void Equals_form_still_works_alongside_space_form()
+    {
+        ParsedArgs args = ParsedArgs.Parse(["--os=ubuntu", "--cpus", "2"]);
+
+        Assert.Equal("ubuntu", args.Option("os"));
+        Assert.Equal("2", args.Option("cpus"));
+    }
 }
