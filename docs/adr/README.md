@@ -53,3 +53,5 @@ What we rejected and why.
 | [0022](0022-headless-cli.md) | Headless command-line interface (`boxwright`) over Core, sharing on-disk state with the GUI | Accepted |
 | [0023](0023-usb-passthrough.md) | Host USB passthrough by vendor:product; Linux sysfs enumeration, capability-gated elsewhere | Accepted |
 | [0024](0024-bridged-tap-networking.md) | Bridged / TAP networking on Linux (beyond user-mode NAT), capability-gated | Accepted |
+| [0025](0025-vm-templates.md) | VM templates: clone instances from a frozen base (+ per-VM MAC) | Proposed |
+| [0026](0026-declarative-os-recipes.md) | Declarative OS recipes for community-contributed OS definitions (data, not code) | Proposed |
