@@ -120,30 +120,68 @@ public class DiskServiceTests
     [Fact]
     public async Task CopyAsync_InvokesQemuImgConvert()
     {
-        await WithStubQemuImgAsync(async locator =>
+        await WithStubQemuImgAsync(async (locator, dir) =>
         {
             var fake = new FakeProcessRunner(exitCode: 0);
             var service = new DiskService(fake, locator);
+            string src = Path.Combine(dir, "src.qcow2");
+            string dst = Path.Combine(dir, "dst.qcow2");
+            await File.WriteAllTextAsync(src, "img");
 
-            await service.CopyAsync("src.qcow2", "dst.qcow2");
+            await service.CopyAsync(src, dst);
 
             (string FileName, IReadOnlyList<string> Arguments) invocation = Assert.Single(fake.Invocations);
-            Assert.Equal("convert -O qcow2 src.qcow2 dst.qcow2", string.Join(' ', invocation.Arguments));
+            Assert.Equal(["convert", "-O", "qcow2", src, dst], invocation.Arguments);
+        });
+    }
+
+    [Fact]
+    public async Task CopyAsync_MissingSource_ThrowsDiskExceptionWithoutInvokingQemuImg()
+    {
+        await WithStubQemuImgAsync(async (locator, dir) =>
+        {
+            var fake = new FakeProcessRunner(exitCode: 0);
+            var service = new DiskService(fake, locator);
+            string src = Path.Combine(dir, "nope.qcow2");
+
+            DiskException ex = await Assert.ThrowsAsync<DiskException>(() => service.CopyAsync(src, Path.Combine(dir, "dst.qcow2")));
+
+            Assert.Contains(src, ex.Message, StringComparison.Ordinal);
+            Assert.Empty(fake.Invocations); // failed fast, never spawned qemu-img
         });
     }
 
     [Fact]
     public async Task CreateOverlayAsync_InvokesQemuImgCreateWithBacking()
     {
-        await WithStubQemuImgAsync(async locator =>
+        await WithStubQemuImgAsync(async (locator, dir) =>
         {
             var fake = new FakeProcessRunner(exitCode: 0);
             var service = new DiskService(fake, locator);
+            string backing = Path.Combine(dir, "base.qcow2");
+            string overlay = Path.Combine(dir, "overlay.qcow2");
+            await File.WriteAllTextAsync(backing, "img");
 
-            await service.CreateOverlayAsync("base.qcow2", "overlay.qcow2");
+            await service.CreateOverlayAsync(backing, overlay);
 
             (string FileName, IReadOnlyList<string> Arguments) invocation = Assert.Single(fake.Invocations);
-            Assert.Equal("create -f qcow2 -b base.qcow2 -F qcow2 overlay.qcow2", string.Join(' ', invocation.Arguments));
+            Assert.Equal(["create", "-f", "qcow2", "-b", backing, "-F", "qcow2", overlay], invocation.Arguments);
+        });
+    }
+
+    [Fact]
+    public async Task CreateOverlayAsync_MissingBacking_ThrowsDiskExceptionWithoutInvokingQemuImg()
+    {
+        await WithStubQemuImgAsync(async (locator, dir) =>
+        {
+            var fake = new FakeProcessRunner(exitCode: 0);
+            var service = new DiskService(fake, locator);
+            string backing = Path.Combine(dir, "gone.qcow2");
+
+            DiskException ex = await Assert.ThrowsAsync<DiskException>(() => service.CreateOverlayAsync(backing, Path.Combine(dir, "overlay.qcow2")));
+
+            Assert.Contains(backing, ex.Message, StringComparison.Ordinal);
+            Assert.Empty(fake.Invocations);
         });
     }
 
@@ -169,15 +207,19 @@ public class DiskServiceTests
     [Fact]
     public async Task RebaseAsync_InvokesQemuImgRebaseInSafeMode()
     {
-        await WithStubQemuImgAsync(async locator =>
+        await WithStubQemuImgAsync(async (locator, dir) =>
         {
             var fake = new FakeProcessRunner(exitCode: 0);
             var service = new DiskService(fake, locator);
+            string child = Path.Combine(dir, "child.qcow2");
+            string parent = Path.Combine(dir, "parent.qcow2");
+            await File.WriteAllTextAsync(child, "img");
+            await File.WriteAllTextAsync(parent, "img");
 
-            await service.RebaseAsync("child.qcow2", "parent.qcow2");
+            await service.RebaseAsync(child, parent);
 
             (string FileName, IReadOnlyList<string> Arguments) invocation = Assert.Single(fake.Invocations);
-            Assert.Equal("rebase -b parent.qcow2 -F qcow2 child.qcow2", string.Join(' ', invocation.Arguments));
+            Assert.Equal(["rebase", "-b", parent, "-F", "qcow2", child], invocation.Arguments);
             Assert.DoesNotContain("-u", invocation.Arguments); // never unsafe mode
         });
     }
@@ -185,16 +227,25 @@ public class DiskServiceTests
     [Fact]
     public async Task RebaseAsync_NonZeroExit_ThrowsDiskException()
     {
-        await WithStubQemuImgAsync(async locator =>
+        await WithStubQemuImgAsync(async (locator, dir) =>
         {
             var fake = new FakeProcessRunner(exitCode: 1, standardError: "qemu-img: rebase failed");
             var service = new DiskService(fake, locator);
+            string child = Path.Combine(dir, "child.qcow2");
+            string parent = Path.Combine(dir, "parent.qcow2");
+            await File.WriteAllTextAsync(child, "img");
+            await File.WriteAllTextAsync(parent, "img");
 
-            await Assert.ThrowsAsync<DiskException>(() => service.RebaseAsync("child.qcow2", "parent.qcow2"));
+            await Assert.ThrowsAsync<DiskException>(() => service.RebaseAsync(child, parent));
         });
     }
 
-    private static async Task WithStubQemuImgAsync(Func<QemuLocator, Task> body)
+    private static Task WithStubQemuImgAsync(Func<QemuLocator, Task> body) =>
+        WithStubQemuImgAsync((locator, _) => body(locator));
+
+    // Overload that also hands the test the temp directory, so it can create real input image files
+    // (the Copy/Overlay/Rebase paths now require their inputs to exist before invoking qemu-img).
+    private static async Task WithStubQemuImgAsync(Func<QemuLocator, string, Task> body)
     {
         string dir = Path.Combine(Path.GetTempPath(), $"boxwright-disk-{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
@@ -202,7 +253,7 @@ public class DiskServiceTests
         await File.WriteAllTextAsync(stub, "stub");
         try
         {
-            await body(new QemuLocator(dir));
+            await body(new QemuLocator(dir), dir);
         }
         finally
         {
