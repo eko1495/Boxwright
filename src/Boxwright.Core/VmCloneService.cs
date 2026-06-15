@@ -31,6 +31,7 @@ public sealed class VmCloneService : IVmCloneService
         {
             Id = string.Empty,           // VmRepository.CreateAsync stamps a fresh GUID + folder
             Name = newName,
+            IsTemplate = false,          // a clone is a concrete VM, even when cloned from a template (ADR-0025)
             RemovableMedia = [],         // a clone shouldn't carry the source's installer ISO
             Boot = source.Config.Boot with { Order = "c" },
             // Clear the MAC so the clone gets its own (else it collides with the source on a bridge — ADR-0025).

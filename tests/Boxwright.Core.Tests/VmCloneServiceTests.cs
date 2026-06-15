@@ -69,6 +69,23 @@ public sealed class VmCloneServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task CloneOfATemplate_IsNotItselfATemplate()
+    {
+        Vm template = await _repository.CreateAsync(new VmConfig
+        {
+            Name = "tpl",
+            IsTemplate = true,
+            Disks = [new DiskConfig { File = "disk.qcow2", Format = "qcow2", Interface = "virtio" }],
+        });
+        var service = new VmCloneService(_repository, _disks);
+
+        Vm instance = await service.CloneAsync(template, "instance", CloneMode.Full);
+
+        Assert.False(instance.Config.IsTemplate); // a clone is a concrete VM
+        Assert.True(template.Config.IsTemplate);   // the source stays a template
+    }
+
+    [Fact]
     public async Task Clone_DetachesTheInstallerIso()
     {
         Vm source = await _repository.CreateAsync(new VmConfig

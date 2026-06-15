@@ -1,6 +1,6 @@
 # ADR-0025: VM templates (clone instances from a frozen base)
 
-- **Status:** Proposed
+- **Status:** Accepted (phase 1 — Core + CLI — implemented; GUI is phase 2)
 - **Date:** 2026-06-15
 
 ## Context
@@ -37,10 +37,15 @@ Two real problems a naïve "just clone it" approach hits:
   action) is a phase-2 follow-up.
 
 ## Phasing
-1. **Core + CLI (testable here):** `IsTemplate`, per-VM MAC generation + command-line emission, freeze,
-   instantiate (linked/full) with identity reset, `template` CLI command. Unit-tested with fakes.
-2. **GUI:** templates surfaced in the VM list; "New from template" dialog. (Avalonia — wants a real GUI
-   smoke test, per the pattern.)
+1. **Core + CLI — DONE.** Per-VM MAC (shipped first, ADR-0025 prerequisite); `VmConfig.IsTemplate`;
+   `VmLauncher` refuses to boot a template; `VmCloneService` resets `IsTemplate`/MAC so an instance is a
+   fresh concrete VM; `boxwright template list|create|new|delete`. The disk "freeze" is achieved by the
+   launch-refusal (a template never boots, so its disk — the linked-instance backing — never changes), so
+   no separate `chmod`/convert step was needed.
+2. **GUI (pending):** templates surfaced/grouped in the VM list; a "New from template" dialog. (Avalonia —
+   wants a real GUI smoke test, per the pattern.)
+3. **Deferred:** refuse-delete-when-linked-instances-exist (needs a backing-chain scan across VMs) — for
+   now `template delete` warns and requires `--yes`, the same exposure as deleting any linked-clone source.
 
 ## Consequences
 - **Easier:** stamp out many instances from a known-good base in seconds (linked); the MAC fix also cures

@@ -37,12 +37,13 @@ internal sealed class TempVmStore : IDisposable
     public VmRepository Repository { get; }
 
     /// <summary>Creates and persists a VM with the given name (and optional id), returning it.</summary>
-    public Vm Add(string name, string? id = null, IReadOnlyList<DiskConfig>? disks = null)
+    public Vm Add(string name, string? id = null, IReadOnlyList<DiskConfig>? disks = null, bool isTemplate = false)
     {
         var config = new VmConfig
         {
             Id = id ?? Guid.NewGuid().ToString(),
             Name = name,
+            IsTemplate = isTemplate,
             Disks = disks ?? [new DiskConfig { File = "disk.qcow2" }],
         };
         Repository.SaveAsync(config).GetAwaiter().GetResult();
