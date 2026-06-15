@@ -74,6 +74,28 @@ public class VmLauncherTests
     }
 
     [Fact]
+    public async Task TakeLiveSnapshotAsync_NoMatchingQcow2Device_Throws()
+    {
+        await WithStartedVmAsync(async (running, _, _) =>
+        {
+            // query-block reports no devices (the recording client returns {}), so nothing backs the
+            // requested active image — the live snapshot must fail loudly rather than silently no-op.
+            var disks = new[] { new LiveSnapshotDiskRequest("/vm/disk.qcow2", "/vm/disk.snap.qcow2") };
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => running.TakeLiveSnapshotAsync(disks));
+        });
+    }
+
+    [Fact]
+    public async Task TakeLiveSnapshotAsync_NoDisks_Throws()
+    {
+        await WithStartedVmAsync(async (running, _, _) =>
+        {
+            await Assert.ThrowsAsync<ArgumentException>(() => running.TakeLiveSnapshotAsync([]));
+        });
+    }
+
+    [Fact]
     public async Task ForceStop_TerminatesProcess()
     {
         await WithStartedVmAsync((running, _, _) =>
