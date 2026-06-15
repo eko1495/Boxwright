@@ -1,6 +1,6 @@
 # ADR-0026: Declarative OS recipes (community-contributed OS definitions)
 
-- **Status:** Accepted (phase 1 — recipe sourcing / catalog extension — implemented; the recipe-driven install engine is phase 2)
+- **Status:** Accepted (phase 1 — sourcing — and phase 2a — the initrd-inject install engine — implemented; the cloud-init recipe kind remains)
 - **Date:** 2026-06-15
 
 ## Context
@@ -50,11 +50,20 @@ liability, a cross-platform-parity risk, a potential GPL-contamination vector, a
    **At this stage a recipe reuses the existing per-family installer** (matched by `osFamily`), so it can
    add a new release of a known family with full unattended support, or any OS for interactive install —
    without a recompile. Its install-specific fields (below) are not yet consumed.
-2. **Recipe-driven install engine (pending):** define the install fields on the recipe (`installKind`,
-   kernel/initrd paths, append/seed templates) and a generic `RecipeInstaller` the resolver selects, so a
-   recipe can describe a **brand-new** unattended mechanism declaratively. Re-express the four existing
-   installers as recipes to prove the schema (a behavior-preserving refactor), then retire or keep them as
-   the bundled set.
+2. **Recipe-driven install engine.**
+   - **2a — DONE (initrd-inject).** An optional `OsCatalogEntry.Unattended` recipe (`UnattendedRecipe`)
+     carries `kind`, `kernelPath`, `initrdPaths`, `seedFileName`, a `seedTemplate`, and an `append`
+     template. `RecipeInstaller` (kind `initrd-inject`) copies the kernel/initrd out of the ISO, injects
+     the substituted seed file into the initrd (`InitrdFileInjector`), and boots the substituted kernel
+     command line — the preseed/kickstart mechanism, now data-driven. Templates fill `{username}`,
+     `{password}`, `{passwordHash}`, `{hostname}`, `{locale}`, `{timezone}`, `{keyboard}`, `{isoLabel}`
+     (`RecipeTemplate`, password hashed once per install). `CatalogVmInstaller` routes to it whenever an
+     entry has an `unattended` recipe, otherwise the built-in per-family installer. So a community recipe
+     can add a Debian/Fedora-style distro's **hands-free** install with no C#.
+   - **2b — pending (cloud-init kind).** A `cloud-init` kind that writes the templated `seedTemplate` as a
+     NoCloud CIDATA seed disk (generalizing Ubuntu autoinstall) — needs the FAT/CIDATA writer extracted
+     from `CloudInitSeedGenerator` to accept an arbitrary user-data string. The four built-in installers
+     can then be re-expressed as recipes to prove full coverage.
 
 ## Consequences
 - **Easier:** the community adds a distro by editing data, not C#; the install layer stops being four

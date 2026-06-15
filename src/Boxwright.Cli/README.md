@@ -58,8 +58,10 @@ or `--key=value`.
 - **`recipe`** — drop an OS **catalog document** (`*.json`, same shape as the bundled catalog) into the
   recipes folder (`recipe dir` prints it) and that OS appears in `os list` and the GUI picker, no
   recompile. `recipe list`/`validate` help author them. Local recipes layer over the remote/bundled
-  catalog (a recipe can add or, by id, replace an entry). It reuses the existing per-family unattended
-  installer; a recipe-driven install engine for new mechanisms is a follow-up. See ADR-0026.
+  catalog (a recipe can add or, by id, replace an entry). A recipe can also carry an optional
+  **`unattended`** block (`kind: "initrd-inject"`, `kernelPath`, `initrdPaths`, `seedFileName`,
+  `seedTemplate`, `append`) so a Debian/Fedora-style distro installs hands-free with no C#; templates fill
+  `{username}`/`{passwordHash}`/`{hostname}`/`{isoLabel}`/… A `cloud-init` kind is a follow-up. See ADR-0026.
 - **`template`** turns a stopped VM into a reusable frozen base (`create`) and stamps out instances from
   it (`new`, linked by default — instant — or `--full`). A template can't be booted; each instance is a
   fresh concrete VM with its own id and MAC. See ADR-0025.
