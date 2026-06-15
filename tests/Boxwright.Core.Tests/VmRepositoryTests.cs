@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Boxwright.Core.Tests;
@@ -130,6 +131,34 @@ public class VmRepositoryTests
         Assert.EndsWith("VMs", path, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ListAsync_LogsAWarning_ForASkippedBrokenConfig()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"boxwright-repo-{Guid.NewGuid():N}");
+        var logger = new CapturingLogger();
+        try
+        {
+            var repo = new VmRepository(root, logger);
+            await repo.CreateAsync(new VmConfig { Name = "valid" });
+            string bogus = Path.Combine(root, "bogus");
+            Directory.CreateDirectory(bogus);
+            await File.WriteAllTextAsync(Path.Combine(bogus, VmRepository.ConfigFileName), "{ not json");
+
+            IReadOnlyList<Vm> vms = await repo.ListAsync();
+
+            Assert.Single(vms); // the broken folder is still skipped
+            string warning = Assert.Single(logger.Warnings);
+            Assert.Contains("bogus", warning, StringComparison.Ordinal); // and the skip is now visible
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static async Task WithTempRootAsync(Func<VmRepository, Task> body)
     {
         string root = Path.Combine(Path.GetTempPath(), $"boxwright-repo-{Guid.NewGuid():N}");
@@ -142,6 +171,23 @@ public class VmRepositoryTests
             if (Directory.Exists(root))
             {
                 Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    private sealed class CapturingLogger : ILogger<VmRepository>
+    {
+        public List<string> Warnings { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning)
+            {
+                Warnings.Add(formatter(state, exception));
             }
         }
     }
