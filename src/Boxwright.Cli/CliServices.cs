@@ -75,6 +75,9 @@ internal static class CliServices
         services.AddSingleton<IUnattendedInstallerResolver, UnattendedInstallerResolver>();
         services.AddSingleton<ICatalogVmInstaller, CatalogVmInstaller>();
 
+        // Host USB enumeration for the passthrough picker (ADR-0023): Linux sysfs, capability-gated elsewhere.
+        services.AddSingleton(_ => UsbDeviceEnumerator.CreateDefault());
+
         // CLI helpers.
         services.AddSingleton<VmResolver>();
         services.AddSingleton<IVmStatusProbe, VmStatusProbe>();
@@ -83,6 +86,7 @@ internal static class CliServices
         AddCommand<ListCommand>(services);
         AddCommand<InfoCommand>(services);
         AddCommand<CreateCommand>(services);
+        AddCommand<UsbCommand>(services);
         AddCommand<CloneCommand>(services);
         AddCommand<StartCommand>(services);
         AddCommand<StopCommand>(services);

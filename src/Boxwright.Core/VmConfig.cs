@@ -48,6 +48,9 @@ public sealed record VmConfig
     /// <summary>Removable media (CD-ROM/ISO) slots.</summary>
     public IReadOnlyList<RemovableMediaConfig> RemovableMedia { get; init; } = [];
 
+    /// <summary>Host USB devices passed through to the guest by vendor:product id (ADR-0023). Empty by default.</summary>
+    public IReadOnlyList<UsbPassthroughConfig> UsbDevices { get; init; } = [];
+
     /// <summary>Networking configuration.</summary>
     public NetworkConfig Network { get; init; } = new();
 
@@ -124,6 +127,23 @@ public sealed record RemovableMediaConfig
 
     /// <summary>Whether the media is currently attached.</summary>
     public bool Attached { get; init; }
+}
+
+/// <summary>
+/// A host USB device passed through to the guest, identified by its USB vendor and product id
+/// (ADR-0023). Ids are four lowercase hex digits each (no <c>0x</c>), e.g. vendor <c>046d</c> product
+/// <c>c52b</c>. Matching by vendor:product is stable across replug, unlike bus/address.
+/// </summary>
+public sealed record UsbPassthroughConfig
+{
+    /// <summary>USB vendor id as four hex digits (e.g. <c>046d</c>).</summary>
+    public string VendorId { get; init; } = string.Empty;
+
+    /// <summary>USB product id as four hex digits (e.g. <c>c52b</c>).</summary>
+    public string ProductId { get; init; } = string.Empty;
+
+    /// <summary>Optional human label for the device (e.g. <c>Logitech webcam</c>); informational only.</summary>
+    public string? Description { get; init; }
 }
 
 /// <summary>Networking configuration. Defaults to user-mode (SLIRP), which needs no admin (architecture §7).</summary>

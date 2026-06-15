@@ -57,6 +57,7 @@ public static class CommandLineBuilder
 
         AppendNetworking(args, config);
         AppendInput(args);
+        AppendUsbPassthrough(args, config);
         AppendDisplay(args, config, context);
         AppendAudio(args, config);
         AppendGuestChannels(args, config, context);
@@ -229,6 +230,20 @@ public static class CommandLineBuilder
         args.Add("-usb");
         args.Add("-device");
         args.Add("usb-tablet");
+    }
+
+    // Host USB passthrough (ADR-0023): one usb-host device per configured entry, matched by
+    // vendor:product (stable across replug) and attached to the controller from AppendInput's `-usb`.
+    // QEMU performs the host-side access; an empty list adds nothing (so existing VMs are unchanged).
+    private static void AppendUsbPassthrough(List<string> args, VmConfig config)
+    {
+        int index = 0;
+        foreach (UsbPassthroughConfig device in config.UsbDevices)
+        {
+            args.Add("-device");
+            args.Add($"usb-host,vendorid=0x{device.VendorId},productid=0x{device.ProductId},id=usbpass{index}");
+            index++;
+        }
     }
 
     private static void AppendDisplay(List<string> args, VmConfig config, QemuLaunchContext context)
