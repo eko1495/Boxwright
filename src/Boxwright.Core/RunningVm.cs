@@ -208,6 +208,37 @@ public sealed class RunningVm : IRunningVm
             new Dictionary<string, object> { ["command-line"] = commandLine },
             cancellationToken);
 
+    /// <summary>Hot-plugs a host USB device into the running guest (QMP <c>device_add</c>, driver <c>usb-host</c>).</summary>
+    public Task AttachUsbAsync(string vendorId, string productId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(vendorId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(productId);
+
+        // vendorid/productid are uint32 device properties — pass them as numbers (the command line uses 0x…).
+        return _client.ExecuteAsync(
+            "device_add",
+            new Dictionary<string, object>
+            {
+                ["driver"] = "usb-host",
+                ["id"] = UsbId.DeviceId(vendorId, productId),
+                ["vendorid"] = Convert.ToInt32(vendorId, 16),
+                ["productid"] = Convert.ToInt32(productId, 16),
+            },
+            cancellationToken);
+    }
+
+    /// <summary>Hot-unplugs the USB device with the given vendor:product (QMP <c>device_del</c>).</summary>
+    public Task DetachUsbAsync(string vendorId, string productId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(vendorId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(productId);
+
+        return _client.ExecuteAsync(
+            "device_del",
+            new Dictionary<string, object> { ["id"] = UsbId.DeviceId(vendorId, productId) },
+            cancellationToken);
+    }
+
     /// <summary>Forcibly terminates the VM process (pulls the plug).</summary>
     public void ForceStop() => _process.Kill();
 

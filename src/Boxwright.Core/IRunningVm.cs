@@ -77,6 +77,18 @@ public interface IRunningVm : IAsyncDisposable
     /// <exception cref="InvalidOperationException">A request's active image has no matching running qcow2 block device.</exception>
     Task TakeLiveSnapshotAsync(IReadOnlyList<LiveSnapshotDiskRequest> disks, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Hot-plugs a host USB device into the running guest by vendor:product (QMP <c>device_add</c> with
+    /// driver <c>usb-host</c>, ADR-0023), using the stable <see cref="UsbId.DeviceId"/> handle. The
+    /// change is live and not persisted; it lasts until the device is unplugged or the VM stops.
+    /// </summary>
+    /// <exception cref="Boxwright.Qmp.QmpCommandException">QEMU rejected the device (e.g. no such host device, or already attached).</exception>
+    Task AttachUsbAsync(string vendorId, string productId, CancellationToken cancellationToken = default);
+
+    /// <summary>Hot-unplugs the USB device with the given vendor:product from the running guest (QMP <c>device_del</c>).</summary>
+    /// <exception cref="Boxwright.Qmp.QmpCommandException">No device with that id is attached.</exception>
+    Task DetachUsbAsync(string vendorId, string productId, CancellationToken cancellationToken = default);
+
     /// <summary>Forcibly terminates the VM process (pulls the plug).</summary>
     void ForceStop();
 

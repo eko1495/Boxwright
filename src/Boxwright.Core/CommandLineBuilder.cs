@@ -237,12 +237,12 @@ public static class CommandLineBuilder
     // QEMU performs the host-side access; an empty list adds nothing (so existing VMs are unchanged).
     private static void AppendUsbPassthrough(List<string> args, VmConfig config)
     {
-        int index = 0;
         foreach (UsbPassthroughConfig device in config.UsbDevices)
         {
+            // Same id scheme as live hot-plug (UsbId.DeviceId), so a boot-time device can also be
+            // detached at runtime by its stable vendor:product-derived handle.
             args.Add("-device");
-            args.Add($"usb-host,vendorid=0x{device.VendorId},productid=0x{device.ProductId},id=usbpass{index}");
-            index++;
+            args.Add($"usb-host,vendorid=0x{device.VendorId},productid=0x{device.ProductId},id={UsbId.DeviceId(device.VendorId, device.ProductId)}");
         }
     }
 

@@ -17,16 +17,18 @@ public sealed partial class VmSettingsViewModel : ObservableObject
     private readonly VmConfig _original;
     private readonly Func<string, bool> _isNameTakenByOther;
 
-    public VmSettingsViewModel(Vm vm, VmRepository repository, Func<string, bool> isNameTakenByOther, bool isRunning)
+    public VmSettingsViewModel(Vm vm, VmRepository repository, IUsbDeviceEnumerator usbEnumerator, Func<string, bool> isNameTakenByOther, bool isRunning)
     {
         ArgumentNullException.ThrowIfNull(vm);
         ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(usbEnumerator);
         ArgumentNullException.ThrowIfNull(isNameTakenByOther);
 
         _repository = repository;
         _original = vm.Config;
         _isNameTakenByOther = isNameTakenByOther;
         IsRunning = isRunning;
+        Usb = new UsbDevicesViewModel(usbEnumerator, vm.Config.UsbDevices);
 
         _name = _original.Name;
         _memoryMiB = _original.MemoryMiB;
@@ -96,6 +98,9 @@ public sealed partial class VmSettingsViewModel : ObservableObject
     /// <summary>Read-only summary of the VM's disks (disk editing is not part of this panel).</summary>
     public string DisksText { get; }
 
+    /// <summary>USB passthrough editor (ADR-0023); its devices are saved with the rest of the config.</summary>
+    public UsbDevicesViewModel Usb { get; }
+
     public string? ValidationError
     {
         get
@@ -151,6 +156,7 @@ public sealed partial class VmSettingsViewModel : ObservableObject
             Display = _original.Display with { Gl = DisplayGl, Protocol = DisplayProtocol },
             Audio = _original.Audio with { Enabled = AudioEnabled },
             Boot = _original.Boot with { Menu = BootMenu },
+            UsbDevices = [.. Usb.Devices],
         };
 
         try

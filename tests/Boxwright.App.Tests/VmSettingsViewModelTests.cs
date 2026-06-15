@@ -42,7 +42,7 @@ public sealed class VmSettingsViewModelTests : IDisposable
     });
 
     private VmSettingsViewModel NewForm(Vm vm, Func<string, bool>? isNameTakenByOther = null, bool isRunning = false) =>
-        new(vm, _repository, isNameTakenByOther ?? (_ => false), isRunning);
+        new(vm, _repository, new FakeUsbDeviceEnumerator(), isNameTakenByOther ?? (_ => false), isRunning);
 
     [Fact]
     public async Task Init_PopulatesFieldsFromConfig()

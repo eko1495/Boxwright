@@ -140,12 +140,14 @@ Invest here only if Stage 2 metrics trend positive.
 - [x] **Reconnect on restart** — a per-VM `runtime.json` lets the app re-adopt QEMU processes that
       survived an abnormal exit (reconnect QMP, show Running) instead of orphaning them. No daemon.
       See ADR-0014.
-- [~] USB passthrough (ADR-0023). Devices pass through by **vendor:product** (stable across replug):
+- [x] USB passthrough (ADR-0023). Devices pass through by **vendor:product** (stable across replug):
       `VmConfig.UsbDevices` → `CommandLineBuilder` emits `-device usb-host`, so a configured VM passes
       the device through from either front end. Host enumeration is capability-gated
-      (`IUsbDeviceEnumerator`): Linux via **sysfs** now; Windows/macOS report unsupported and the user
-      adds a device by vendor:product. CLI: `boxwright usb list|show|add|remove`. Deferred: live QMP
-      hot-plug into a running VM, Windows/macOS enumeration, and a GUI picker (ship UsbDk on Windows).
+      (`IUsbDeviceEnumerator`) across all three OSes — Linux **sysfs**, macOS **system_profiler**,
+      Windows **SetupAPI** (parsers unit-tested; the macOS/Windows platform calls + GUI picker not yet
+      smoke-tested on those OSes). CLI: `boxwright usb list|show|add|remove` with `--now` for live
+      hot-plug/unplug (QMP `device_add`/`device_del`); GUI: a picker in VM Settings. Possible follow-up:
+      ship UsbDk on Windows for driverless capture.
 - [ ] Bridged/TAP networking on Linux.
 - [x] Live performance graphs (ADR-0019) — CPU / RAM / disk sparklines in the VM detail view, polled
       ~1 s while running. CPU + RAM come from the QEMU host process; disk from QMP `query-blockstats`.

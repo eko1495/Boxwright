@@ -431,8 +431,9 @@ public class CommandLineBuilderTests
 
         IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
 
-        Assert.Contains("usb-host,vendorid=0x046d,productid=0xc52b,id=usbpass0", args);
-        Assert.Contains("usb-host,vendorid=0x0408,productid=0x5374,id=usbpass1", args);
+        // The id is the stable vendor:product-derived handle (UsbId.DeviceId), shared with live hot-plug.
+        Assert.Contains("usb-host,vendorid=0x046d,productid=0xc52b,id=usb-046d-c52b", args);
+        Assert.Contains("usb-host,vendorid=0x0408,productid=0x5374,id=usb-0408-5374", args);
         Assert.Contains("-usb", args); // passthrough rides the controller AppendInput already adds
     }
 

@@ -106,6 +106,10 @@ internal static class ServiceConfiguration
         // the headless CLI (ADR-0022). CatalogViewModel delegates to this rather than re-implementing it.
         services.AddSingleton<ICatalogVmInstaller, CatalogVmInstaller>();
 
+        // Host USB enumeration for the passthrough picker (ADR-0023): Linux sysfs / macOS system_profiler /
+        // Windows SetupAPI, capability-gated. Needs the process runner (for the macOS system_profiler call).
+        services.AddSingleton(sp => UsbDeviceEnumerator.CreateDefault(sp.GetRequiredService<IProcessRunner>()));
+
         // View models.
         services.AddTransient<VmListViewModel>();
         services.AddTransient<MainWindowViewModel>();

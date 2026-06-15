@@ -26,9 +26,30 @@ public interface IUsbDeviceEnumerator
 /// <summary>Picks the host-appropriate <see cref="IUsbDeviceEnumerator"/>.</summary>
 public static class UsbDeviceEnumerator
 {
-    /// <summary>Returns the Linux sysfs enumerator on Linux, otherwise the capability-gated unsupported one.</summary>
-    public static IUsbDeviceEnumerator CreateDefault() =>
-        OperatingSystem.IsLinux() ? new LinuxUsbDeviceEnumerator() : new UnsupportedUsbDeviceEnumerator();
+    /// <summary>
+    /// Returns the host's enumerator: Linux sysfs, macOS <c>system_profiler</c> (needs the
+    /// <paramref name="processRunner"/>), Windows SetupAPI, else the capability-gated unsupported one.
+    /// </summary>
+    public static IUsbDeviceEnumerator CreateDefault(IProcessRunner processRunner)
+    {
+        ArgumentNullException.ThrowIfNull(processRunner);
+        if (OperatingSystem.IsLinux())
+        {
+            return new LinuxUsbDeviceEnumerator();
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return new MacOsUsbDeviceEnumerator(processRunner);
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            return new WindowsUsbDeviceEnumerator();
+        }
+
+        return new UnsupportedUsbDeviceEnumerator();
+    }
 }
 
 /// <summary>The enumerator for hosts where listing isn't implemented yet (Windows/macOS): reports unsupported.</summary>
@@ -142,4 +163,13 @@ public static class UsbId
     /// <summary>True if <paramref name="value"/> is exactly four hexadecimal digits.</summary>
     public static bool IsValid(string? value) =>
         value is { Length: 4 } && value.All(Uri.IsHexDigit);
+
+    /// <summary>
+    /// The QEMU device id for a passed-through USB device, derived deterministically from its
+    /// vendor:product (e.g. <c>usb-046d-c52b</c>). Shared by the boot-time command line
+    /// (<see cref="CommandLineBuilder"/>) and live hot-plug/unplug (<see cref="RunningVm"/>), so the
+    /// same device has one stable handle however it was attached.
+    /// </summary>
+    public static string DeviceId(string vendorId, string productId) =>
+        $"usb-{vendorId.ToLowerInvariant()}-{productId.ToLowerInvariant()}";
 }

@@ -1,17 +1,24 @@
 using System.Text.Json;
 using Boxwright.Cli.Commands;
 using Boxwright.Core;
+using Boxwright.Qmp;
 using Xunit;
 
 namespace Boxwright.Cli.Tests;
 
 public sealed class UsbCommandTests
 {
-    private static UsbCommand Build(TempVmStore store, CapturingOutput output, IUsbDeviceEnumerator? enumerator = null, IVmStatusProbe? probe = null) =>
+    private static UsbCommand Build(
+        TempVmStore store,
+        CapturingOutput output,
+        IUsbDeviceEnumerator? enumerator = null,
+        IVmStatusProbe? probe = null,
+        IVmLauncher? launcher = null) =>
         new(enumerator ?? new FakeUsbDeviceEnumerator(),
             new VmResolver(store.Repository),
             store.Repository,
             probe ?? new FakeStatusProbe(),
+            launcher ?? new FakeVmLauncher(),
             output.Cli);
 
     [Fact]
@@ -169,6 +176,69 @@ public sealed class UsbCommandTests
         JsonElement entry = Assert.Single(doc.RootElement.EnumerateArray().ToArray());
         Assert.Equal("046d:c52b", entry.GetProperty("id").GetString());
         Assert.Equal("pad", entry.GetProperty("description").GetString());
+    }
+
+    [Fact]
+    public async Task Add_Now_HotPlugsTheRunningVm()
+    {
+        using var store = new TempVmStore();
+        store.Add("box");
+        var running = new FakeRunningVm();
+        var output = new CapturingOutput();
+        UsbCommand command = Build(store, output, launcher: new FakeVmLauncher { AdoptResult = running });
+
+        await command.RunAsync(ParsedArgs.Parse(["add", "box", "046d:c52b", "--now"]), CancellationToken.None);
+
+        Assert.Equal(("046d", "c52b"), Assert.Single(running.Attached));
+        Assert.Contains("Attached to the running VM now", output.Out, StringComparison.Ordinal);
+        // Still persisted (next-boot too).
+        Assert.Single((await store.Repository.ListAsync())[0].Config.UsbDevices);
+    }
+
+    [Fact]
+    public async Task Remove_Now_HotUnplugsTheRunningVm()
+    {
+        using var store = new TempVmStore();
+        store.Add("box");
+        var running = new FakeRunningVm();
+        UsbCommand add = Build(store, new CapturingOutput());
+        await add.RunAsync(ParsedArgs.Parse(["add", "box", "046d:c52b"]), CancellationToken.None);
+
+        var output = new CapturingOutput();
+        UsbCommand remove = Build(store, output, launcher: new FakeVmLauncher { AdoptResult = running });
+        await remove.RunAsync(ParsedArgs.Parse(["remove", "box", "046d:c52b", "--now"]), CancellationToken.None);
+
+        Assert.Equal(("046d", "c52b"), Assert.Single(running.Detached));
+        Assert.Empty((await store.Repository.ListAsync())[0].Config.UsbDevices);
+    }
+
+    [Fact]
+    public async Task Add_Now_WhenNotRunning_SaysNoEffect()
+    {
+        using var store = new TempVmStore();
+        store.Add("box");
+        var output = new CapturingOutput();
+        // FakeVmLauncher with no AdoptResult → AdoptAsync returns null (not running).
+        UsbCommand command = Build(store, output, launcher: new FakeVmLauncher());
+
+        await command.RunAsync(ParsedArgs.Parse(["add", "box", "046d:c52b", "--now"]), CancellationToken.None);
+
+        Assert.Contains("had no effect", output.Out, StringComparison.Ordinal);
+        Assert.Single((await store.Repository.ListAsync())[0].Config.UsbDevices); // still persisted
+    }
+
+    [Fact]
+    public async Task Add_Now_WhenQemuRejects_IsACleanError()
+    {
+        using var store = new TempVmStore();
+        store.Add("box");
+        var running = new FakeRunningVm { UsbFailure = new QmpCommandException("GenericError", "no such device") };
+        UsbCommand command = Build(store, new CapturingOutput(), launcher: new FakeVmLauncher { AdoptResult = running });
+
+        CliException ex = await Assert.ThrowsAsync<CliException>(() =>
+            command.RunAsync(ParsedArgs.Parse(["add", "box", "046d:c52b", "--now"]), CancellationToken.None));
+
+        Assert.Contains("no such device", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

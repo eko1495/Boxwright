@@ -76,7 +76,7 @@ internal static class CliServices
         services.AddSingleton<ICatalogVmInstaller, CatalogVmInstaller>();
 
         // Host USB enumeration for the passthrough picker (ADR-0023): Linux sysfs, capability-gated elsewhere.
-        services.AddSingleton(_ => UsbDeviceEnumerator.CreateDefault());
+        services.AddSingleton(sp => UsbDeviceEnumerator.CreateDefault(sp.GetRequiredService<IProcessRunner>()));
 
         // CLI helpers.
         services.AddSingleton<VmResolver>();

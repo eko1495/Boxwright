@@ -290,6 +290,12 @@ public sealed class LiveSnapshotServiceTests
         public Task SendKeyEventAsync(string qcode, bool down, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 
+        public Task AttachUsbAsync(string vendorId, string productId, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task DetachUsbAsync(string vendorId, string productId, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
         public void ForceStop()
         {
         }

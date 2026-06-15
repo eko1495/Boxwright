@@ -23,7 +23,7 @@ boxwright delete <id|name> --yes
 boxwright os list [--json]             # OS catalog ids the GUI's one-click flow uses
 boxwright snapshot list [--json]|create|restore|delete <id|name> [tag]   # offline qcow2 snapshots
 boxwright usb list [--json]            # host USB devices (where the OS supports enumeration)
-boxwright usb show|add|remove <id|name> <vendor:product> [--description=TEXT]   # USB passthrough
+boxwright usb show|add|remove <id|name> <vendor:product> [--description=TEXT] [--now]   # USB passthrough
 ```
 
 VMs are addressed by **id, exact name, or a unique id prefix**. Options are `--flag`, `--key value`,
@@ -47,9 +47,10 @@ or `--key=value`.
 - **`start`** runs in the foreground by default (Ctrl+C → graceful shutdown). `--detach` leaves
   the VM running for a later `stop`/`display`.
 - **`usb`** passes a host USB device through by **vendor:product** (e.g. `046d:c52b`), which is stable
-  across replug. `add`/`remove` edit the config and take effect on the VM's next boot. `usb list` needs
-  host enumeration (Linux sysfs today; on Windows/macOS it reports unsupported — add by vendor:product
-  from Device Manager / System Information). See ADR-0023.
+  across replug. `add`/`remove` edit the config (next boot); add `--now` to also hot-plug/unplug a
+  running VM live (QMP `device_add`/`device_del`). `usb list` needs host enumeration (Linux sysfs today;
+  on Windows/macOS it reports unsupported — add by vendor:product from Device Manager / System
+  Information). See ADR-0023.
 - `snapshot create`/`delete` require the VM to be stopped (offline qcow2 access). Live snapshots
   of a running VM are a separate, GUI-side feature (ADR-0021).
 

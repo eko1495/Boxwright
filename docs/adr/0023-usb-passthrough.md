@@ -25,25 +25,33 @@ Two halves have very different cross-platform stories (Directive 4):
   configured device, onto the USB controller the builder already adds (`-usb`). Empty list → no change,
   so existing VMs and the golden test are unaffected. This is in Core, so a configured VM passes the
   device through whether it's launched from the GUI or the CLI.
-- **Enumeration is capability-gated behind `IUsbDeviceEnumerator`** with `IsSupported`. The Linux
-  implementation parses **sysfs** (`/sys/bus/usb/devices/*/{idVendor,idProduct,product,manufacturer}`) —
-  no external tool, no dependency. Other OSes get an `Unsupported` enumerator that reports
-  `IsSupported = false` and a clear message; the user can still add a device by vendor:product if they
-  know it (e.g. from Device Manager / System Information). This honors Directive 4: the feature degrades
-  gracefully with a clear UI message rather than being silently Linux-only.
-- **CLI surface (this cut):** `boxwright usb list` (host devices, gated), `usb show <vm>`,
-  `usb add <vm> <vvvv:pppp> [--description]`, `usb remove <vm> <vvvv:pppp>`. `add`/`remove` edit the
-  persisted config and take effect on the **next boot**; the message says so.
+- **Enumeration is capability-gated behind `IUsbDeviceEnumerator`** with `IsSupported`, one
+  implementation per OS, each isolating the bug-prone parsing into a pure, testable method:
+  **Linux** parses **sysfs** (`/sys/bus/usb/devices/*/{idVendor,idProduct,…}`); **macOS** runs
+  `system_profiler SPUSBDataType -json` and parses the JSON tree; **Windows** uses **SetupAPI**
+  P/Invoke and parses each device's hardware id (`USB\VID_046D&PID_C52B`). A host with no
+  implementation falls back to an `Unsupported` enumerator (`IsSupported = false`) and the user adds a
+  device by vendor:product manually. This honors Directive 4: degrade gracefully with a clear message,
+  never silently single-OS.
+- **CLI surface:** `boxwright usb list` (host devices, gated), `usb show <vm>`,
+  `usb add <vm> <vvvv:pppp> [--description] [--now]`, `usb remove <vm> <vvvv:pppp> [--now]`. `add`/`remove`
+  edit the persisted config (next boot); **`--now`** also applies the change live to a running VM.
+- **Live hot-plug** (`--now`): `IRunningVm.AttachUsbAsync`/`DetachUsbAsync` issue QMP `device_add`
+  (driver `usb-host`, `vendorid`/`productid`) / `device_del`, keyed by the **same** `UsbId.DeviceId`
+  handle (`usb-vvvv-pppp`) the command line uses — so a device passed through at boot can also be
+  unplugged live by its vendor:product. The CLI re-adopts the running VM (ADR-0014) to do this and
+  leaves the adopted handle undisposed (disposing would clear `runtime.json`).
 
 ## Consequences
-- **Easier:** a VM can use a real USB device, configured from either front end; the wiring is one small,
-  golden-tested command-line addition; Linux users get a device picker.
-- **Harder / deferred:** **live hot-plug** of a configured device into a *running* VM (QMP
-  `device_add usb-host` / `device_del`) is a natural follow-up — the config + command-line path lands
-  first. Windows host enumeration (SetupAPI) and macOS (IOKit) enumerators are follow-ups; until then
-  those hosts add devices by vendor:product manually. A device claimed by the host driver may need
-  unbinding on Linux (documented, not automated). USB **2.0/3.0 controller** selection (qemu-xhci) is
-  left at QEMU's default for now.
+- **Easier:** a VM can use a real USB device, configured from either front end (CLI `usb` commands or
+  the GUI settings picker); the wiring is one small, golden-tested command-line addition; all three
+  desktop OSes enumerate the host's devices.
+- **Verification caveat:** the parsing of each platform's output is unit-tested, but the macOS
+  `system_profiler` call, the Windows SetupAPI P/Invoke, and the Avalonia picker view were authored on
+  Linux/headless and **not exercised on a real macOS/Windows host or a running GUI**. They compile, are
+  OS-gated, and the parsers are tested; the platform calls themselves want a smoke test on the real OS.
+- **Harder / deferred:** a device claimed by the host driver may need unbinding on Linux (documented, not
+  automated). USB **2.0/3.0 controller** selection (qemu-xhci) is left at QEMU's default for now.
 
 ## Alternatives considered
 - **Match by bus/address.** Rejected as the primary key: it changes when the device is replugged or the

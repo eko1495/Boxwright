@@ -74,6 +74,36 @@ public class VmLauncherTests
     }
 
     [Fact]
+    public async Task AttachUsbAsync_IssuesDeviceAddWithUsbHostVendorProduct()
+    {
+        await WithStartedVmAsync(async (running, _, recording) =>
+        {
+            await running.AttachUsbAsync("046d", "c52b");
+
+            int i = recording.Commands.IndexOf("device_add");
+            Assert.True(i >= 0, "device_add was not issued");
+            string payload = recording.CommandPayloads[i];
+            Assert.Contains("\"driver\":\"usb-host\"", payload, StringComparison.Ordinal);
+            Assert.Contains("\"id\":\"usb-046d-c52b\"", payload, StringComparison.Ordinal);
+            Assert.Contains("\"vendorid\":1133", payload, StringComparison.Ordinal);   // 0x046d
+            Assert.Contains("\"productid\":50475", payload, StringComparison.Ordinal); // 0xc52b
+        });
+    }
+
+    [Fact]
+    public async Task DetachUsbAsync_IssuesDeviceDelByStableId()
+    {
+        await WithStartedVmAsync(async (running, _, recording) =>
+        {
+            await running.DetachUsbAsync("046d", "c52b");
+
+            int i = recording.Commands.IndexOf("device_del");
+            Assert.True(i >= 0, "device_del was not issued");
+            Assert.Contains("\"id\":\"usb-046d-c52b\"", recording.CommandPayloads[i], StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
     public async Task TakeLiveSnapshotAsync_NoMatchingQcow2Device_Throws()
     {
         await WithStartedVmAsync(async (running, _, _) =>
@@ -280,6 +310,9 @@ public class VmLauncherTests
 
         public List<string> MonitorCommands { get; } = [];
 
+        /// <summary>The serialized arguments of each <see cref="ExecuteAsync(string, object?, CancellationToken)"/> call (parallel to <see cref="Commands"/>).</summary>
+        public List<string> CommandPayloads { get; } = [];
+
         public bool IsConnected => true;
 
         public IObservable<QmpEvent> Events => throw new NotSupportedException();
@@ -289,6 +322,7 @@ public class VmLauncherTests
         public Task<JsonElement> ExecuteAsync(string command, object? arguments = null, CancellationToken cancellationToken = default)
         {
             Commands.Add(command);
+            CommandPayloads.Add(arguments is null ? string.Empty : JsonSerializer.Serialize(arguments));
             using var empty = JsonDocument.Parse("{}");
             return Task.FromResult(empty.RootElement.Clone());
         }

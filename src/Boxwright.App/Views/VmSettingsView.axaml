@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Boxwright.App.ViewModels"
+             xmlns:core="using:Boxwright.Core"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              x:Class="Boxwright.App.Views.VmSettingsView"
              x:DataType="vm:VmSettingsViewModel">
@@ -49,6 +50,59 @@
                         <TextBlock Text="Disks (read-only)" Opacity="0.7" />
                         <TextBlock Text="{Binding DisksText}" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
                     </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="10" DataContext="{Binding Usb}" x:DataType="vm:UsbDevicesViewModel">
+                    <TextBlock Text="USB passthrough" FontWeight="SemiBold" />
+                    <TextBlock Text="Pass a host USB device through to the guest (takes effect next boot)."
+                               FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+
+                    <ItemsControl ItemsSource="{Binding Devices}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="core:UsbPassthroughConfig">
+                                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="0,2">
+                                    <TextBlock Grid.Column="0" Text="{Binding VendorId}" FontFamily="monospace" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text=":" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="{Binding ProductId}" FontFamily="monospace" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="3" Text="{Binding Description}" Margin="8,0,0,0" Opacity="0.6" VerticalAlignment="Center" />
+                                    <Button Grid.Column="4" Content="Remove"
+                                            Command="{Binding $parent[ItemsControl].((vm:UsbDevicesViewModel)DataContext).RemoveCommand}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6" IsVisible="{Binding CanListHost}">
+                        <ComboBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding HostDevices}" SelectedItem="{Binding SelectedHostDevice}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="core:HostUsbDevice">
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,*">
+                                        <TextBlock Grid.Column="0" Text="{Binding VendorId}" FontFamily="monospace" />
+                                        <TextBlock Grid.Column="1" Text=":" />
+                                        <TextBlock Grid.Column="2" Text="{Binding ProductId}" FontFamily="monospace" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Description}" Margin="8,0,0,0" Opacity="0.7" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Grid.Column="1" Content="Refresh" Command="{Binding LoadHostDevicesCommand}" />
+                        <Button Grid.Column="2" Content="Add" Command="{Binding AddSelectedCommand}" />
+                    </Grid>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Or add by vendor:product (e.g. 046d:c52b)" Opacity="0.7" FontSize="12" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <TextBox Grid.Column="0" Text="{Binding ManualEntry}" Watermark="046d:c52b" />
+                            <Button Grid.Column="1" Content="Add" Command="{Binding AddManualCommand}" />
+                        </Grid>
+                    </StackPanel>
+
+                    <ui:InfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Warning"
+                                Message="{Binding ErrorMessage}" />
                 </StackPanel>
             </Border>
 
