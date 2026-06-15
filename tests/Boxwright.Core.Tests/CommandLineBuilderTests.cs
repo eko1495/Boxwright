@@ -410,6 +410,54 @@ public class CommandLineBuilderTests
     }
 
     [Fact]
+    public void Build_UserMode_EmitsSlirpWithPortForwards()
+    {
+        // CanonicalConfig uses user mode with a 2222→22 forward.
+        IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());
+
+        Assert.Equal("user,id=net0,hostfwd=tcp::2222-:22", ArgValue(args, "-netdev"));
+    }
+
+    [Fact]
+    public void Build_BridgeMode_EmitsBridgeNetdev()
+    {
+        VmConfig config = CanonicalConfig() with { Network = new NetworkConfig { Mode = "bridge", Bridge = "br0", Model = "virtio-net" } };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Equal("bridge,id=net0,br=br0", ArgValue(args, "-netdev"));
+        Assert.Contains("virtio-net,netdev=net0", args);
+    }
+
+    [Fact]
+    public void Build_BridgeMode_HonorsCustomBridge_AndIgnoresPortForwards()
+    {
+        VmConfig config = CanonicalConfig() with
+        {
+            Network = new NetworkConfig
+            {
+                Mode = "bridge",
+                Bridge = "lanbr",
+                PortForwards = [new PortForward { HostPort = 2222, GuestPort = 22 }],
+            },
+        };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Equal("bridge,id=net0,br=lanbr", ArgValue(args, "-netdev")); // no hostfwd in bridge mode
+    }
+
+    [Fact]
+    public void Build_TapMode_EmitsTapNetdevWithNoScripts()
+    {
+        VmConfig config = CanonicalConfig() with { Network = new NetworkConfig { Mode = "tap", TapDevice = "tap3" } };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Equal("tap,id=net0,ifname=tap3,script=no,downscript=no", ArgValue(args, "-netdev"));
+    }
+
+    [Fact]
     public void Build_NoUsbDevices_EmitsNoUsbHost()
     {
         IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());

@@ -149,13 +149,23 @@ public sealed record UsbPassthroughConfig
 /// <summary>Networking configuration. Defaults to user-mode (SLIRP), which needs no admin (architecture §7).</summary>
 public sealed record NetworkConfig
 {
-    /// <summary>Network mode, e.g. <c>user</c> (SLIRP) or <c>tap</c>.</summary>
+    /// <summary>
+    /// Network mode: <c>user</c> (SLIRP NAT — the zero-config default), <c>bridge</c> (the guest joins a
+    /// host bridge via <c>qemu-bridge-helper</c>), or <c>tap</c> (a pre-created TAP device). Bridge/TAP
+    /// are Linux-only and opt-in (ADR-0024).
+    /// </summary>
     public string Mode { get; init; } = "user";
 
     /// <summary>NIC model, e.g. <c>virtio-net</c>.</summary>
     public string Model { get; init; } = "virtio-net";
 
-    /// <summary>Host-to-guest port forwards over user-mode networking.</summary>
+    /// <summary>Host bridge to join in <c>bridge</c> mode (e.g. <c>br0</c>). Must already exist on the host.</summary>
+    public string Bridge { get; init; } = "br0";
+
+    /// <summary>Pre-created TAP device to attach in <c>tap</c> mode (e.g. <c>tap0</c>), owned by the launching user.</summary>
+    public string TapDevice { get; init; } = "tap0";
+
+    /// <summary>Host-to-guest port forwards over user-mode networking (ignored in bridge/tap mode).</summary>
     public IReadOnlyList<PortForward> PortForwards { get; init; } = [];
 }
 

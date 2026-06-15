@@ -211,16 +211,30 @@ public static class CommandLineBuilder
 
     private static void AppendNetworking(List<string> args, VmConfig config)
     {
-        // MVP: user-mode (SLIRP) networking — no admin required (architecture §7).
-        // Bridged/TAP is a later, gated feature.
-        string hostForwards = string.Concat(
-            config.Network.PortForwards.Select(f => $",hostfwd=tcp::{f.HostPort}-:{f.GuestPort}"));
-
+        // The host-side netdev varies by mode; the guest NIC device is the same (ADR-0024).
+        // Bridge/TAP are Linux-only and gated before launch (NetworkValidation); this is a pure
+        // translation, so it emits whatever the config asks for.
         args.Add("-netdev");
-        args.Add($"user,id=net0{hostForwards}");
+        args.Add(NetdevArgument(config.Network));
         args.Add("-device");
         args.Add($"{config.Network.Model},netdev=net0");
     }
+
+    private static string NetdevArgument(NetworkConfig network) => network.Mode.ToLowerInvariant() switch
+    {
+        // Bridged: join a host bridge via the setuid qemu-bridge-helper (no root for QEMU itself).
+        "bridge" => $"bridge,id=net0,br={BridgeOrDefault(network.Bridge)}",
+
+        // TAP: attach a pre-created, user-owned TAP device; run no up/down scripts (no privileged path).
+        "tap" => $"tap,id=net0,ifname={TapOrDefault(network.TapDevice)},script=no,downscript=no",
+
+        // User-mode (SLIRP) NAT — the default; the only mode where host→guest port forwards apply.
+        _ => $"user,id=net0{string.Concat(network.PortForwards.Select(f => $",hostfwd=tcp::{f.HostPort}-:{f.GuestPort}"))}",
+    };
+
+    private static string BridgeOrDefault(string bridge) => string.IsNullOrWhiteSpace(bridge) ? "br0" : bridge;
+
+    private static string TapOrDefault(string tap) => string.IsNullOrWhiteSpace(tap) ? "tap0" : tap;
 
     private static void AppendInput(List<string> args)
     {

@@ -52,3 +52,4 @@ What we rejected and why.
 | [0021](0021-external-live-snapshots.md) | External / live snapshots of a running VM (blockdev-snapshot-sync + transaction) | Accepted |
 | [0022](0022-headless-cli.md) | Headless command-line interface (`boxwright`) over Core, sharing on-disk state with the GUI | Accepted |
 | [0023](0023-usb-passthrough.md) | Host USB passthrough by vendor:product; Linux sysfs enumeration, capability-gated elsewhere | Accepted |
+| [0024](0024-bridged-tap-networking.md) | Bridged / TAP networking on Linux (beyond user-mode NAT), capability-gated | Accepted |
