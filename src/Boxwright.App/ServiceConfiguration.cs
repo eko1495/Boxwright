@@ -48,7 +48,7 @@ internal static class ServiceConfiguration
         services.AddSingleton<IVmCloneService, VmCloneService>();
         services.AddSingleton<IDisplayLauncher, DisplayLauncher>();
         services.AddSingleton<IVmLauncher, VmLauncher>();
-        services.AddSingleton(_ => new VmRepository(VmRepository.DefaultRootDirectory));
+        services.AddSingleton(sp => new VmRepository(VmRepository.DefaultRootDirectory, sp.GetService<ILogger<VmRepository>>()));
 
         // Per-VM runtime state (runtime.json) so the app can re-adopt running QEMU after a restart (ADR-0014).
         services.AddSingleton<IVmRuntimeStore, VmRuntimeStore>();

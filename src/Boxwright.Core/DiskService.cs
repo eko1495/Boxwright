@@ -95,6 +95,7 @@ public sealed class DiskService : IDiskService
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(format);
+        RequireExists(sourcePath, "source disk image");
 
         // convert flattens any backing chain, so the copy is fully independent.
         ProcessResult result = await _processRunner.RunAsync(
@@ -113,6 +114,7 @@ public sealed class DiskService : IDiskService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(backingPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(overlayPath);
+        RequireExists(backingPath, "backing disk image");
 
         ProcessResult result = await _processRunner.RunAsync(
             _locator.ResolveImageTool(),
@@ -130,6 +132,8 @@ public sealed class DiskService : IDiskService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(imagePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(newBackingPath);
+        RequireExists(imagePath, "disk image");
+        RequireExists(newBackingPath, "new backing image");
 
         // SAFE MODE — never pass -u. Unsafe mode only rewrites the backing pointer without copying clusters,
         // which silently changes the image's content unless the old and new backings are bitwise-equivalent.
@@ -141,6 +145,16 @@ public sealed class DiskService : IDiskService
         if (result.ExitCode != 0)
         {
             throw new DiskException($"qemu-img rebase failed (exit {result.ExitCode}): {result.StandardError.Trim()}");
+        }
+    }
+
+    // Fail fast with a path-specific message when a required input image is absent, rather than
+    // spawning qemu-img only for it to report a cryptic "Could not open …: No such file" on stderr.
+    private static void RequireExists(string path, string role)
+    {
+        if (!File.Exists(path))
+        {
+            throw new DiskException($"The {role} does not exist: {path}");
         }
     }
 }

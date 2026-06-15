@@ -47,7 +47,7 @@ internal static class CliServices
         services.AddSingleton<IDisplayLauncher, DisplayLauncher>();
         services.AddSingleton<IVmLauncher, VmLauncher>();
         services.AddSingleton<IVmRuntimeStore, VmRuntimeStore>();
-        services.AddSingleton(_ => new VmRepository(ResolveVmsRoot()));
+        services.AddSingleton(sp => new VmRepository(ResolveVmsRoot(), sp.GetService<ILogger<VmRepository>>()));
 
         // OS catalog ("Get an OS"): remote manifest wrapping the bundled list as the offline fallback
         // (ADR-0020). One shared HttpClient. A network failure degrades to the bundled catalog.

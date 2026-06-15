@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace Boxwright.Core;
 
 /// <summary>
@@ -12,12 +14,18 @@ public sealed class VmRepository
     public const string ConfigFileName = "vm.json";
 
     private readonly string _rootDirectory;
+    private readonly ILogger? _logger;
 
-    /// <summary>Creates a repository over the given VMs root directory.</summary>
-    public VmRepository(string rootDirectory)
+    /// <summary>
+    /// Creates a repository over the given VMs root directory. An optional <paramref name="logger"/>
+    /// surfaces folders skipped during <see cref="ListAsync"/> (a broken/unreadable <c>vm.json</c>),
+    /// which would otherwise vanish from the list with no diagnostic trail.
+    /// </summary>
+    public VmRepository(string rootDirectory, ILogger<VmRepository>? logger = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
         _rootDirectory = rootDirectory;
+        _logger = logger;
     }
 
     /// <summary>The root directory containing per-VM folders.</summary>
@@ -58,7 +66,9 @@ public sealed class VmRepository
             }
             catch (Exception ex) when (ex is VmConfigException or IOException or UnauthorizedAccessException)
             {
-                // Skip folders whose config is invalid or unreadable.
+                // Skip folders whose config is invalid or unreadable — but say so, or a broken VM
+                // silently disappears from the list with no clue why (disk rot, a bad edit, permissions).
+                _logger?.LogWarning(ex, "Skipping VM folder '{Folder}': its {ConfigFile} is missing or unreadable.", folder, ConfigFileName);
             }
         }
 
