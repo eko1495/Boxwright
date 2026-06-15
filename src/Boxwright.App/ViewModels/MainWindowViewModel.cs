@@ -19,6 +19,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly IIsoDownloader _isoDownloader;
     private readonly ICatalogVmInstaller _catalogVmInstaller;
     private readonly IAutounattendSeedGenerator _autounattendSeedGenerator;
+    private readonly IUsbDeviceEnumerator _usbEnumerator;
     private readonly IFilePicker _filePicker;
     private readonly IUiDispatcher _dispatcher;
 
@@ -32,6 +33,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IIsoDownloader isoDownloader,
         ICatalogVmInstaller catalogVmInstaller,
         IAutounattendSeedGenerator autounattendSeedGenerator,
+        IUsbDeviceEnumerator usbEnumerator,
         IFilePicker filePicker,
         IUiDispatcher dispatcher)
     {
@@ -44,6 +46,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(isoDownloader);
         ArgumentNullException.ThrowIfNull(catalogVmInstaller);
         ArgumentNullException.ThrowIfNull(autounattendSeedGenerator);
+        ArgumentNullException.ThrowIfNull(usbEnumerator);
         ArgumentNullException.ThrowIfNull(filePicker);
         ArgumentNullException.ThrowIfNull(dispatcher);
 
@@ -55,6 +58,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _isoDownloader = isoDownloader;
         _catalogVmInstaller = catalogVmInstaller;
         _autounattendSeedGenerator = autounattendSeedGenerator;
+        _usbEnumerator = usbEnumerator;
         _filePicker = filePicker;
         _dispatcher = dispatcher;
         Accelerator = acceleratorDetector.Detect().ToQemuValue();
@@ -126,6 +130,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var form = new VmSettingsViewModel(
             target.Vm,
             _repository,
+            _usbEnumerator,
             name => IsNameTakenByOther(name, target.Vm.Config.Id),
             target.Status != VmStatus.Stopped);
         form.Saved += (_, config) => OnSettingsSaved(target, config);

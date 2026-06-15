@@ -26,9 +26,30 @@ public interface IUsbDeviceEnumerator
 /// <summary>Picks the host-appropriate <see cref="IUsbDeviceEnumerator"/>.</summary>
 public static class UsbDeviceEnumerator
 {
-    /// <summary>Returns the Linux sysfs enumerator on Linux, otherwise the capability-gated unsupported one.</summary>
-    public static IUsbDeviceEnumerator CreateDefault() =>
-        OperatingSystem.IsLinux() ? new LinuxUsbDeviceEnumerator() : new UnsupportedUsbDeviceEnumerator();
+    /// <summary>
+    /// Returns the host's enumerator: Linux sysfs, macOS <c>system_profiler</c> (needs the
+    /// <paramref name="processRunner"/>), Windows SetupAPI, else the capability-gated unsupported one.
+    /// </summary>
+    public static IUsbDeviceEnumerator CreateDefault(IProcessRunner processRunner)
+    {
+        ArgumentNullException.ThrowIfNull(processRunner);
+        if (OperatingSystem.IsLinux())
+        {
+            return new LinuxUsbDeviceEnumerator();
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return new MacOsUsbDeviceEnumerator(processRunner);
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            return new WindowsUsbDeviceEnumerator();
+        }
+
+        return new UnsupportedUsbDeviceEnumerator();
+    }
 }
 
 /// <summary>The enumerator for hosts where listing isn't implemented yet (Windows/macOS): reports unsupported.</summary>

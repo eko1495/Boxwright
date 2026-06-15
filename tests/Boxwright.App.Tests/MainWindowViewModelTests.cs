@@ -55,6 +55,6 @@ public sealed class MainWindowViewModelTests : IDisposable
         return new MainWindowViewModel(
             vms, AcceleratorDetector.CreateDefault(), repository, new FakeDiskService(), opener,
             new FakeOsCatalogSource(), new FakeIsoDownloader(), new FakeCatalogVmInstaller(),
-            new FakeAutounattendSeedGenerator(), new FakeFilePicker(), new ImmediateUiDispatcher());
+            new FakeAutounattendSeedGenerator(), new FakeUsbDeviceEnumerator(), new FakeFilePicker(), new ImmediateUiDispatcher());
     }
 }
