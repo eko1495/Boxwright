@@ -31,16 +31,19 @@ Two halves have very different cross-platform stories (Directive 4):
   `IsSupported = false` and a clear message; the user can still add a device by vendor:product if they
   know it (e.g. from Device Manager / System Information). This honors Directive 4: the feature degrades
   gracefully with a clear UI message rather than being silently Linux-only.
-- **CLI surface (this cut):** `boxwright usb list` (host devices, gated), `usb show <vm>`,
-  `usb add <vm> <vvvv:pppp> [--description]`, `usb remove <vm> <vvvv:pppp>`. `add`/`remove` edit the
-  persisted config and take effect on the **next boot**; the message says so.
+- **CLI surface:** `boxwright usb list` (host devices, gated), `usb show <vm>`,
+  `usb add <vm> <vvvv:pppp> [--description] [--now]`, `usb remove <vm> <vvvv:pppp> [--now]`. `add`/`remove`
+  edit the persisted config (next boot); **`--now`** also applies the change live to a running VM.
+- **Live hot-plug** (`--now`): `IRunningVm.AttachUsbAsync`/`DetachUsbAsync` issue QMP `device_add`
+  (driver `usb-host`, `vendorid`/`productid`) / `device_del`, keyed by the **same** `UsbId.DeviceId`
+  handle (`usb-vvvv-pppp`) the command line uses — so a device passed through at boot can also be
+  unplugged live by its vendor:product. The CLI re-adopts the running VM (ADR-0014) to do this and
+  leaves the adopted handle undisposed (disposing would clear `runtime.json`).
 
 ## Consequences
 - **Easier:** a VM can use a real USB device, configured from either front end; the wiring is one small,
   golden-tested command-line addition; Linux users get a device picker.
-- **Harder / deferred:** **live hot-plug** of a configured device into a *running* VM (QMP
-  `device_add usb-host` / `device_del`) is a natural follow-up — the config + command-line path lands
-  first. Windows host enumeration (SetupAPI) and macOS (IOKit) enumerators are follow-ups; until then
+- **Harder / deferred:** Windows host enumeration (SetupAPI) and macOS (IOKit) enumerators are follow-ups; until then
   those hosts add devices by vendor:product manually. A device claimed by the host driver may need
   unbinding on Linux (documented, not automated). USB **2.0/3.0 controller** selection (qemu-xhci) is
   left at QEMU's default for now.

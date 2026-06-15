@@ -144,8 +144,9 @@ Invest here only if Stage 2 metrics trend positive.
       `VmConfig.UsbDevices` → `CommandLineBuilder` emits `-device usb-host`, so a configured VM passes
       the device through from either front end. Host enumeration is capability-gated
       (`IUsbDeviceEnumerator`): Linux via **sysfs** now; Windows/macOS report unsupported and the user
-      adds a device by vendor:product. CLI: `boxwright usb list|show|add|remove`. Deferred: live QMP
-      hot-plug into a running VM, Windows/macOS enumeration, and a GUI picker (ship UsbDk on Windows).
+      adds a device by vendor:product. CLI: `boxwright usb list|show|add|remove`, with `--now` to
+      hot-plug/unplug a running VM live (QMP `device_add`/`device_del`). Deferred: Windows/macOS
+      enumeration and a GUI picker (ship UsbDk on Windows).
 - [ ] Bridged/TAP networking on Linux.
 - [x] Live performance graphs (ADR-0019) — CPU / RAM / disk sparklines in the VM detail view, polled
       ~1 s while running. CPU + RAM come from the QEMU host process; disk from QMP `query-blockstats`.

@@ -1,5 +1,6 @@
 using Boxwright.Cli.Json;
 using Boxwright.Core;
+using Boxwright.Qmp;
 
 namespace Boxwright.Cli.Commands;
 
@@ -14,6 +15,7 @@ internal sealed class UsbCommand : ICliCommand
     private readonly VmResolver _resolver;
     private readonly VmRepository _repository;
     private readonly IVmStatusProbe _statusProbe;
+    private readonly IVmLauncher _launcher;
     private readonly CliOutput _output;
 
     public UsbCommand(
@@ -21,17 +23,20 @@ internal sealed class UsbCommand : ICliCommand
         VmResolver resolver,
         VmRepository repository,
         IVmStatusProbe statusProbe,
+        IVmLauncher launcher,
         CliOutput output)
     {
         ArgumentNullException.ThrowIfNull(enumerator);
         ArgumentNullException.ThrowIfNull(resolver);
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(statusProbe);
+        ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(output);
         _enumerator = enumerator;
         _resolver = resolver;
         _repository = repository;
         _statusProbe = statusProbe;
+        _launcher = launcher;
         _output = output;
     }
 
@@ -39,7 +44,7 @@ internal sealed class UsbCommand : ICliCommand
 
     public string Summary => "Manage host USB passthrough (list/show/add/remove).";
 
-    public string Usage => "usb <list [--json]|show <id|name> [--json]|add <id|name> <vendor:product> [--description=TEXT]|remove <id|name> <vendor:product>>";
+    public string Usage => "usb <list [--json]|show <id|name> [--json]|add <id|name> <vendor:product> [--description=TEXT] [--now]|remove <id|name> <vendor:product> [--now]>";
 
     public async Task<int> RunAsync(ParsedArgs args, CancellationToken cancellationToken)
     {
@@ -143,7 +148,7 @@ internal sealed class UsbCommand : ICliCommand
         await _repository.SaveAsync(updated, cancellationToken);
 
         _output.Line($"Added USB passthrough {vendor}:{product} to '{vm.Config.Name}'.");
-        WarnIfRunning(vm);
+        await ApplyToRunningVmAsync(vm, args, attach: true, vendor, product, cancellationToken);
         return 0;
     }
 
@@ -164,7 +169,7 @@ internal sealed class UsbCommand : ICliCommand
 
         await _repository.SaveAsync(vm.Config with { UsbDevices = remaining }, cancellationToken);
         _output.Line($"Removed USB passthrough {vendor}:{product} from '{vm.Config.Name}'.");
-        WarnIfRunning(vm);
+        await ApplyToRunningVmAsync(vm, args, attach: false, vendor, product, cancellationToken);
         return 0;
     }
 
@@ -175,11 +180,45 @@ internal sealed class UsbCommand : ICliCommand
         return _resolver.ResolveAsync(reference, cancellationToken);
     }
 
-    private void WarnIfRunning(Vm vm)
+    // After editing the persisted config, optionally apply the change live. Without --now we just note
+    // that a running VM picks it up on next boot; with --now we adopt the running VM and hot-plug/unplug
+    // via QMP. The adopted handle is intentionally not disposed (disposing clears runtime.json — see
+    // DisplayCommand), matching how other live commands re-adopt a running VM.
+    private async Task ApplyToRunningVmAsync(Vm vm, ParsedArgs args, bool attach, string vendor, string product, CancellationToken cancellationToken)
     {
-        if (_statusProbe.IsRunning(vm))
+        if (!args.HasFlag("now"))
         {
-            _output.Line("  The VM is running; the change takes effect on its next boot.");
+            if (_statusProbe.IsRunning(vm))
+            {
+                _output.Line("  The VM is running; it takes effect on next boot (pass --now to apply it live).");
+            }
+
+            return;
+        }
+
+        IRunningVm? running = await _launcher.AdoptAsync(vm, cancellationToken);
+        if (running is null)
+        {
+            _output.Line("  --now had no effect: the VM isn't running. The change applies on next boot.");
+            return;
+        }
+
+        try
+        {
+            if (attach)
+            {
+                await running.AttachUsbAsync(vendor, product, cancellationToken);
+                _output.Line("  Attached to the running VM now.");
+            }
+            else
+            {
+                await running.DetachUsbAsync(vendor, product, cancellationToken);
+                _output.Line("  Detached from the running VM now.");
+            }
+        }
+        catch (QmpCommandException ex)
+        {
+            throw new CliException($"QEMU rejected the live USB change: {ex.Message}");
         }
     }
 

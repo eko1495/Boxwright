@@ -52,6 +52,22 @@ internal sealed class FakeRunningVm : IRunningVm
     public Task TakeLiveSnapshotAsync(IReadOnlyList<LiveSnapshotDiskRequest> disks, CancellationToken cancellationToken = default) =>
         Record("take-live-snapshot");
 
+    public List<(string Vendor, string Product)> UsbAttached { get; } = [];
+
+    public List<(string Vendor, string Product)> UsbDetached { get; } = [];
+
+    public Task AttachUsbAsync(string vendorId, string productId, CancellationToken cancellationToken = default)
+    {
+        UsbAttached.Add((vendorId, productId));
+        return Record("attach-usb");
+    }
+
+    public Task DetachUsbAsync(string vendorId, string productId, CancellationToken cancellationToken = default)
+    {
+        UsbDetached.Add((vendorId, productId));
+        return Record("detach-usb");
+    }
+
     public List<string> GuestAddresses { get; } = [];
 
     public Task<IReadOnlyList<string>> GetGuestAddressesAsync(CancellationToken cancellationToken = default) =>

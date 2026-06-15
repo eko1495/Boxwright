@@ -194,3 +194,93 @@ internal sealed class FakeOsCatalogSource : IOsCatalogSource
     public Task<IReadOnlyList<OsCatalogEntry>> GetEntriesAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(_entries);
 }
+
+/// <summary>An <see cref="IVmLauncher"/> whose <see cref="AdoptAsync"/> returns a preset running VM (or null).</summary>
+internal sealed class FakeVmLauncher : IVmLauncher
+{
+    public IRunningVm? AdoptResult { get; init; }
+
+    public Task<IRunningVm> StartAsync(Vm vm, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    public Task<IRunningVm?> AdoptAsync(Vm vm, CancellationToken cancellationToken = default) =>
+        Task.FromResult(AdoptResult);
+}
+
+/// <summary>A minimal running VM that records USB hot-plug calls (and can simulate QEMU rejecting them).</summary>
+internal sealed class FakeRunningVm : IRunningVm
+{
+    public List<(string Vendor, string Product)> Attached { get; } = [];
+
+    public List<(string Vendor, string Product)> Detached { get; } = [];
+
+    /// <summary>When set, Attach/Detach throw it (e.g. a QmpCommandException) to exercise the error path.</summary>
+    public Exception? UsbFailure { get; init; }
+
+    public Accelerator Accelerator => Accelerator.Tcg;
+
+    public int SpicePort => 5900;
+
+    public string DisplayProtocol => "spice";
+
+    public QemuProcessState State => QemuProcessState.Running;
+
+    public event EventHandler? Exited { add { } remove { } }
+
+    public Task AttachUsbAsync(string vendorId, string productId, CancellationToken cancellationToken = default)
+    {
+        if (UsbFailure is not null)
+        {
+            return Task.FromException(UsbFailure);
+        }
+
+        Attached.Add((vendorId, productId));
+        return Task.CompletedTask;
+    }
+
+    public Task DetachUsbAsync(string vendorId, string productId, CancellationToken cancellationToken = default)
+    {
+        if (UsbFailure is not null)
+        {
+            return Task.FromException(UsbFailure);
+        }
+
+        Detached.Add((vendorId, productId));
+        return Task.CompletedTask;
+    }
+
+    public Task RequestShutdownAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task PauseAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task ResumeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task ResetAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task SendKeyEventAsync(string qcode, bool down, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task EjectIsoAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task SaveStateAsync(string tag, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task LoadStateAsync(string tag, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task DeleteStateAsync(string tag, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task<IReadOnlyList<string>> GetGuestAddressesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<string>>([]);
+
+    public Task<VmMetricsSample> GetMetricsSampleAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(default(VmMetricsSample));
+
+    public Task TakeLiveSnapshotAsync(IReadOnlyList<LiveSnapshotDiskRequest> disks, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+
+    public void ForceStop()
+    {
+    }
+
+    public Task StopAsync(TimeSpan gracePeriod, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}

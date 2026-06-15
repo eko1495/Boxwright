@@ -142,4 +142,13 @@ public static class UsbId
     /// <summary>True if <paramref name="value"/> is exactly four hexadecimal digits.</summary>
     public static bool IsValid(string? value) =>
         value is { Length: 4 } && value.All(Uri.IsHexDigit);
+
+    /// <summary>
+    /// The QEMU device id for a passed-through USB device, derived deterministically from its
+    /// vendor:product (e.g. <c>usb-046d-c52b</c>). Shared by the boot-time command line
+    /// (<see cref="CommandLineBuilder"/>) and live hot-plug/unplug (<see cref="RunningVm"/>), so the
+    /// same device has one stable handle however it was attached.
+    /// </summary>
+    public static string DeviceId(string vendorId, string productId) =>
+        $"usb-{vendorId.ToLowerInvariant()}-{productId.ToLowerInvariant()}";
 }
