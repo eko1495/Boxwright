@@ -24,6 +24,8 @@ boxwright os list [--json]             # OS catalog ids the GUI's one-click flow
 boxwright snapshot list [--json]|create|restore|delete <id|name> [tag]   # offline qcow2 snapshots
 boxwright usb list [--json]            # host USB devices (where the OS supports enumeration)
 boxwright usb show|add|remove <id|name> <vendor:product> [--description=TEXT] [--now]   # USB passthrough
+boxwright net show <id|name> [--json]                                  # network mode
+boxwright net set <id|name> <user|bridge|tap> [--bridge=NAME] [--device=NAME]   # bridged/TAP (Linux)
 ```
 
 VMs are addressed by **id, exact name, or a unique id prefix**. Options are `--flag`, `--key value`,
@@ -51,6 +53,10 @@ or `--key=value`.
   running VM live (QMP `device_add`/`device_del`). `usb list` needs host enumeration (Linux sysfs today;
   on Windows/macOS it reports unsupported — add by vendor:product from Device Manager / System
   Information). See ADR-0023.
+- **`net`** sets a VM's network mode: `user` (SLIRP NAT, the default), `bridge` (join a host bridge via
+  `qemu-bridge-helper`), or `tap` (a pre-created TAP device). Bridge/TAP are **Linux-only** (a launch on
+  another host fails with a clear message) and need the host bridge/TAP + setuid helper set up yourself —
+  Boxwright never runs as root. See ADR-0024.
 - `snapshot create`/`delete` require the VM to be stopped (offline qcow2 access). Live snapshots
   of a running VM are a separate, GUI-side feature (ADR-0021).
 

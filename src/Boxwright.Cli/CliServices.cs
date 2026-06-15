@@ -87,6 +87,7 @@ internal static class CliServices
         AddCommand<InfoCommand>(services);
         AddCommand<CreateCommand>(services);
         AddCommand<UsbCommand>(services);
+        AddCommand<NetCommand>(services);
         AddCommand<CloneCommand>(services);
         AddCommand<StartCommand>(services);
         AddCommand<StopCommand>(services);

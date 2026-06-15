@@ -54,6 +54,9 @@ public sealed class VmLauncher : IVmLauncher
     {
         ArgumentNullException.ThrowIfNull(vm);
 
+        // Fail fast before spawning QEMU if the config asks for a host-unsupported network mode (ADR-0024).
+        NetworkValidation.EnsureSupportedOnHost(vm.Config.Network);
+
         Accelerator accelerator = _acceleratorDetector.Detect();
         QmpEndpoint qmpEndpoint = _endpointAllocator.AllocateQmpEndpoint();
 

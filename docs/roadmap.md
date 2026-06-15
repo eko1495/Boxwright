@@ -148,7 +148,13 @@ Invest here only if Stage 2 metrics trend positive.
       smoke-tested on those OSes). CLI: `boxwright usb list|show|add|remove` with `--now` for live
       hot-plug/unplug (QMP `device_add`/`device_del`); GUI: a picker in VM Settings. Possible follow-up:
       ship UsbDk on Windows for driverless capture.
-- [ ] Bridged/TAP networking on Linux.
+- [x] Bridged/TAP networking on Linux (ADR-0024). `NetworkConfig.Mode` ∈ `user`/`bridge`/`tap`;
+      `CommandLineBuilder` emits `-netdev bridge,br=…` (via `qemu-bridge-helper`) or
+      `-netdev tap,ifname=…,script=no` accordingly. Capability-gated: `NetworkValidation` fails a launch
+      on a non-Linux host with a clear message. CLI: `boxwright net show|set <vm> <user|bridge|tap>`.
+      Host setup (the bridge / TAP / setuid helper) is the user's responsibility — Boxwright never runs
+      as root or reconfigures host networking. Command-line + gate unit-tested; not e2e'd against a live
+      bridge here. GUI network editing is a possible follow-up.
 - [x] Live performance graphs (ADR-0019) — CPU / RAM / disk sparklines in the VM detail view, polled
       ~1 s while running. CPU + RAM come from the QEMU host process; disk from QMP `query-blockstats`.
       Hand-drawn (no charting dependency). Network throughput is a fast-follow.

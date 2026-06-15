@@ -56,6 +56,9 @@ internal sealed record SnapshotJson(string Tag, bool HasVmState, string Created)
 /// <summary>A USB device as listed by <c>usb list --json</c> / <c>usb show --json</c>.</summary>
 internal sealed record UsbJson(string Id, string VendorId, string ProductId, string? Description);
 
+/// <summary>A VM's networking as emitted by <c>net show --json</c>.</summary>
+internal sealed record NetworkJson(string Mode, string Model, string Bridge, string TapDevice);
+
 [JsonSourceGenerationOptions(
     WriteIndented = true,
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
@@ -65,4 +68,5 @@ internal sealed record UsbJson(string Id, string VendorId, string ProductId, str
 [JsonSerializable(typeof(OsEntryJson[]))]
 [JsonSerializable(typeof(SnapshotJson[]))]
 [JsonSerializable(typeof(UsbJson[]))]
+[JsonSerializable(typeof(NetworkJson))]
 internal sealed partial class CliJsonContext : JsonSerializerContext;
