@@ -16,6 +16,7 @@ boxwright info <id|name> [--json]      # a VM's configuration
 boxwright create <name> --os <id> [--unattended --user U --password P [--hostname H]]
 boxwright create <name> [options]      # blank VM + fresh disk (optionally --iso PATH)
 boxwright clone <id|name> <new-name> [--linked]   # full copy, or qcow2 overlay
+boxwright template list [--json]|create <id|name>|new <template> <name> [--full]|delete <template> --yes
 boxwright start <id|name> [--detach] [--display] [--timeout=SECONDS]
 boxwright stop <id|name> [--force] [--timeout=SECONDS]
 boxwright display <id|name>            # open remote-viewer against a running VM
@@ -53,6 +54,9 @@ or `--key=value`.
   running VM live (QMP `device_add`/`device_del`). `usb list` needs host enumeration (Linux sysfs today;
   on Windows/macOS it reports unsupported — add by vendor:product from Device Manager / System
   Information). See ADR-0023.
+- **`template`** turns a stopped VM into a reusable frozen base (`create`) and stamps out instances from
+  it (`new`, linked by default — instant — or `--full`). A template can't be booted; each instance is a
+  fresh concrete VM with its own id and MAC. See ADR-0025.
 - **`net`** sets a VM's network mode: `user` (SLIRP NAT, the default), `bridge` (join a host bridge via
   `qemu-bridge-helper`), or `tap` (a pre-created TAP device). Bridge/TAP are **Linux-only** (a launch on
   another host fails with a clear message) and need the host bridge/TAP + setuid helper set up yourself —

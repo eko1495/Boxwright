@@ -54,6 +54,14 @@ public sealed class VmLauncher : IVmLauncher
     {
         ArgumentNullException.ThrowIfNull(vm);
 
+        // A template is a clone base, not a bootable VM — booting it would mutate the disk its linked
+        // instances overlay (ADR-0025). Refuse before doing any work.
+        if (vm.Config.IsTemplate)
+        {
+            throw new VmConfigException(
+                $"'{vm.Config.Name}' is a template; create an instance from it instead of booting it.");
+        }
+
         // Fail fast before spawning QEMU if the config asks for a host-unsupported network mode (ADR-0024).
         NetworkValidation.EnsureSupportedOnHost(vm.Config.Network);
 

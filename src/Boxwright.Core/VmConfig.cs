@@ -20,6 +20,13 @@ public sealed record VmConfig
     /// <summary>Human-friendly VM name.</summary>
     public string Name { get; init; } = string.Empty;
 
+    /// <summary>
+    /// When true, this VM is a <b>template</b> (ADR-0025): a frozen base you create instances from, not a
+    /// bootable VM. <see cref="VmLauncher"/> refuses to start a template (booting it would mutate the disk
+    /// that linked instances overlay); instances are clones, which are never themselves templates.
+    /// </summary>
+    public bool IsTemplate { get; init; }
+
     /// <summary>Guest architecture, e.g. <c>x86_64</c>.</summary>
     public string Arch { get; init; } = "x86_64";
 

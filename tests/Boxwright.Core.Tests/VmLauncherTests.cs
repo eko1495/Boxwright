@@ -189,6 +189,18 @@ public class VmLauncherTests
     }
 
     [Fact]
+    public async Task StartAsync_RefusesATemplate()
+    {
+        await WithLauncherAsync(async (vmLauncher, vm, _, _) =>
+        {
+            Vm template = vm with { Config = vm.Config with { IsTemplate = true } };
+
+            VmConfigException ex = await Assert.ThrowsAsync<VmConfigException>(() => vmLauncher.StartAsync(template));
+            Assert.Contains("template", ex.Message, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    [Fact]
     public async Task AdoptAsync_NoRuntimeState_ReturnsNull()
     {
         await WithLauncherAsync(async (vmLauncher, vm, launcher, _) =>
