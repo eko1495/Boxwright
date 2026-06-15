@@ -8,50 +8,32 @@ namespace Boxwright.App.ViewModels;
 
 /// <summary>
 /// The "Get an OS" gallery: lists catalog entries, prefills recommended specs for the
-/// selected one (name editable), then downloads its ISO (verified, with progress and
-/// cancel) and creates a VM with the ISO attached and CD-first boot. The VM-create step
-/// reuses the same create-then-disk-with-rollback flow as <see cref="NewVmViewModel"/>;
-/// the download is verified by <see cref="IIsoDownloader"/>. UI-free, so it is unit-testable.
+/// selected one (name editable), then hands the choice to <see cref="ICatalogVmInstaller"/>,
+/// which downloads + verifies the image, prepares the disk, and writes any unattended/cloud-init
+/// seed — the same Core orchestration the headless CLI uses (ADR-0022). This view model owns only
+/// presentation: field prefill, validation, progress, and cancellation. UI-free, so it is unit-testable.
 /// </summary>
 public sealed partial class CatalogViewModel : ObservableObject, IDisposable
 {
-    private const long BytesPerGiB = 1024L * 1024 * 1024;
-
     private readonly IOsCatalogSource _catalogSource;
-    private readonly IIsoDownloader _downloader;
-    private readonly VmRepository _repository;
-    private readonly IDiskService _diskService;
-    private readonly ISeedGenerator _seedGenerator;
-    private readonly IUnattendedInstallerResolver _installerResolver;
+    private readonly ICatalogVmInstaller _installer;
     private readonly IUiDispatcher _dispatcher;
     private readonly Func<string, bool> _isNameTaken;
     private CancellationTokenSource? _cts;
 
     public CatalogViewModel(
         IOsCatalogSource catalogSource,
-        IIsoDownloader downloader,
-        VmRepository repository,
-        IDiskService diskService,
-        ISeedGenerator seedGenerator,
-        IUnattendedInstallerResolver installerResolver,
+        ICatalogVmInstaller installer,
         IUiDispatcher dispatcher,
         Func<string, bool> isNameTaken)
     {
         ArgumentNullException.ThrowIfNull(catalogSource);
-        ArgumentNullException.ThrowIfNull(downloader);
-        ArgumentNullException.ThrowIfNull(repository);
-        ArgumentNullException.ThrowIfNull(diskService);
-        ArgumentNullException.ThrowIfNull(seedGenerator);
-        ArgumentNullException.ThrowIfNull(installerResolver);
+        ArgumentNullException.ThrowIfNull(installer);
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(isNameTaken);
 
         _catalogSource = catalogSource;
-        _downloader = downloader;
-        _repository = repository;
-        _diskService = diskService;
-        _seedGenerator = seedGenerator;
-        _installerResolver = installerResolver;
+        _installer = installer;
         _dispatcher = dispatcher;
         _isNameTaken = isNameTaken;
     }
@@ -291,155 +273,29 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         ProgressText = null;
         _cts = new CancellationTokenSource();
 
-        string downloadedPath;
         try
         {
+            // Core runs the whole sequence: download + verify (with progress/cancel), prepare the disk,
+            // and write any unattended/cloud-init seed, rolling back the VM folder on failure (ADR-0022).
             var progress = new DispatchedProgress(_dispatcher, OnProgress);
-            // Re-verify a cached ISO's full content before building a VM from it: a previously-verified
-            // image can rot on disk, and a corrupt installer surfaces as a baffling in-guest kernel panic.
-            // This one-time re-hash (or re-download) at create time turns that into a clear download step.
-            downloadedPath = await _downloader.EnsureAsync(entry, progress, reverifyCachedContent: true, cancellationToken: _cts.Token);
+            Vm vm = await _installer.CreateAsync(entry, BuildOptions(), progress, _cts.Token);
+            ResetDownloadState();
+            Created?.Invoke(this, vm);
         }
         catch (OperationCanceledException)
         {
-            ResetDownloadState();
-            return; // deliberate cancel — no message, no VM
+            ResetDownloadState(); // deliberate cancel — no message, no VM
         }
-        catch (DownloadException ex)
+        catch (Exception ex) when (ex is DownloadException or DiskException or InstallMediaException or IOException or UnauthorizedAccessException)
         {
             ErrorMessage = ex.Message;
             ResetDownloadState();
-            return;
         }
         finally
         {
             _cts?.Dispose();
             _cts = null;
         }
-
-        // A cloud image is a pre-installed disk, not an installer — it follows a different create flow.
-        if (IsCloudImage)
-        {
-            await CreateFromCloudImageAsync(downloadedPath);
-            return;
-        }
-
-        // ISO is downloaded and verified — create the VM (same flow as NewVmViewModel).
-        Vm vm;
-        try
-        {
-            vm = await _repository.CreateAsync(BuildConfig(downloadedPath));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            ErrorMessage = $"Couldn't create the VM: {ex.Message}";
-            ResetDownloadState();
-            return;
-        }
-
-        // Unattended install: the per-family installer (resolved by OS family — ADR-0016) prepares the
-        // installer media and returns how to boot it. For Ubuntu that's a cloud-init seed disk plus an
-        // `autoinstall` kernel boot; for Debian it's a preseed injected into the installer initrd. The
-        // one-shot InstallBoot is what makes the installer skip the manual disk-erase confirmation; it is
-        // cleared automatically once the install finishes (see VmListItemViewModel.OnSessionExited).
-        if (UnattendedActive)
-        {
-            try
-            {
-                UnattendedInstallPlan plan = _installerResolver.Resolve(entry.OsFamily).Prepare(downloadedPath, vm.FolderPath, BuildAnswers());
-                VmConfig withSeed = vm.Config with
-                {
-                    Disks = [.. vm.Config.Disks, .. plan.SeedDisks],
-                    InstallBoot = plan.Boot,
-                };
-                await _repository.SaveAsync(withSeed);
-                vm = vm with { Config = withSeed };
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InstallMediaException)
-            {
-                await _repository.DeleteAsync(vm.Config.Id);
-                ErrorMessage = $"Couldn't set up the unattended install: {ex.Message}";
-                ResetDownloadState();
-                return;
-            }
-        }
-
-        try
-        {
-            string diskPath = Path.Combine(vm.FolderPath, NewVmViewModel.DiskFileName);
-            await _diskService.CreateAsync(diskPath, (long)DiskSizeGiB * BytesPerGiB);
-        }
-        catch (DiskException ex)
-        {
-            // Roll back so the list never shows a VM without its disk.
-            await _repository.DeleteAsync(vm.Config.Id);
-            ErrorMessage = $"Couldn't create the disk: {ex.Message}";
-            ResetDownloadState();
-            return;
-        }
-
-        ResetDownloadState();
-        Created?.Invoke(this, vm);
-    }
-
-    // Cloud-image flow: the download is a pre-installed qcow2. Flatten it into the VM folder as the
-    // disk (keeping the folder self-contained/portable — ADR-0006), grow it to the requested size,
-    // then attach the cloud-init seed that sets up the login (required — the image has no default one).
-    private async Task CreateFromCloudImageAsync(string imagePath)
-    {
-        Vm vm;
-        try
-        {
-            vm = await _repository.CreateAsync(BuildCloudImageConfig());
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            ErrorMessage = $"Couldn't create the VM: {ex.Message}";
-            ResetDownloadState();
-            return;
-        }
-
-        try
-        {
-            string diskPath = Path.Combine(vm.FolderPath, NewVmViewModel.DiskFileName);
-            await _diskService.CopyAsync(imagePath, diskPath);
-
-            // Only grow — never shrink below the image's own virtual size (qemu-img would refuse).
-            long requestedBytes = (long)DiskSizeGiB * BytesPerGiB;
-            DiskInfo info = await _diskService.GetInfoAsync(diskPath);
-            if (requestedBytes > info.VirtualSize)
-            {
-                await _diskService.ResizeAsync(diskPath, requestedBytes);
-            }
-        }
-        catch (DiskException ex)
-        {
-            await _repository.DeleteAsync(vm.Config.Id); // roll back the half-prepared VM
-            ErrorMessage = $"Couldn't prepare the cloud image: {ex.Message}";
-            ResetDownloadState();
-            return;
-        }
-
-        try
-        {
-            _seedGenerator.Generate(BuildAnswers(), vm.FolderPath, SeedProfile.CloudImage);
-            VmConfig withSeed = vm.Config with
-            {
-                Disks = [.. vm.Config.Disks, new DiskConfig { File = CloudInitSeedGenerator.SeedFileName, Format = "raw", Interface = "virtio" }],
-            };
-            await _repository.SaveAsync(withSeed);
-            vm = vm with { Config = withSeed };
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            await _repository.DeleteAsync(vm.Config.Id);
-            ErrorMessage = $"Couldn't create the cloud-init seed: {ex.Message}";
-            ResetDownloadState();
-            return;
-        }
-
-        ResetDownloadState();
-        Created?.Invoke(this, vm);
     }
 
     private bool CanGetIt() => !IsDownloading && HasSelection && ValidationError is null;
@@ -474,36 +330,20 @@ public sealed partial class CatalogViewModel : ObservableObject, IDisposable
         ProgressPercent = 0;
     }
 
-    private UnattendedAnswers BuildAnswers() => new()
-    {
-        Hostname = Hostname.Trim(),
-        Username = UnattendedUsername.Trim(),
-        Password = UnattendedPassword,
-    };
-
-    private VmConfig BuildConfig(string isoPath) => new()
+    // Translate the confirm-panel fields into the Core install request. A cloud image always carries a
+    // seed (its login lives only there), so Core ignores the Unattended flag for it; an installer ISO
+    // only gets a seed when the user opted in. Answers are supplied whenever a seed will be written.
+    private CatalogInstallOptions BuildOptions() => new()
     {
         Name = Name.Trim(),
         MemoryMiB = MemoryMiB,
-        Cpu = new CpuConfig { Sockets = 1, Cores = CpuCores, Threads = 1 },
+        CpuCores = CpuCores,
+        DiskSizeGiB = DiskSizeGiB,
         Firmware = Firmware,
-        OsType = "linux", // every catalog entry is a Linux distro today
-        Disks = [new DiskConfig { File = NewVmViewModel.DiskFileName, Format = "qcow2", Interface = "virtio" }],
-        RemovableMedia = [new RemovableMediaConfig { Type = "cdrom", File = isoPath, Attached = true }],
-        Boot = new BootConfig { Order = "dc" }, // boot the installer first, then disk
-    };
-
-    // A cloud image is already installed onto its disk, so there's no installer media and the VM
-    // boots straight from the disk.
-    private VmConfig BuildCloudImageConfig() => new()
-    {
-        Name = Name.Trim(),
-        MemoryMiB = MemoryMiB,
-        Cpu = new CpuConfig { Sockets = 1, Cores = CpuCores, Threads = 1 },
-        Firmware = Firmware,
-        OsType = "linux",
-        Disks = [new DiskConfig { File = NewVmViewModel.DiskFileName, Format = "qcow2", Interface = "virtio" }],
-        Boot = new BootConfig { Order = "c" }, // boot the pre-installed disk; no installer media
+        Unattended = UnattendedActive && !IsCloudImage,
+        Answers = UnattendedActive
+            ? new UnattendedAnswers { Hostname = Hostname.Trim(), Username = UnattendedUsername.Trim(), Password = UnattendedPassword }
+            : null,
     };
 
     private static string Humanize(long bytes)

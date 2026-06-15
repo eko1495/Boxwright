@@ -102,6 +102,10 @@ internal static class ServiceConfiguration
         services.AddSingleton<IUnattendedInstaller, FedoraKickstartInstaller>();
         services.AddSingleton<IUnattendedInstallerResolver, UnattendedInstallerResolver>();
 
+        // The catalog-VM orchestration (download + disk + seed) shared by the GUI's "Get an OS" flow and
+        // the headless CLI (ADR-0022). CatalogViewModel delegates to this rather than re-implementing it.
+        services.AddSingleton<ICatalogVmInstaller, CatalogVmInstaller>();
+
         // View models.
         services.AddTransient<VmListViewModel>();
         services.AddTransient<MainWindowViewModel>();

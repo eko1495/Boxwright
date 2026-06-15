@@ -162,9 +162,9 @@ Invest here only if Stage 2 metrics trend positive.
       `--os <id>` from the catalog, with `--unattended`)/`clone`/`start` (with `--detach`)/`stop`/
       `display`/`delete`, `os list`, and offline `snapshot` (list/create/restore/delete); `--json`
       on the read commands. Catalog create runs the GUI's New-VM orchestration, now lifted into Core
-      (`ICatalogVmInstaller`). It shares the per-VM folders and `runtime.json` with the GUI, so they
-      interoperate. Remaining gaps: Windows unattended stays GUI-only, and the App still uses its own
-      copy of the catalog orchestration (a migration onto the shared Core service is a follow-up).
+      (`ICatalogVmInstaller`) and shared by both front ends — the GUI's `CatalogViewModel` delegates to
+      it rather than duplicating the sequence. The CLI shares the per-VM folders and `runtime.json` with
+      the GUI, so they interoperate. Remaining gap: Windows unattended stays GUI-only.
 - [ ] Plugin/recipe API for community-contributed OS definitions.
 
 ---
