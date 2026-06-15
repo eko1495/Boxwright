@@ -56,7 +56,7 @@ public sealed class LinuxUsbDeviceEnumeratorTests : IDisposable
         WriteDevice("1-1", "046d", "c52b", "Logitech", "USB Receiver");
         WriteDevice("2-1", "0408", "5374"); // no manufacturer/product text
         WriteDevice("usb1", "1d6b", "0002", "Linux Foundation", "2.0 root hub"); // root hub → skipped
-        WriteDevice("1-1:1.0", null, null);  // interface node (no ids) → skipped
+        WriteDevice("1-1.0", null, null);  // interface node (no ids) → skipped (':' is illegal on Windows paths)
 
         var enumerator = new LinuxUsbDeviceEnumerator(_root);
         IReadOnlyList<HostUsbDevice> devices = await enumerator.ListAsync();
