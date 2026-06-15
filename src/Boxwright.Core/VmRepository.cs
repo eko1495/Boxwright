@@ -83,8 +83,14 @@ public sealed class VmRepository
     {
         ArgumentNullException.ThrowIfNull(config);
 
+        // Stamp identity the config is missing: a fresh GUID id, and a unique NIC MAC so the VM doesn't
+        // share QEMU's default MAC with every other VM (a bridge collision — ADR-0025). A caller-supplied
+        // id/MAC (e.g. a restored config) is kept as-is.
         string id = string.IsNullOrWhiteSpace(config.Id) ? Guid.NewGuid().ToString() : config.Id;
-        VmConfig stamped = string.Equals(config.Id, id, StringComparison.Ordinal) ? config : config with { Id = id };
+        string mac = string.IsNullOrWhiteSpace(config.Network.MacAddress)
+            ? MacAddress.Generate()
+            : config.Network.MacAddress;
+        VmConfig stamped = config with { Id = id, Network = config.Network with { MacAddress = mac } };
         await SaveAsync(stamped, cancellationToken);
         return new Vm(Path.Combine(_rootDirectory, id), stamped);
     }

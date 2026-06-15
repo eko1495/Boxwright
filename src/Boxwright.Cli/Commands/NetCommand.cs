@@ -55,12 +55,17 @@ internal sealed class NetCommand : ICliCommand
 
         if (args.HasFlag("json"))
         {
-            _output.Line(CliJson.Write(new NetworkJson(net.Mode, net.Model, net.Bridge, net.TapDevice)));
+            _output.Line(CliJson.Write(new NetworkJson(net.Mode, net.Model, net.MacAddress, net.Bridge, net.TapDevice)));
             return 0;
         }
 
         _output.Line($"Mode:   {net.Mode}");
         _output.Line($"Model:  {net.Model}");
+        if (!string.IsNullOrEmpty(net.MacAddress))
+        {
+            _output.Line($"MAC:    {net.MacAddress}");
+        }
+
         switch (net.Mode.ToLowerInvariant())
         {
             case "bridge":

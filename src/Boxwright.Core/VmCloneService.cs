@@ -33,6 +33,8 @@ public sealed class VmCloneService : IVmCloneService
             Name = newName,
             RemovableMedia = [],         // a clone shouldn't carry the source's installer ISO
             Boot = source.Config.Boot with { Order = "c" },
+            // Clear the MAC so the clone gets its own (else it collides with the source on a bridge — ADR-0025).
+            Network = source.Config.Network with { MacAddress = string.Empty },
         };
 
         Vm clone = await _repository.CreateAsync(newConfig, cancellationToken);

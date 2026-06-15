@@ -217,7 +217,8 @@ public static class CommandLineBuilder
         args.Add("-netdev");
         args.Add(NetdevArgument(config.Network));
         args.Add("-device");
-        args.Add($"{config.Network.Model},netdev=net0");
+        string mac = string.IsNullOrWhiteSpace(config.Network.MacAddress) ? string.Empty : $",mac={config.Network.MacAddress}";
+        args.Add($"{config.Network.Model},netdev=net0{mac}");
     }
 
     private static string NetdevArgument(NetworkConfig network) => network.Mode.ToLowerInvariant() switch

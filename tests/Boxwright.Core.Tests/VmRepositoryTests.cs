@@ -43,6 +43,35 @@ public class VmRepositoryTests
     }
 
     [Fact]
+    public async Task CreateAsync_StampsAUniqueMac_WhenNoneProvided()
+    {
+        await WithTempRootAsync(async repo =>
+        {
+            Vm a = await repo.CreateAsync(new VmConfig { Name = "a" });
+            Vm b = await repo.CreateAsync(new VmConfig { Name = "b" });
+
+            Assert.True(MacAddress.IsValid(a.Config.Network.MacAddress));
+            Assert.True(MacAddress.IsValid(b.Config.Network.MacAddress));
+            Assert.NotEqual(a.Config.Network.MacAddress, b.Config.Network.MacAddress);
+        });
+    }
+
+    [Fact]
+    public async Task CreateAsync_KeepsAProvidedMac()
+    {
+        await WithTempRootAsync(async repo =>
+        {
+            Vm vm = await repo.CreateAsync(new VmConfig
+            {
+                Name = "fixed-mac",
+                Network = new NetworkConfig { MacAddress = "52:54:00:11:22:33" },
+            });
+
+            Assert.Equal("52:54:00:11:22:33", vm.Config.Network.MacAddress);
+        });
+    }
+
+    [Fact]
     public async Task CreateAsync_KeepsProvidedId()
     {
         await WithTempRootAsync(async repo =>

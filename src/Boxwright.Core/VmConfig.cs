@@ -159,6 +159,13 @@ public sealed record NetworkConfig
     /// <summary>NIC model, e.g. <c>virtio-net</c>.</summary>
     public string Model { get; init; } = "virtio-net";
 
+    /// <summary>
+    /// The NIC's MAC address (e.g. <c>52:54:00:ab:cd:ef</c>). Empty lets QEMU assign its default — which
+    /// is the <b>same</b> for every VM, so two VMs on a bridge collide; <see cref="VmRepository"/> stamps a
+    /// unique one on create/clone (ADR-0025). Persisted so a guest's DHCP lease is stable across boots.
+    /// </summary>
+    public string MacAddress { get; init; } = string.Empty;
+
     /// <summary>Host bridge to join in <c>bridge</c> mode (e.g. <c>br0</c>). Must already exist on the host.</summary>
     public string Bridge { get; init; } = "br0";
 
