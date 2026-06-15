@@ -1,0 +1,56 @@
+# ADR-0023: Host USB passthrough (by vendor:product)
+
+- **Status:** Accepted
+- **Date:** 2026-06-15
+
+## Context
+The roadmap's Stage-3 line "USB passthrough wizard" lets a VM use a real host USB device (a YubiKey,
+a webcam, a flashing dongle). QEMU does this with `-device usb-host`, matched either by **bus/address**
+(unstable — changes on replug) or by **`vendorid`/`productid`** (stable across replugs). The host-side
+device access is QEMU's job; Boxwright only has to (a) let the user identify a device and (b) put the
+right argument on the command line.
+
+Two halves have very different cross-platform stories (Directive 4):
+- **Wiring the passthrough** (`-device usb-host,vendorid=…,productid=…`) is pure command-line — it works
+  wherever QEMU's `usb-host` does (Linux and Windows via libusb; macOS/HVF support is limited). No
+  host-OS code on our side.
+- **Enumerating** the connected host devices (to pick from) is inherently host-specific: Linux exposes
+  them in sysfs, Windows via SetupAPI, macOS via IOKit. There is no portable API.
+
+## Decision
+- **Identify devices by `vendorid:productid`** (4 hex digits each), persisted on the VM as
+  `VmConfig.UsbDevices` (`UsbPassthroughConfig { VendorId, ProductId, Description }`). Stable across
+  replug, human-readable in `vm.json`, and the natural key for both the command line and `device_add`.
+- **`CommandLineBuilder` emits one `-device usb-host,vendorid=0x…,productid=0x…,id=usbpassN`** per
+  configured device, onto the USB controller the builder already adds (`-usb`). Empty list → no change,
+  so existing VMs and the golden test are unaffected. This is in Core, so a configured VM passes the
+  device through whether it's launched from the GUI or the CLI.
+- **Enumeration is capability-gated behind `IUsbDeviceEnumerator`** with `IsSupported`. The Linux
+  implementation parses **sysfs** (`/sys/bus/usb/devices/*/{idVendor,idProduct,product,manufacturer}`) —
+  no external tool, no dependency. Other OSes get an `Unsupported` enumerator that reports
+  `IsSupported = false` and a clear message; the user can still add a device by vendor:product if they
+  know it (e.g. from Device Manager / System Information). This honors Directive 4: the feature degrades
+  gracefully with a clear UI message rather than being silently Linux-only.
+- **CLI surface (this cut):** `boxwright usb list` (host devices, gated), `usb show <vm>`,
+  `usb add <vm> <vvvv:pppp> [--description]`, `usb remove <vm> <vvvv:pppp>`. `add`/`remove` edit the
+  persisted config and take effect on the **next boot**; the message says so.
+
+## Consequences
+- **Easier:** a VM can use a real USB device, configured from either front end; the wiring is one small,
+  golden-tested command-line addition; Linux users get a device picker.
+- **Harder / deferred:** **live hot-plug** of a configured device into a *running* VM (QMP
+  `device_add usb-host` / `device_del`) is a natural follow-up — the config + command-line path lands
+  first. Windows host enumeration (SetupAPI) and macOS (IOKit) enumerators are follow-ups; until then
+  those hosts add devices by vendor:product manually. A device claimed by the host driver may need
+  unbinding on Linux (documented, not automated). USB **2.0/3.0 controller** selection (qemu-xhci) is
+  left at QEMU's default for now.
+
+## Alternatives considered
+- **Match by bus/address.** Rejected as the primary key: it changes when the device is replugged or the
+  hub topology shifts, so a saved VM config would silently target the wrong (or no) device. vendor:product
+  is stable. (Bus/address could be added later for disambiguating two identical devices.)
+- **Shell out to `lsusb`.** Rejected: it's not always installed and is Linux-only anyway; sysfs is always
+  present on Linux and needs no dependency.
+- **Block the feature on full cross-platform enumeration.** Rejected against Directive 4's own escape
+  hatch: capability-gate and degrade. Linux enumeration + universal vendor:product entry ships value now
+  without pretending Windows/macOS listing exists.

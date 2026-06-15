@@ -409,6 +409,33 @@ public class CommandLineBuilderTests
         Assert.DoesNotContain("-append", args);
     }
 
+    [Fact]
+    public void Build_NoUsbDevices_EmitsNoUsbHost()
+    {
+        IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());
+
+        Assert.DoesNotContain(args, a => a.StartsWith("usb-host", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Build_UsbPassthrough_EmitsUsbHostByVendorProduct()
+    {
+        VmConfig config = CanonicalConfig() with
+        {
+            UsbDevices =
+            [
+                new UsbPassthroughConfig { VendorId = "046d", ProductId = "c52b", Description = "receiver" },
+                new UsbPassthroughConfig { VendorId = "0408", ProductId = "5374" },
+            ],
+        };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Contains("usb-host,vendorid=0x046d,productid=0xc52b,id=usbpass0", args);
+        Assert.Contains("usb-host,vendorid=0x0408,productid=0x5374,id=usbpass1", args);
+        Assert.Contains("-usb", args); // passthrough rides the controller AppendInput already adds
+    }
+
     private static string ArgValue(IReadOnlyList<string> args, string flag)
     {
         for (int i = 0; i < args.Count - 1; i++)

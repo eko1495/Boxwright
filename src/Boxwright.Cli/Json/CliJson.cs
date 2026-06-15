@@ -53,6 +53,9 @@ internal sealed record OsEntryJson(string Id, string Name, string Version, strin
 /// <summary>A snapshot as listed by <c>snapshot list --json</c>.</summary>
 internal sealed record SnapshotJson(string Tag, bool HasVmState, string Created);
 
+/// <summary>A USB device as listed by <c>usb list --json</c> / <c>usb show --json</c>.</summary>
+internal sealed record UsbJson(string Id, string VendorId, string ProductId, string? Description);
+
 [JsonSourceGenerationOptions(
     WriteIndented = true,
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
@@ -61,4 +64,5 @@ internal sealed record SnapshotJson(string Tag, bool HasVmState, string Created)
 [JsonSerializable(typeof(VmInfoJson))]
 [JsonSerializable(typeof(OsEntryJson[]))]
 [JsonSerializable(typeof(SnapshotJson[]))]
+[JsonSerializable(typeof(UsbJson[]))]
 internal sealed partial class CliJsonContext : JsonSerializerContext;

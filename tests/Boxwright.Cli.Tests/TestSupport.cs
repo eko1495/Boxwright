@@ -171,6 +171,19 @@ internal sealed class FakeCatalogVmInstaller : ICatalogVmInstaller
     }
 }
 
+/// <summary>A fake host USB enumerator returning preset devices (or reporting unsupported).</summary>
+internal sealed class FakeUsbDeviceEnumerator : IUsbDeviceEnumerator
+{
+    public bool IsSupported { get; init; } = true;
+
+    public List<HostUsbDevice> Devices { get; } = [];
+
+    public Task<IReadOnlyList<HostUsbDevice>> ListAsync(CancellationToken cancellationToken = default) =>
+        IsSupported
+            ? Task.FromResult<IReadOnlyList<HostUsbDevice>>(Devices.ToList())
+            : throw new NotSupportedException();
+}
+
 /// <summary>Returns a fixed catalog.</summary>
 internal sealed class FakeOsCatalogSource : IOsCatalogSource
 {
