@@ -57,7 +57,7 @@ internal sealed record SnapshotJson(string Tag, bool HasVmState, string Created)
 internal sealed record UsbJson(string Id, string VendorId, string ProductId, string? Description);
 
 /// <summary>A VM's networking as emitted by <c>net show --json</c>.</summary>
-internal sealed record NetworkJson(string Mode, string Model, string Bridge, string TapDevice);
+internal sealed record NetworkJson(string Mode, string Model, string MacAddress, string Bridge, string TapDevice);
 
 [JsonSourceGenerationOptions(
     WriteIndented = true,

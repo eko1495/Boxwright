@@ -410,6 +410,29 @@ public class CommandLineBuilderTests
     }
 
     [Fact]
+    public void Build_WithMacAddress_EmitsMacOnTheNic()
+    {
+        VmConfig config = CanonicalConfig() with
+        {
+            Network = new NetworkConfig { Model = "virtio-net", MacAddress = "52:54:00:ab:cd:ef" },
+        };
+
+        IReadOnlyList<string> args = CommandLineBuilder.Build(config, Accelerator.Tcg, TcpContext());
+
+        Assert.Contains("virtio-net,netdev=net0,mac=52:54:00:ab:cd:ef", args);
+    }
+
+    [Fact]
+    public void Build_WithoutMacAddress_OmitsMac()
+    {
+        // CanonicalConfig has no MAC → QEMU assigns its default; we emit no mac= token.
+        IReadOnlyList<string> args = CommandLineBuilder.Build(CanonicalConfig(), Accelerator.Tcg, TcpContext());
+
+        Assert.Contains("virtio-net,netdev=net0", args);
+        Assert.DoesNotContain(args, a => a.Contains(",mac=", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Build_UserMode_EmitsSlirpWithPortForwards()
     {
         // CanonicalConfig uses user mode with a 2222→22 forward.

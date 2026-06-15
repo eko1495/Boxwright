@@ -57,6 +57,18 @@ public sealed class VmCloneServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Clone_GetsItsOwnMac_NotTheSourcesDefault()
+    {
+        Vm source = await NewSourceAsync();
+        var service = new VmCloneService(_repository, _disks);
+
+        Vm clone = await service.CloneAsync(source, "copy", CloneMode.Full);
+
+        Assert.True(MacAddress.IsValid(clone.Config.Network.MacAddress));
+        Assert.NotEqual(source.Config.Network.MacAddress, clone.Config.Network.MacAddress);
+    }
+
+    [Fact]
     public async Task Clone_DetachesTheInstallerIso()
     {
         Vm source = await _repository.CreateAsync(new VmConfig
