@@ -380,65 +380,27 @@ internal sealed class FakeIsoDownloader : IIsoDownloader
     }
 }
 
-/// <summary>A fake seed generator: records requests and returns a synthetic seed path (or fails on demand).</summary>
-internal sealed class FakeSeedGenerator : ISeedGenerator
+/// <summary>A fake catalog-VM installer: records the (entry, options) it was called with and returns a synthesized VM (or fails on demand).</summary>
+internal sealed class FakeCatalogVmInstaller : ICatalogVmInstaller
 {
-    public List<(UnattendedAnswers Answers, string VmFolder, SeedProfile Profile)> Calls { get; } = [];
+    public OsCatalogEntry? Entry { get; private set; }
+
+    public CatalogInstallOptions? Options { get; private set; }
 
     public Exception? FailWith { get; init; }
 
-    public string Generate(UnattendedAnswers answers, string vmFolderPath, SeedProfile profile = SeedProfile.InstallerAutoinstall)
+    public Task<Vm> CreateAsync(OsCatalogEntry entry, CatalogInstallOptions options, IProgress<IsoDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
     {
-        Calls.Add((answers, vmFolderPath, profile));
+        Entry = entry;
+        Options = options;
         if (FailWith is not null)
         {
-            throw FailWith;
+            return Task.FromException<Vm>(FailWith);
         }
 
-        return Path.Combine(vmFolderPath, CloudInitSeedGenerator.SeedFileName);
-    }
-}
-
-/// <summary>A fake per-family unattended installer: records Prepare requests and returns a preset (or failing) plan.</summary>
-internal sealed class FakeUnattendedInstaller : IUnattendedInstaller
-{
-    public List<(string IsoPath, string VmFolder, UnattendedAnswers Answers)> Calls { get; } = [];
-
-    public string OsFamily { get; init; } = "test";
-
-    public Exception? FailWith { get; init; }
-
-    public UnattendedInstallPlan Result { get; init; } = new()
-    {
-        Boot = new InstallBootConfig { KernelFile = "vmlinuz", InitrdFile = "initrd", Append = "autoinstall ds=nocloud" },
-        SeedDisks = [new DiskConfig { File = "seed.img", Format = "raw", Interface = "virtio" }],
-    };
-
-    public UnattendedInstallPlan Prepare(string isoPath, string vmFolderPath, UnattendedAnswers answers)
-    {
-        Calls.Add((isoPath, vmFolderPath, answers));
-        if (FailWith is not null)
-        {
-            throw FailWith;
-        }
-
-        return Result;
-    }
-}
-
-/// <summary>A fake resolver that always returns one configured installer, recording each requested family.</summary>
-internal sealed class FakeUnattendedInstallerResolver : IUnattendedInstallerResolver
-{
-    private readonly IUnattendedInstaller _installer;
-
-    public FakeUnattendedInstallerResolver(IUnattendedInstaller installer) => _installer = installer;
-
-    public List<string> ResolvedFamilies { get; } = [];
-
-    public IUnattendedInstaller Resolve(string osFamily)
-    {
-        ResolvedFamilies.Add(osFamily);
-        return _installer;
+        progress?.Report(new IsoDownloadProgress(entry.SizeBytes, entry.SizeBytes));
+        VmConfig config = new() { Id = $"created-{options.Name}", Name = options.Name };
+        return Task.FromResult(new Vm(Path.Combine(Path.GetTempPath(), config.Id), config));
     }
 }
 

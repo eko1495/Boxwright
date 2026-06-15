@@ -42,8 +42,8 @@ just another process that reads/writes the same folders and talks QMP to the sam
   interactively unless `--unattended` (with `--user`/`--password`) is given and the OS family
   supports it (Ubuntu/Debian/Fedora); a cloud image is always seeded (the seed is the guest's only
   login, so credentials are required). Windows unattended (user-supplied ISO + virtio + Autounattend)
-  stays GUI-only for now. The App still has its own copy of this orchestration; migrating
-  `CatalogViewModel` onto `ICatalogVmInstaller` is a follow-up.
+  stays GUI-only for now. The GUI's `CatalogViewModel` now delegates to the same `ICatalogVmInstaller`
+  (it no longer re-implements the sequence), so both shells share one orchestration.
 - **Testable by construction:** commands take their Core collaborators via constructor
   injection and write to an injected pair of `TextWriter`s, so the parser, the resolver,
   the table renderer, and the read-only/disk commands are unit-tested with fakes and temp
