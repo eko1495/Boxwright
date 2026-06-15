@@ -22,6 +22,7 @@ boxwright stop <id|name> [--force] [--timeout=SECONDS]
 boxwright display <id|name>            # open remote-viewer against a running VM
 boxwright delete <id|name> --yes
 boxwright os list [--json]             # OS catalog ids the GUI's one-click flow uses
+boxwright recipe dir|list [--json]|validate <file>   # local OS recipes that extend the catalog
 boxwright snapshot list [--json]|create|restore|delete <id|name> [tag]   # offline qcow2 snapshots
 boxwright usb list [--json]            # host USB devices (where the OS supports enumeration)
 boxwright usb show|add|remove <id|name> <vendor:product> [--description=TEXT] [--now]   # USB passthrough
@@ -54,6 +55,11 @@ or `--key=value`.
   running VM live (QMP `device_add`/`device_del`). `usb list` needs host enumeration (Linux sysfs today;
   on Windows/macOS it reports unsupported — add by vendor:product from Device Manager / System
   Information). See ADR-0023.
+- **`recipe`** — drop an OS **catalog document** (`*.json`, same shape as the bundled catalog) into the
+  recipes folder (`recipe dir` prints it) and that OS appears in `os list` and the GUI picker, no
+  recompile. `recipe list`/`validate` help author them. Local recipes layer over the remote/bundled
+  catalog (a recipe can add or, by id, replace an entry). It reuses the existing per-family unattended
+  installer; a recipe-driven install engine for new mechanisms is a follow-up. See ADR-0026.
 - **`template`** turns a stopped VM into a reusable frozen base (`create`) and stamps out instances from
   it (`new`, linked by default — instant — or `--full`). A template can't be booted; each instance is a
   fresh concrete VM with its own id and MAC. See ADR-0025.

@@ -1,6 +1,6 @@
 # ADR-0026: Declarative OS recipes (community-contributed OS definitions)
 
-- **Status:** Proposed
+- **Status:** Accepted (phase 1 — recipe sourcing / catalog extension — implemented; the recipe-driven install engine is phase 2)
 - **Date:** 2026-06-15
 
 ## Context
@@ -41,13 +41,20 @@ liability, a cross-platform-parity risk, a potential GPL-contamination vector, a
   from sources you trust, exactly as you would an OS image.
 
 ## Phasing
-1. **Schema + proof:** define the recipe JSON (versioned, like the catalog) and re-express the four
-   existing installers as recipes; unit-test that each produces the same `UnattendedInstallPlan` /
-   command line as today (a behavior-preserving refactor).
-2. **Local recipe folder:** load `recipes/*.json` into the catalog pipeline; CLI `boxwright recipe
-   list|validate <file>` and surfacing in `os list`.
-3. **Generic installer:** `RecipeInstaller` drives install from the recipe; retire (or keep as bundled)
-   the hardcoded family installers.
+1. **Recipe sourcing / catalog extension — DONE.** A recipe is an OS **catalog document** (the same
+   versioned `OsCatalogDocument` the bundled list uses, so existing entries are copy-paste recipes).
+   `LocalRecipeCatalogSource` loads `recipes/*.json` from a local folder; `CompositeOsCatalogSource`
+   merges sources (remote → cache → bundled, then local recipes layered on top — local wins by id, so a
+   recipe both adds new OSes and can pin/replace one). A malformed recipe is skipped, never breaking the
+   catalog. CLI `boxwright recipe dir|list|validate`; recipes surface in `os list` and the GUI picker.
+   **At this stage a recipe reuses the existing per-family installer** (matched by `osFamily`), so it can
+   add a new release of a known family with full unattended support, or any OS for interactive install —
+   without a recompile. Its install-specific fields (below) are not yet consumed.
+2. **Recipe-driven install engine (pending):** define the install fields on the recipe (`installKind`,
+   kernel/initrd paths, append/seed templates) and a generic `RecipeInstaller` the resolver selects, so a
+   recipe can describe a **brand-new** unattended mechanism declaratively. Re-express the four existing
+   installers as recipes to prove the schema (a behavior-preserving refactor), then retire or keep them as
+   the bundled set.
 
 ## Consequences
 - **Easier:** the community adds a distro by editing data, not C#; the install layer stops being four

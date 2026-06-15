@@ -61,13 +61,21 @@ internal static class ServiceConfiguration
         // offline fallback — remote → last-good cache → bundled, best-effort (ADR-0020). Default-on; a
         // network failure degrades silently so the catalog UI always gets a usable list.
         services.AddSingleton<BundledOsCatalogSource>();
-        services.AddSingleton<IOsCatalogSource>(sp => new RemoteOsCatalogSource(
-            sp.GetRequiredService<IHttpStreamSource>(),
-            sp.GetRequiredService<BundledOsCatalogSource>(),
-            new Uri(RemoteOsCatalogSource.DefaultCatalogUrl),
-            RemoteOsCatalogSource.DefaultCacheFilePath,
-            TimeSpan.FromSeconds(5),
-            sp.GetService<ILogger<RemoteOsCatalogSource>>()));
+        // Local community recipes (ADR-0026) extend the catalog from a folder of *.json files.
+        services.AddSingleton(sp => new LocalRecipeCatalogSource(
+            LocalRecipeCatalogSource.DefaultDirectory, sp.GetService<ILogger<LocalRecipeCatalogSource>>()));
+        services.AddSingleton<IOsCatalogSource>(sp => new CompositeOsCatalogSource(
+            [
+                new RemoteOsCatalogSource(
+                    sp.GetRequiredService<IHttpStreamSource>(),
+                    sp.GetRequiredService<BundledOsCatalogSource>(),
+                    new Uri(RemoteOsCatalogSource.DefaultCatalogUrl),
+                    RemoteOsCatalogSource.DefaultCacheFilePath,
+                    TimeSpan.FromSeconds(5),
+                    sp.GetService<ILogger<RemoteOsCatalogSource>>()),
+                sp.GetRequiredService<LocalRecipeCatalogSource>(),
+            ],
+            sp.GetService<ILogger<CompositeOsCatalogSource>>()));
         services.AddSingleton<IIsoDownloader>(sp =>
             new IsoDownloader(sp.GetRequiredService<IHttpStreamSource>(), IsoDownloader.DefaultCacheDirectory));
 
