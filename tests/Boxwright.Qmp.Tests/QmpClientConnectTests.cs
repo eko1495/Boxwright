@@ -84,6 +84,26 @@ public class QmpClientConnectTests
     }
 
     [Fact]
+    public async Task ConnectAsync_AfterAFailedConnect_CanRetryOnTheSameInstance()
+    {
+        // A failed handshake must dispose what it opened and leave the client reusable — not leak the
+        // socket and not trip the "already been used" guard (the latter is what a retry would hit).
+        await using var client = new QmpClient();
+
+        await using (var badServer = FakeQmpServer.Start("{\"notQmp\":true}"))
+        {
+            await Assert.ThrowsAsync<QmpProtocolException>(() => client.ConnectAsync(badServer.Endpoint));
+            Assert.False(client.IsConnected);
+        }
+
+        // The same instance now connects cleanly to a good server.
+        await using var goodServer = FakeQmpServer.Start();
+        await client.ConnectAsync(goodServer.Endpoint);
+
+        Assert.True(client.IsConnected);
+    }
+
+    [Fact]
     public async Task ConnectAsync_WhenAlreadyConnected_ThrowsInvalidOperation()
     {
         await using var server = FakeQmpServer.Start();
