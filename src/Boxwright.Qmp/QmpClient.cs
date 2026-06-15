@@ -70,41 +70,77 @@ public sealed class QmpClient : IQmpClient
             throw new InvalidOperationException("This QMP client has already been used; create a new instance to reconnect.");
         }
 
-        _stream = await OpenStreamAsync(endpoint, cancellationToken);
-        _reader = new StreamReader(_stream, Utf8, detectEncodingFromByteOrderMarks: false, bufferSize: 4096, leaveOpen: true);
-        _writer = new StreamWriter(_stream, Utf8, bufferSize: 4096, leaveOpen: true) { NewLine = "\n", AutoFlush = true };
-
-        // 1) The server speaks first with a {"QMP": ...} greeting banner.
-        string greetingLine = await ReadLineExpectedAsync("the QMP greeting", cancellationToken);
-        QmpGreetingEnvelope? greeting;
         try
         {
-            greeting = JsonSerializer.Deserialize(greetingLine, QmpJsonContext.Default.QmpGreetingEnvelope);
+            _stream = await OpenStreamAsync(endpoint, cancellationToken);
+            _reader = new StreamReader(_stream, Utf8, detectEncodingFromByteOrderMarks: false, bufferSize: 4096, leaveOpen: true);
+            _writer = new StreamWriter(_stream, Utf8, bufferSize: 4096, leaveOpen: true) { NewLine = "\n", AutoFlush = true };
+
+            // 1) The server speaks first with a {"QMP": ...} greeting banner.
+            string greetingLine = await ReadLineExpectedAsync("the QMP greeting", cancellationToken);
+            QmpGreetingEnvelope? greeting;
+            try
+            {
+                greeting = JsonSerializer.Deserialize(greetingLine, QmpJsonContext.Default.QmpGreetingEnvelope);
+            }
+            catch (JsonException ex)
+            {
+                throw new QmpProtocolException($"The QMP greeting was not valid JSON: '{greetingLine}'.", ex);
+            }
+
+            if (greeting?.Qmp is null)
+            {
+                throw new QmpProtocolException($"Expected a QMP greeting banner but received: '{greetingLine}'.");
+            }
+
+            // 2) qmp_capabilities must be sent before any other command.
+            await SendLineAsync(CapabilitiesCommand, cancellationToken);
+
+            // 3) Expect a success reply ({"return": {}}); an error means the handshake failed.
+            string replyLine = await ReadLineExpectedAsync("the qmp_capabilities reply", cancellationToken);
+            QmpReplyEnvelope reply = ParseReply(replyLine);
+            if (reply.Error is not null)
+            {
+                throw new QmpCommandException(reply.Error.Class ?? "GenericError", reply.Error.Desc ?? "qmp_capabilities was rejected.");
+            }
+
+            _connected = true;
+            _loopCts = new CancellationTokenSource();
+            _readLoopTask = ReadLoopAsync(_loopCts.Token);
         }
-        catch (JsonException ex)
+        catch
         {
-            throw new QmpProtocolException($"The QMP greeting was not valid JSON: '{greetingLine}'.", ex);
+            // A failed connect/handshake must not leak the socket/stream, and must leave the instance
+            // reusable for a retry. The read loop never started, so this is a straight teardown of what
+            // OpenStreamAsync and the handshake allocated; DisposeAsync owns teardown once it has.
+            CloseConnectionResources();
+            throw;
         }
+    }
 
-        if (greeting?.Qmp is null)
+    // Disposes the transport/stream opened during ConnectAsync and clears the fields, so a failed
+    // connection neither leaks resources nor trips the "already been used" guard on a later retry.
+    private void CloseConnectionResources()
+    {
+        try
         {
-            throw new QmpProtocolException($"Expected a QMP greeting banner but received: '{greetingLine}'.");
+            _writer?.Dispose();
         }
-
-        // 2) qmp_capabilities must be sent before any other command.
-        await SendLineAsync(CapabilitiesCommand, cancellationToken);
-
-        // 3) Expect a success reply ({"return": {}}); an error means the handshake failed.
-        string replyLine = await ReadLineExpectedAsync("the qmp_capabilities reply", cancellationToken);
-        QmpReplyEnvelope reply = ParseReply(replyLine);
-        if (reply.Error is not null)
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException or SocketException)
         {
-            throw new QmpCommandException(reply.Error.Class ?? "GenericError", reply.Error.Desc ?? "qmp_capabilities was rejected.");
+            // The peer may already be gone; there is nothing to flush.
         }
 
-        _connected = true;
-        _loopCts = new CancellationTokenSource();
-        _readLoopTask = ReadLoopAsync(_loopCts.Token);
+        _reader?.Dispose();
+        _stream?.Dispose();
+        _tcpClient?.Dispose();
+        _unixSocket?.Dispose();
+
+        _writer = null;
+        _reader = null;
+        _stream = null;
+        _tcpClient = null;
+        _unixSocket = null;
     }
 
     /// <inheritdoc />
