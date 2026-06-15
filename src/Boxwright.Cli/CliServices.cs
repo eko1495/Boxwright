@@ -54,13 +54,22 @@ internal static class CliServices
         services.AddSingleton(_ => new HttpClient());
         services.AddSingleton<IHttpStreamSource, HttpClientStreamSource>();
         services.AddSingleton<BundledOsCatalogSource>();
-        services.AddSingleton<IOsCatalogSource>(sp => new RemoteOsCatalogSource(
-            sp.GetRequiredService<IHttpStreamSource>(),
-            sp.GetRequiredService<BundledOsCatalogSource>(),
-            new Uri(RemoteOsCatalogSource.DefaultCatalogUrl),
-            RemoteOsCatalogSource.DefaultCacheFilePath,
-            TimeSpan.FromSeconds(5),
-            sp.GetService<ILogger<RemoteOsCatalogSource>>()));
+        // Local community recipes (ADR-0026) extend the catalog from a folder of *.json files.
+        services.AddSingleton(sp => new LocalRecipeCatalogSource(
+            LocalRecipeCatalogSource.DefaultDirectory, sp.GetService<ILogger<LocalRecipeCatalogSource>>()));
+        // The catalog: remote (→ cache → bundled, ADR-0020) with local recipes layered on top (they win by id).
+        services.AddSingleton<IOsCatalogSource>(sp => new CompositeOsCatalogSource(
+            [
+                new RemoteOsCatalogSource(
+                    sp.GetRequiredService<IHttpStreamSource>(),
+                    sp.GetRequiredService<BundledOsCatalogSource>(),
+                    new Uri(RemoteOsCatalogSource.DefaultCatalogUrl),
+                    RemoteOsCatalogSource.DefaultCacheFilePath,
+                    TimeSpan.FromSeconds(5),
+                    sp.GetService<ILogger<RemoteOsCatalogSource>>()),
+                sp.GetRequiredService<LocalRecipeCatalogSource>(),
+            ],
+            sp.GetService<ILogger<CompositeOsCatalogSource>>()));
         services.AddSingleton<IIsoDownloader>(sp =>
             new IsoDownloader(sp.GetRequiredService<IHttpStreamSource>(), IsoDownloader.DefaultCacheDirectory));
 
@@ -89,6 +98,7 @@ internal static class CliServices
         AddCommand<UsbCommand>(services);
         AddCommand<NetCommand>(services);
         AddCommand<TemplateCommand>(services);
+        AddCommand<RecipeCommand>(services);
         AddCommand<CloneCommand>(services);
         AddCommand<StartCommand>(services);
         AddCommand<StopCommand>(services);

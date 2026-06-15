@@ -183,10 +183,13 @@ Invest here only if Stage 2 metrics trend positive.
       (`ICatalogVmInstaller`) and shared by both front ends — the GUI's `CatalogViewModel` delegates to
       it rather than duplicating the sequence. The CLI shares the per-VM folders and `runtime.json` with
       the GUI, so they interoperate. Remaining gap: Windows unattended stays GUI-only.
-- [ ] Plugin/recipe API for community-contributed OS definitions. Direction chosen: **declarative JSON
-      recipes** (data, not code) that generalize the per-family installers and extend the catalog from a
-      local folder or the remote manifest — designed in **ADR-0026** (Proposed). Code plugins rejected
-      (security / GPL / cross-platform / scope). Not yet built.
+- [~] Plugin/recipe API for community-contributed OS definitions (ADR-0026). **Declarative JSON recipes**
+      (data, not code; code plugins rejected for security / GPL / cross-platform / scope). Phase 1 built:
+      `LocalRecipeCatalogSource` loads `recipes/*.json` (catalog documents) from a local folder and
+      `CompositeOsCatalogSource` layers them over remote → cache → bundled (local wins by id); CLI
+      `boxwright recipe dir|list|validate`; recipes surface in `os list` + the GUI picker. A recipe reuses
+      the existing per-family installer for now. Remaining: a recipe-driven install engine
+      (`installKind` + templates) so a recipe can define a brand-new unattended mechanism declaratively.
 
 ---
 

@@ -59,6 +59,9 @@ internal sealed record UsbJson(string Id, string VendorId, string ProductId, str
 /// <summary>A VM's networking as emitted by <c>net show --json</c>.</summary>
 internal sealed record NetworkJson(string Mode, string Model, string MacAddress, string Bridge, string TapDevice);
 
+/// <summary>A recipe file's parse result as emitted by <c>recipe list --json</c>.</summary>
+internal sealed record RecipeJson(string File, bool Ok, string[] Entries, string? Error);
+
 [JsonSourceGenerationOptions(
     WriteIndented = true,
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
@@ -69,4 +72,5 @@ internal sealed record NetworkJson(string Mode, string Model, string MacAddress,
 [JsonSerializable(typeof(SnapshotJson[]))]
 [JsonSerializable(typeof(UsbJson[]))]
 [JsonSerializable(typeof(NetworkJson))]
+[JsonSerializable(typeof(RecipeJson[]))]
 internal sealed partial class CliJsonContext : JsonSerializerContext;
