@@ -44,8 +44,11 @@ Two real problems a naïve "just clone it" approach hits:
    no separate `chmod`/convert step was needed.
 2. **GUI (pending):** templates surfaced/grouped in the VM list; a "New from template" dialog. (Avalonia —
    wants a real GUI smoke test, per the pattern.)
-3. **Deferred:** refuse-delete-when-linked-instances-exist (needs a backing-chain scan across VMs) — for
-   now `template delete` warns and requires `--yes`, the same exposure as deleting any linked-clone source.
+3. **Delete-guard (DONE):** `IVmDeletionService`/`VmDeletionService` refuses to delete any VM that backs a
+   linked clone. It scans every VM's qcow2 backing pointers (`qemu-img info`) and, if any resolves into the
+   target's folder, throws `VmHasDependentsException` listing the dependents instead of orphaning them. Both
+   the CLI `delete` and the GUI delete route through it (a broken disk that can't be read is skipped, so one
+   bad VM never blocks an unrelated delete). Applies to any linked-clone source, not just templates.
 
 ## Consequences
 - **Easier:** stamp out many instances from a known-good base in seconds (linked); the MAC fix also cures

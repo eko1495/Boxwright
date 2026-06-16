@@ -185,8 +185,10 @@ Invest here only if Stage 2 metrics trend positive.
       `clone --linked`); per-VM MAC stamping (no bridge collisions) and templates are now built in Core +
       CLI: `VmConfig.IsTemplate`, launch-refusal for templates, and `boxwright template
       list|create|new|delete` (instances are linked clones by default, each a fresh non-template VM with
-      its own MAC). Remaining: a GUI templates picker (phase 2) and a refuse-delete-when-instances-exist
-      guard.
+      its own MAC). A **delete-guard** (`IVmDeletionService`) now refuses to delete any VM that backs a
+      linked clone — it scans every VM's qcow2 backing pointers and lists the dependents (`VmHasDependentsException`)
+      rather than orphaning them; both the CLI `delete` and the GUI delete route through it. Remaining: a GUI
+      templates picker (phase 2).
 - [~] Headless mode / CLI parity (the GUI becomes optional, not mandatory). The `boxwright`
       CLI (`Boxwright.Cli`, ADR-0022) drives Core directly — `list`/`info`/`create` (blank or
       `--os <id>` from the catalog, with `--unattended`)/`clone`/`start` (with `--detach`)/`stop`/

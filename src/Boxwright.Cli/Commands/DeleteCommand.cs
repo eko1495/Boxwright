@@ -2,22 +2,25 @@ using Boxwright.Core;
 
 namespace Boxwright.Cli.Commands;
 
-/// <summary>Permanently deletes a VM's folder (config, disks, logs). Refuses while it's running.</summary>
+/// <summary>
+/// Permanently deletes a VM's folder (config, disks, logs). Refuses while it's running, and refuses to
+/// delete a VM that backs a linked clone (it would corrupt the clone — ADR-0025) via <see cref="IVmDeletionService"/>.
+/// </summary>
 internal sealed class DeleteCommand : ICliCommand
 {
     private readonly VmResolver _resolver;
-    private readonly VmRepository _repository;
+    private readonly IVmDeletionService _deletion;
     private readonly IVmStatusProbe _statusProbe;
     private readonly CliOutput _output;
 
-    public DeleteCommand(VmResolver resolver, VmRepository repository, IVmStatusProbe statusProbe, CliOutput output)
+    public DeleteCommand(VmResolver resolver, IVmDeletionService deletion, IVmStatusProbe statusProbe, CliOutput output)
     {
         ArgumentNullException.ThrowIfNull(resolver);
-        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(deletion);
         ArgumentNullException.ThrowIfNull(statusProbe);
         ArgumentNullException.ThrowIfNull(output);
         _resolver = resolver;
-        _repository = repository;
+        _deletion = deletion;
         _statusProbe = statusProbe;
         _output = output;
     }
@@ -46,7 +49,7 @@ internal sealed class DeleteCommand : ICliCommand
                 "Re-run with --yes to permanently remove it.");
         }
 
-        await _repository.DeleteAsync(vm.Config.Id, cancellationToken);
+        await _deletion.DeleteAsync(vm, cancellationToken);
         _output.Line($"Deleted VM '{vm.Config.Name}' ({vm.Config.Id}).");
         return 0;
     }

@@ -62,6 +62,7 @@ internal static class Program
             or OsCatalogException
             or QemuNotFoundException
             or InstallMediaException
+            or VmHasDependentsException
             or IOException
             or UnauthorizedAccessException;
 }

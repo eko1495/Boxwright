@@ -22,6 +22,7 @@ public sealed partial class VmListViewModel : ObservableObject
     private readonly ILogReader _logReader;
     private readonly IVmSnapshotService _vmSnapshots;
     private readonly IVmCloneService _cloneService;
+    private readonly IVmDeletionService _deletionService;
     private readonly ILiveSnapshotService _liveSnapshotService;
 
     public VmListViewModel(
@@ -34,6 +35,7 @@ public sealed partial class VmListViewModel : ObservableObject
         ILogReader logReader,
         IVmSnapshotService vmSnapshots,
         IVmCloneService cloneService,
+        IVmDeletionService deletionService,
         ILiveSnapshotService liveSnapshotService)
     {
         ArgumentNullException.ThrowIfNull(repository);
@@ -45,6 +47,7 @@ public sealed partial class VmListViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(logReader);
         ArgumentNullException.ThrowIfNull(vmSnapshots);
         ArgumentNullException.ThrowIfNull(cloneService);
+        ArgumentNullException.ThrowIfNull(deletionService);
         ArgumentNullException.ThrowIfNull(liveSnapshotService);
 
         _repository = repository;
@@ -56,6 +59,7 @@ public sealed partial class VmListViewModel : ObservableObject
         _logReader = logReader;
         _vmSnapshots = vmSnapshots;
         _cloneService = cloneService;
+        _deletionService = deletionService;
         _liveSnapshotService = liveSnapshotService;
     }
 
@@ -149,7 +153,7 @@ public sealed partial class VmListViewModel : ObservableObject
 
     private VmListItemViewModel CreateItem(Vm vm)
     {
-        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _embeddedVnc, _logReader, _vmSnapshots, _cloneService, _liveSnapshotService);
+        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _embeddedVnc, _logReader, _vmSnapshots, _cloneService, _deletionService, _liveSnapshotService);
         item.Deleted += OnItemDeleted;
         item.Cloned += OnItemCloned;
         return item;

@@ -45,6 +45,7 @@ internal static class CliServices
         services.AddSingleton<ISnapshotService, SnapshotService>();
         services.AddSingleton<IVmSnapshotService, VmSnapshotService>();
         services.AddSingleton<IVmCloneService, VmCloneService>();
+        services.AddSingleton<IVmDeletionService, VmDeletionService>();
         services.AddSingleton<IDisplayLauncher, DisplayLauncher>();
         services.AddSingleton<IVmLauncher, VmLauncher>();
         services.AddSingleton<IVmRuntimeStore, VmRuntimeStore>();
