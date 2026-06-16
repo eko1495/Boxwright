@@ -79,7 +79,10 @@ internal static class ServiceConfiguration
                     new Uri(RemoteOsCatalogSource.DefaultCatalogUrl),
                     RemoteOsCatalogSource.DefaultCacheFilePath,
                     TimeSpan.FromSeconds(5),
-                    sp.GetService<ILogger<RemoteOsCatalogSource>>()),
+                    sp.GetService<ILogger<RemoteOsCatalogSource>>(),
+                    // Past ~3 weeks offline, a cached catalog is flagged stale (warned + surfaced), not silently
+                    // trusted — its ISO URLs/SHA-256 may have drifted (ADR-0020 freshness check). Real clock in prod.
+                    stalenessWindow: RemoteOsCatalogSource.DefaultStalenessWindow),
                 sp.GetRequiredService<LocalRecipeCatalogSource>(),
             ],
             sp.GetService<ILogger<CompositeOsCatalogSource>>()));
