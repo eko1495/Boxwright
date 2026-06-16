@@ -19,7 +19,8 @@ public interface IRecipeInstaller
 /// The default <see cref="IRecipeInstaller"/>. Supports the <c>initrd-inject</c> mechanism
 /// (preseed/kickstart style): copy the recipe's kernel + initrd out of the ISO, inject the templated seed
 /// file into the initrd (<see cref="InitrdFileInjector"/>), and boot with the templated kernel command
-/// line. Cloud-init (NoCloud CIDATA seed) is a planned follow-up kind.
+/// line. Two kinds: <c>initrd-inject</c> (preseed/kickstart injected into the initrd) and <c>cloud-init</c>
+/// (the seed written as a NoCloud CIDATA disk — Ubuntu autoinstall style).
 /// </summary>
 public sealed class RecipeInstaller : IRecipeInstaller
 {
@@ -34,15 +35,22 @@ public sealed class RecipeInstaller : IRecipeInstaller
         ArgumentException.ThrowIfNullOrWhiteSpace(vmFolderPath);
         ArgumentNullException.ThrowIfNull(answers);
 
-        if (!string.Equals(recipe.Kind, UnattendedRecipe.KindInitrdInject, StringComparison.OrdinalIgnoreCase))
+        bool isInject = string.Equals(recipe.Kind, UnattendedRecipe.KindInitrdInject, StringComparison.OrdinalIgnoreCase);
+        bool isCloudInit = string.Equals(recipe.Kind, UnattendedRecipe.KindCloudInit, StringComparison.OrdinalIgnoreCase);
+        if (!isInject && !isCloudInit)
         {
             throw new InstallMediaException(
-                $"Unsupported unattended recipe kind '{recipe.Kind}'. This build supports '{UnattendedRecipe.KindInitrdInject}'.");
+                $"Unsupported unattended recipe kind '{recipe.Kind}'. Supported: '{UnattendedRecipe.KindInitrdInject}', '{UnattendedRecipe.KindCloudInit}'.");
         }
 
-        if (string.IsNullOrWhiteSpace(recipe.SeedFileName) || string.IsNullOrWhiteSpace(recipe.KernelPath))
+        if (string.IsNullOrWhiteSpace(recipe.KernelPath))
         {
-            throw new InstallMediaException("An initrd-inject recipe needs a kernelPath and a seedFileName.");
+            throw new InstallMediaException("An unattended recipe needs a kernelPath.");
+        }
+
+        if (isInject && string.IsNullOrWhiteSpace(recipe.SeedFileName))
+        {
+            throw new InstallMediaException("An initrd-inject recipe needs a seedFileName.");
         }
 
         Directory.CreateDirectory(vmFolderPath);
@@ -64,7 +72,21 @@ public sealed class RecipeInstaller : IRecipeInstaller
         // One password hash per install, so a template that references it more than once stays consistent.
         string passwordHash = Sha512Crypt.Hash(answers.Password);
         string seed = RecipeTemplate.Substitute(recipe.SeedTemplate, answers, passwordHash, iso.VolumeLabel);
-        InitrdFileInjector.Append(initrdDest, recipe.SeedFileName, seed);
+
+        IReadOnlyList<DiskConfig> seedDisks;
+        if (isInject)
+        {
+            // Preseed/kickstart: the seed file rides inside the initrd; no extra disk.
+            InitrdFileInjector.Append(initrdDest, recipe.SeedFileName, seed);
+            seedDisks = [];
+        }
+        else
+        {
+            // cloud-init: the seed is a NoCloud CIDATA disk the installer probes for (the `append` must
+            // carry the matching ds=nocloud arg — the recipe author supplies it).
+            CloudInitSeedGenerator.WriteSeed(vmFolderPath, seed, Guid.NewGuid().ToString());
+            seedDisks = [new DiskConfig { File = CloudInitSeedGenerator.SeedFileName, Format = "raw", Interface = "virtio" }];
+        }
 
         return new UnattendedInstallPlan
         {
@@ -74,7 +96,7 @@ public sealed class RecipeInstaller : IRecipeInstaller
                 InitrdFile = InitrdFileName,
                 Append = RecipeTemplate.Substitute(recipe.Append, answers, passwordHash, iso.VolumeLabel),
             },
-            SeedDisks = [], // the seed lives in the initrd, not a separate disk
+            SeedDisks = seedDisks,
         };
     }
 }

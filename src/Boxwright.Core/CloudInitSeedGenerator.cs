@@ -37,7 +37,22 @@ public sealed class CloudInitSeedGenerator : ISeedGenerator
             SeedProfile.CloudImage => CloudImageUserData.Build(answers),
             _ => AutoinstallUserData.Build(answers),
         };
-        string metaData = AutoinstallUserData.MetaData(Guid.NewGuid().ToString());
+        return WriteSeed(vmFolderPath, userData, Guid.NewGuid().ToString());
+    }
+
+    /// <summary>
+    /// Writes a NoCloud CIDATA seed image into <paramref name="vmFolderPath"/> from a raw
+    /// <paramref name="userData"/> document (cloud-init <c>user-data</c>) and an <paramref name="instanceId"/>,
+    /// returning its path. This is the data-driven seam recipe-based installs use (ADR-0026), where the
+    /// user-data is a filled recipe template rather than a C#-built document.
+    /// </summary>
+    public static string WriteSeed(string vmFolderPath, string userData, string instanceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(vmFolderPath);
+        ArgumentNullException.ThrowIfNull(userData);
+        ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
+
+        string metaData = AutoinstallUserData.MetaData(instanceId);
 
         Directory.CreateDirectory(vmFolderPath);
         string path = Path.Combine(vmFolderPath, SeedFileName);

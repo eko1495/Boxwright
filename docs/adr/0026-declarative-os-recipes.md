@@ -1,6 +1,6 @@
 # ADR-0026: Declarative OS recipes (community-contributed OS definitions)
 
-- **Status:** Accepted (phase 1 — sourcing — and phase 2a — the initrd-inject install engine — implemented; the cloud-init recipe kind remains)
+- **Status:** Accepted (phase 1 — sourcing — and phase 2 — the recipe-driven install engine, both the `initrd-inject` and `cloud-init` kinds — implemented)
 - **Date:** 2026-06-15
 
 ## Context
@@ -60,10 +60,14 @@ liability, a cross-platform-parity risk, a potential GPL-contamination vector, a
      (`RecipeTemplate`, password hashed once per install). `CatalogVmInstaller` routes to it whenever an
      entry has an `unattended` recipe, otherwise the built-in per-family installer. So a community recipe
      can add a Debian/Fedora-style distro's **hands-free** install with no C#.
-   - **2b — pending (cloud-init kind).** A `cloud-init` kind that writes the templated `seedTemplate` as a
-     NoCloud CIDATA seed disk (generalizing Ubuntu autoinstall) — needs the FAT/CIDATA writer extracted
-     from `CloudInitSeedGenerator` to accept an arbitrary user-data string. The four built-in installers
-     can then be re-expressed as recipes to prove full coverage.
+   - **2b — DONE (cloud-init kind).** A `cloud-init` kind writes the templated `seedTemplate` as a NoCloud
+     CIDATA seed disk (generalizing Ubuntu autoinstall). `CloudInitSeedGenerator.WriteSeed` was extracted to
+     accept an arbitrary user-data string, and `RecipeInstaller` (kind `cloud-init`) copies the kernel/initrd
+     out of the ISO, writes the substituted `user-data` as the CIDATA seed (leaving the initrd untouched),
+     attaches it as a raw seed disk, and boots the substituted kernel command line (the recipe author
+     supplies the matching `ds=nocloud` arg). So a community recipe can add an Ubuntu-autoinstall-style
+     distro's **hands-free** install with no C#. Re-expressing the four built-in installers as recipes to
+     prove full coverage is left as a follow-up (the bundled installers stay authoritative for now).
 
 ## Consequences
 - **Easier:** the community adds a distro by editing data, not C#; the install layer stops being four

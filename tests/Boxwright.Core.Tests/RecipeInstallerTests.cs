@@ -112,10 +112,42 @@ public sealed class RecipeInstallerTests : IDisposable
     }
 
     [Fact]
+    public void Prepare_CloudInit_ExtractsKernelInitrd_WritesCidataSeedDisk_DoesNotTouchInitrd()
+    {
+        byte[] initrd = Encoding.UTF8.GetBytes("original-initrd-bytes");
+        string iso = BuildIso("UB2404", "boot/kernel.img", "boot/initrd.gz", initrd);
+        string vmFolder = Path.Combine(_dir, "vm");
+        var recipe = new UnattendedRecipe
+        {
+            Kind = UnattendedRecipe.KindCloudInit,
+            KernelPath = "boot/kernel.img",
+            InitrdPaths = ["boot/initrd.gz"],
+            Append = "autoinstall ds=nocloud",
+            SeedTemplate = "#cloud-config\nautoinstall:\n  identity:\n    hostname: {hostname}\n    username: {username}\n",
+        };
+        var answers = new UnattendedAnswers { Username = "carol", Password = "pw", Hostname = "lab1" };
+
+        UnattendedInstallPlan plan = new RecipeInstaller().Prepare(recipe, iso, vmFolder, answers);
+
+        Assert.True(File.Exists(Path.Combine(vmFolder, "vmlinuz")));
+        string initrdDest = Path.Combine(vmFolder, "initrd");
+        Assert.True(File.Exists(initrdDest));
+        Assert.Equal(initrd.Length, new FileInfo(initrdDest).Length); // cloud-init does NOT modify the initrd
+
+        // A NoCloud CIDATA seed disk was written and attached (raw), and the append is the recipe's.
+        string seedPath = Path.Combine(vmFolder, CloudInitSeedGenerator.SeedFileName);
+        Assert.True(File.Exists(seedPath));
+        DiskConfig seedDisk = Assert.Single(plan.SeedDisks);
+        Assert.Equal(CloudInitSeedGenerator.SeedFileName, seedDisk.File);
+        Assert.Equal("raw", seedDisk.Format);
+        Assert.Equal("autoinstall ds=nocloud", plan.Boot.Append);
+    }
+
+    [Fact]
     public void Prepare_UnsupportedKind_Throws()
     {
         string iso = BuildIso("X", "boot/k.img", "boot/i.gz", [1, 2, 3]);
-        var recipe = new UnattendedRecipe { Kind = "cloud-init", KernelPath = "boot/k.img", InitrdPaths = ["boot/i.gz"], SeedFileName = "user-data" };
+        var recipe = new UnattendedRecipe { Kind = "vmware-flings", KernelPath = "boot/k.img", InitrdPaths = ["boot/i.gz"], SeedFileName = "user-data" };
 
         Assert.Throws<InstallMediaException>(() =>
             new RecipeInstaller().Prepare(recipe, iso, Path.Combine(_dir, "vm"), new UnattendedAnswers()));
