@@ -82,6 +82,7 @@ internal static class CliServices
         services.AddSingleton<IUnattendedInstaller, DebianPreseedInstaller>();
         services.AddSingleton<IUnattendedInstaller, FedoraKickstartInstaller>();
         services.AddSingleton<IUnattendedInstallerResolver, UnattendedInstallerResolver>();
+        services.AddSingleton<IRecipeInstaller, RecipeInstaller>();
         services.AddSingleton<ICatalogVmInstaller, CatalogVmInstaller>();
 
         // Host USB enumeration for the passthrough picker (ADR-0023): Linux sysfs, capability-gated elsewhere.

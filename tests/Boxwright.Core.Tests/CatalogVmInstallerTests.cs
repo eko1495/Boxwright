@@ -13,6 +13,7 @@ public sealed class CatalogVmInstallerTests : IDisposable
     private readonly RecordingDiskService _disks = new();
     private readonly FakeIsoDownloader _downloader = new("/cache/image.bin");
     private readonly RecordingSeedGenerator _seeds = new();
+    private IRecipeInstaller _recipeInstaller = new RecipeInstaller();
 
     public CatalogVmInstallerTests()
     {
@@ -33,7 +34,7 @@ public sealed class CatalogVmInstallerTests : IDisposable
     }
 
     private CatalogVmInstaller BuildInstaller(params IUnattendedInstaller[] installers) =>
-        new(_downloader, _repository, _disks, _seeds, new UnattendedInstallerResolver(installers));
+        new(_downloader, _repository, _disks, _seeds, new UnattendedInstallerResolver(installers), _recipeInstaller);
 
     private static OsCatalogEntry IsoEntry(string family = "ubuntu") => new()
     {
@@ -108,6 +109,37 @@ public sealed class CatalogVmInstallerTests : IDisposable
     }
 
     [Fact]
+    public async Task Iso_unattended_withARecipe_usesTheRecipeInstaller_NotTheFamilyResolver()
+    {
+        var recipe = new RecordingRecipeInstaller(new UnattendedInstallPlan
+        {
+            Boot = new InstallBootConfig { KernelFile = "vmlinuz", InitrdFile = "initrd", Append = "recipe-append" },
+        });
+        _recipeInstaller = recipe;
+
+        // No family installer is registered — if routing fell through to the resolver it would throw.
+        CatalogVmInstaller installer = BuildInstaller();
+        OsCatalogEntry entry = IsoEntry() with
+        {
+            Unattended = new UnattendedRecipe
+            {
+                Kind = UnattendedRecipe.KindInitrdInject,
+                KernelPath = "boot/vmlinuz",
+                InitrdPaths = ["boot/initrd.gz"],
+                SeedFileName = "preseed.cfg",
+                SeedTemplate = "user {username}",
+            },
+        };
+        var answers = new UnattendedAnswers { Username = "me", Password = "pw" };
+
+        Vm vm = await installer.CreateAsync(entry, Options(unattended: true, answers: answers));
+
+        Assert.Equal(UnattendedRecipe.KindInitrdInject, recipe.Received!.Kind);
+        Assert.Equal("vm", vm.Config.Name);
+        Assert.Equal("recipe-append", vm.Config.InstallBoot!.Append); // from the recipe installer's plan
+    }
+
+    [Fact]
     public async Task CloudImage_flattens_resizes_and_seeds()
     {
         _disks.InfoVirtualSize = 10 * GiB; // image is 10 GiB; requested 20 GiB → grows
@@ -170,6 +202,17 @@ public sealed class CatalogVmInstallerTests : IDisposable
             Options(unattended: true, answers: new UnattendedAnswers { Username = "u", Password = "p" })));
 
         Assert.Empty(await _repository.ListAsync());
+    }
+
+    private sealed class RecordingRecipeInstaller(UnattendedInstallPlan plan) : IRecipeInstaller
+    {
+        public UnattendedRecipe? Received { get; private set; }
+
+        public UnattendedInstallPlan Prepare(UnattendedRecipe recipe, string isoPath, string vmFolderPath, UnattendedAnswers answers)
+        {
+            Received = recipe;
+            return plan;
+        }
     }
 
     private sealed class FakeIsoDownloader(string returnPath) : IIsoDownloader

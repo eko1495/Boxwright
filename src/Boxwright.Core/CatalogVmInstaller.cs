@@ -74,6 +74,7 @@ public sealed class CatalogVmInstaller : ICatalogVmInstaller
     private readonly IDiskService _diskService;
     private readonly ISeedGenerator _seedGenerator;
     private readonly IUnattendedInstallerResolver _installerResolver;
+    private readonly IRecipeInstaller _recipeInstaller;
 
     /// <summary>Creates an installer from its Core collaborators.</summary>
     public CatalogVmInstaller(
@@ -81,18 +82,21 @@ public sealed class CatalogVmInstaller : ICatalogVmInstaller
         VmRepository repository,
         IDiskService diskService,
         ISeedGenerator seedGenerator,
-        IUnattendedInstallerResolver installerResolver)
+        IUnattendedInstallerResolver installerResolver,
+        IRecipeInstaller recipeInstaller)
     {
         ArgumentNullException.ThrowIfNull(downloader);
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(diskService);
         ArgumentNullException.ThrowIfNull(seedGenerator);
         ArgumentNullException.ThrowIfNull(installerResolver);
+        ArgumentNullException.ThrowIfNull(recipeInstaller);
         _downloader = downloader;
         _repository = repository;
         _diskService = diskService;
         _seedGenerator = seedGenerator;
         _installerResolver = installerResolver;
+        _recipeInstaller = recipeInstaller;
     }
 
     /// <inheritdoc />
@@ -152,9 +156,11 @@ public sealed class CatalogVmInstaller : ICatalogVmInstaller
         {
             if (options.Unattended)
             {
-                UnattendedInstallPlan plan = _installerResolver
-                    .Resolve(entry.OsFamily)
-                    .Prepare(isoPath, vm.FolderPath, options.Answers!);
+                // A declarative recipe (ADR-0026) drives the install when present; otherwise the built-in
+                // per-family installer resolved by OsFamily (ADR-0016).
+                UnattendedInstallPlan plan = entry.Unattended is { } recipe
+                    ? _recipeInstaller.Prepare(recipe, isoPath, vm.FolderPath, options.Answers!)
+                    : _installerResolver.Resolve(entry.OsFamily).Prepare(isoPath, vm.FolderPath, options.Answers!);
                 VmConfig withSeed = vm.Config with
                 {
                     Disks = [.. vm.Config.Disks, .. plan.SeedDisks],

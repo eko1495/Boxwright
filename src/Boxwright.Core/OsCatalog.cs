@@ -82,6 +82,43 @@ public sealed record OsCatalogEntry
 
     /// <summary>Optional note shown to the user (e.g. evaluation terms or install hints).</summary>
     public string? Notes { get; init; }
+
+    /// <summary>
+    /// Optional declarative unattended-install recipe (ADR-0026). When present, an unattended install for
+    /// this entry is driven by the recipe (<see cref="IRecipeInstaller"/>) instead of a built-in C# installer
+    /// resolved by <see cref="OsFamily"/> — so the community can add a distro's unattended install as data.
+    /// </summary>
+    public UnattendedRecipe? Unattended { get; init; }
+}
+
+/// <summary>
+/// A declarative unattended-install recipe (ADR-0026): how to make an installer ISO run hands-free,
+/// expressed as data so a community recipe can add it without a C# installer. Template fields support
+/// placeholders filled from the answers: <c>{username}</c>, <c>{password}</c>, <c>{passwordHash}</c>,
+/// <c>{hostname}</c>, <c>{locale}</c>, <c>{timezone}</c>, <c>{keyboard}</c>, and <c>{isoLabel}</c>.
+/// </summary>
+public sealed record UnattendedRecipe
+{
+    /// <summary>The seed mechanism: <c>initrd-inject</c> (a generated file injected into the installer initrd — preseed/kickstart style).</summary>
+    public const string KindInitrdInject = "initrd-inject";
+
+    /// <summary>Which mechanism drives the install (currently <see cref="KindInitrdInject"/>).</summary>
+    public string Kind { get; init; } = string.Empty;
+
+    /// <summary>The kernel's path inside the ISO (e.g. <c>install.amd/vmlinuz</c>).</summary>
+    public string KernelPath { get; init; } = string.Empty;
+
+    /// <summary>Candidate initrd paths inside the ISO (first that exists wins, e.g. <c>install.amd/initrd.gz</c>).</summary>
+    public IReadOnlyList<string> InitrdPaths { get; init; } = [];
+
+    /// <summary>The kernel command-line template (placeholders allowed), e.g. <c>auto=true priority=critical</c>.</summary>
+    public string Append { get; init; } = string.Empty;
+
+    /// <summary>For <c>initrd-inject</c>: the seed file's name at the initramfs root (e.g. <c>preseed.cfg</c>).</summary>
+    public string SeedFileName { get; init; } = string.Empty;
+
+    /// <summary>The seed document template (preseed/kickstart, with placeholders) injected/written for the install.</summary>
+    public string SeedTemplate { get; init; } = string.Empty;
 }
 
 /// <summary>Recommended VM specs the catalog prefills for an <see cref="OsCatalogEntry"/>.</summary>
