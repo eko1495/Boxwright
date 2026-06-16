@@ -133,7 +133,9 @@ internal sealed class OsCommand : ICliCommand
 
     private static string? DescribeFreshness(OsCatalogFreshness freshness)
     {
-        int days = (int)(freshness.Age?.TotalDays ?? 0);
+        // Clamp at 0: a cache file with a future mtime (clock skew, copied from another machine) would
+        // otherwise print "cached -3 day(s) ago".
+        int days = Math.Max(0, (int)(freshness.Age?.TotalDays ?? 0));
         return freshness.State switch
         {
             OsCatalogFreshnessState.Remote => "Catalog: served from the remote manifest.",

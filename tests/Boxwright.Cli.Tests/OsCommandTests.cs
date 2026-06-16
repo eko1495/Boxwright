@@ -141,4 +141,57 @@ public sealed class OsCommandTests
         await Assert.ThrowsAsync<CliException>(() =>
             command.RunAsync(ParsedArgs.Parse(["show"]), CancellationToken.None));
     }
+
+    [Fact]
+    public async Task List_flags_a_stale_catalog_cache()
+    {
+        var catalog = new FreshnessAwareCatalog(
+            new OsCatalogFreshness(OsCatalogFreshnessState.StaleCache, Age: TimeSpan.FromDays(40)),
+            Entry("ubuntu-x", "Ubuntu", true));
+        var output = new CapturingOutput();
+        var command = new OsCommand(catalog, output.Cli);
+
+        await command.RunAsync(ParsedArgs.Parse(["list"]), CancellationToken.None);
+
+        Assert.Contains("stale", output.Out, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("40 day", output.Out, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task List_does_not_flag_a_fresh_remote_catalog_as_stale()
+    {
+        var catalog = new FreshnessAwareCatalog(
+            new OsCatalogFreshness(OsCatalogFreshnessState.Remote),
+            Entry("ubuntu-x", "Ubuntu", true));
+        var output = new CapturingOutput();
+        var command = new OsCommand(catalog, output.Cli);
+
+        await command.RunAsync(ParsedArgs.Parse(["list"]), CancellationToken.None);
+
+        Assert.DoesNotContain("stale", output.Out, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task List_json_omits_the_freshness_note()
+    {
+        var catalog = new FreshnessAwareCatalog(
+            new OsCatalogFreshness(OsCatalogFreshnessState.StaleCache, Age: TimeSpan.FromDays(40)),
+            Entry("ubuntu-x", "Ubuntu", true));
+        var output = new CapturingOutput();
+        var command = new OsCommand(catalog, output.Cli);
+
+        await command.RunAsync(ParsedArgs.Parse(["list", "--json"]), CancellationToken.None);
+
+        Assert.DoesNotContain("Catalog:", output.Out, StringComparison.Ordinal); // --json stays a pure array
+    }
+
+    // A catalog source that also reports freshness, to exercise the CLI note.
+    private sealed class FreshnessAwareCatalog(OsCatalogFreshness freshness, params OsCatalogEntry[] entries)
+        : IOsCatalogSource, IOsCatalogFreshnessProvider
+    {
+        public Task<IReadOnlyList<OsCatalogEntry>> GetEntriesAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<OsCatalogEntry>>(entries);
+
+        public OsCatalogFreshness GetFreshness() => freshness;
+    }
 }
