@@ -188,10 +188,12 @@ Invest here only if Stage 2 metrics trend positive.
       `LocalRecipeCatalogSource` loads `recipes/*.json` (catalog documents) from a local folder and
       `CompositeOsCatalogSource` layers them over remote → cache → bundled (local wins by id); CLI
       `boxwright recipe dir|list|validate`; recipes surface in `os list` + the GUI picker. A recipe can now
-      also carry a declarative **unattended** block (`UnattendedRecipe` + `RecipeInstaller`, kind
-      `initrd-inject`): copy the kernel/initrd, inject a templated preseed/kickstart into the initrd, boot
-      a templated cmdline — so the community can add a Debian/Fedora-style hands-free install with no C#.
-      Remaining: a `cloud-init` recipe kind (CIDATA seed disk, generalizing Ubuntu autoinstall).
+      also carry a declarative **unattended** block (`UnattendedRecipe` + `RecipeInstaller`) in two kinds:
+      `initrd-inject` (copy the kernel/initrd, inject a templated preseed/kickstart into the initrd, boot a
+      templated cmdline — Debian/Fedora-style) and `cloud-init` (write the templated user-data as a NoCloud
+      CIDATA seed disk, leaving the initrd untouched — Ubuntu-autoinstall-style). So the community can add a
+      distro's hands-free install with no C#. Remaining (optional): re-express the four built-in per-family
+      installers as recipes to prove full coverage.
 
 ---
 

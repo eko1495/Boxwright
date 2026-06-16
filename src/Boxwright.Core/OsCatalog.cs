@@ -102,7 +102,10 @@ public sealed record UnattendedRecipe
     /// <summary>The seed mechanism: <c>initrd-inject</c> (a generated file injected into the installer initrd — preseed/kickstart style).</summary>
     public const string KindInitrdInject = "initrd-inject";
 
-    /// <summary>Which mechanism drives the install (currently <see cref="KindInitrdInject"/>).</summary>
+    /// <summary>The seed mechanism: <c>cloud-init</c> (the seed written as a NoCloud CIDATA disk — Ubuntu autoinstall style).</summary>
+    public const string KindCloudInit = "cloud-init";
+
+    /// <summary>Which mechanism drives the install (<see cref="KindInitrdInject"/> or <see cref="KindCloudInit"/>).</summary>
     public string Kind { get; init; } = string.Empty;
 
     /// <summary>The kernel's path inside the ISO (e.g. <c>install.amd/vmlinuz</c>).</summary>
@@ -114,10 +117,10 @@ public sealed record UnattendedRecipe
     /// <summary>The kernel command-line template (placeholders allowed), e.g. <c>auto=true priority=critical</c>.</summary>
     public string Append { get; init; } = string.Empty;
 
-    /// <summary>For <c>initrd-inject</c>: the seed file's name at the initramfs root (e.g. <c>preseed.cfg</c>).</summary>
+    /// <summary>For <c>initrd-inject</c>: the seed file's name at the initramfs root (e.g. <c>preseed.cfg</c>). Unused for <c>cloud-init</c> (the file is always <c>user-data</c>).</summary>
     public string SeedFileName { get; init; } = string.Empty;
 
-    /// <summary>The seed document template (preseed/kickstart, with placeholders) injected/written for the install.</summary>
+    /// <summary>The seed document template (with placeholders): a preseed/kickstart for <c>initrd-inject</c>, or the cloud-init <c>user-data</c> for <c>cloud-init</c>.</summary>
     public string SeedTemplate { get; init; } = string.Empty;
 }
 
