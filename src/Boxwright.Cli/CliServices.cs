@@ -101,6 +101,7 @@ internal static class CliServices
         AddCommand<ListCommand>(services);
         AddCommand<InfoCommand>(services);
         AddCommand<CreateCommand>(services);
+        AddCommand<SetCommand>(services);
         AddCommand<UsbCommand>(services);
         AddCommand<NetCommand>(services);
         AddCommand<TemplateCommand>(services);
