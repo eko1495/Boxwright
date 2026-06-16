@@ -23,6 +23,12 @@
   <ItemGroup>
     <!-- Curated OS catalog (one-click "Get an OS"); loaded via GetManifestResourceStream. -->
     <EmbeddedResource Include="OsCatalog.json" />
+    <!--
+      Bundled OpenPGP trust anchors (ADR-0027), resolved by BundledTrustedKeyProvider.
+      PHASE 2: the glob embeds any armored release keys dropped here; no real keys are bundled
+      yet (only keys/README.md, which is not embedded). Real-key bundling is the deferred step.
+    -->
+    <EmbeddedResource Include="keys\*.asc" />
   </ItemGroup>
 
   <!--

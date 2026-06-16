@@ -79,7 +79,13 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
 - [~] GPG/PGP *signature* verification (ADR-0027) — phase 1 done: a pure-managed OpenPGP verifier
       (`IOpenPgpVerifier`/`OpenPgpVerifier`, BouncyCastle) checks a detached signature against a trusted
       key, fully unit-tested. SHA-256 stays mandatory; the signature is an additional gate. Phase 2
-      (wiring per-distro signatures + bundled release keys into the download) is a follow-on.
+      done (mechanism + tests): an optional `OsCatalogSignature` block on a catalog entry drives
+      `IsoDownloader` to fetch the distro's checksums + detached signature, verify it against a **bundled**
+      trusted key (`ITrustedKeyProvider` / `BundledTrustedKeyProvider`, keys embedded under `keys/`), and
+      confirm the entry's SHA-256 is listed for the expected filename — a fail-closed gate after SHA-256,
+      never a fallback. Unit-tested end-to-end with a throwaway in-test key (no real keys, no real network).
+      **Deferred (live verification):** no real distro release keys are bundled yet and no real entry is
+      wired to a live signature — that needs real key material plus an end-to-end download to confirm.
 - **Unattended install** for Ubuntu — two paths (see ADR-0013):
   - [x] *Cloud image* — the pre-installed `…-server-cloudimg-amd64.img` is flattened into the VM disk
         (`qemu-img convert`), grown to size (`qemu-img resize`), and booted with the cloud-init

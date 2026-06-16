@@ -1,6 +1,7 @@
 # ADR-0027: OpenPGP signature verification for catalog downloads
 
-- **Status:** Accepted (phase 1 — the verification primitive — implemented; download-time wiring is phase 2)
+- **Status:** Accepted (phase 1 — the verification primitive — implemented; phase 2 — the download-time
+  wiring — mechanism + tests implemented, real-key bundling pending)
 - **Date:** 2026-06-16
 
 ## Context
@@ -34,13 +35,36 @@ discovery/version surface.
   user-installed), never fetched over the same channel as the thing they authenticate — otherwise an
   attacker who controls the manifest controls the key too and the signature proves nothing. SHA-256 stays
   **mandatory** and unchanged; the signature is an *additional* gate, not a replacement.
-- **Phase 2 (planned, not in this ADR's implementation): wire it into the download.** A catalog entry gains
-  an optional signature block — the detached-signature URL (over the distro's checksums document) plus the
-  id/fingerprint of the bundled key expected to have signed it. `IsoDownloader` (or a verifier around it)
-  fetches the signature, verifies it against the bundled key, confirms the entry's `sha256` appears in the
-  signed checksums, and only then trusts the download. Per-distro specifics (which key, which checksums
-  file, filename matching) are fiddly and need real release keys bundled and an end-to-end test against a
-  live download — so they are deliberately a separate change, not folded into the primitive.
+- **Phase 2 (mechanism + tests implemented; real-key bundling pending): wire it into the download.**
+  `OsCatalogEntry` gains an optional `OsCatalogSignature` block: the URL of the distro's checksums
+  document, the URL of a detached signature over that document, the id of the **bundled** trusted key
+  expected to have signed it, and an optional `checksumsFileName` (the ISO's name as it appears in the
+  checksums; defaults to the ISO URL's last segment). Entries **without** the block behave exactly as
+  before — SHA-256 only.
+  - **Bundled-key seam.** `ITrustedKeyProvider.OpenPublicKey(keyId)` resolves the armored key the entry
+    names. The default `BundledTrustedKeyProvider` reads keys embedded in `Boxwright.Core` under `keys/`
+    (manifest resource `Boxwright.Core.keys.<keyId>.asc`), so the trust anchors are part of the installed
+    binary and never fetched over the channel they authenticate. The interface is the test seam (tests
+    supply a throwaway key without checked-in key material).
+  - **Gate placement.** In `IsoDownloader.EnsureAsync`, the signature gate runs **after** the SHA-256
+    match and **before** the verified `.part` is promoted into the cache. It fetches the checksums + the
+    detached signature via `IHttpStreamSource`, verifies the signature against the bundled key with
+    `IOpenPgpVerifier`, and confirms the entry's `sha256` is listed in the now-trusted checksums **against
+    the expected filename** (so a multi-image `SHA256SUMS` can't match one image's hash to another's name).
+    Only then is the `.sha256` marker written. A cache hit re-trusts via that marker and makes **zero**
+    network calls — the marker exists only because the full gate (SHA-256 + signature) already passed.
+  - **Fail-closed.** Any failure — a missing/unfetchable checksums or signature URL, a malformed or
+    wrong-key signature, a signature that doesn't verify, an unknown bundled key id, or the hash not
+    appearing for the expected filename — throws `DownloadException` and discards the `.part`. There is
+    **no** silent fallback to SHA-256-only; a downloader built without a verifier even rejects a signed
+    entry outright rather than downgrade it.
+  - **Deferred (the unverifiable part).** No real distro release keys are bundled yet — `keys/` ships only
+    a placeholder README. The mechanism is unit-tested end-to-end with a throwaway in-test key (mint →
+    sign a `SHA256SUMS` → serve ISO + checksums + signature over a fake HTTP source → assert genuine /
+    tampered / wrong-key / missing-signature / unknown-key / filename-mismatch / unsigned cases). Bundling
+    an actual release key (verified out of band) and pointing a real catalog entry at a live signature
+    needs real key material plus an end-to-end download to confirm, so it remains a separate live-
+    verification step.
 
 ## Consequences
 - **Easier / safer:** provenance, not just integrity — a tampered catalog/recipe or a MITM can no longer

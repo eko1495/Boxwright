@@ -80,8 +80,16 @@ internal static class ServiceConfiguration
                 sp.GetRequiredService<LocalRecipeCatalogSource>(),
             ],
             sp.GetService<ILogger<CompositeOsCatalogSource>>()));
+        // OpenPGP provenance gate for catalog downloads (ADR-0027): a pure-managed verifier plus the
+        // bundled trusted-key store. Entries without a signature block are unaffected (SHA-256 only).
+        services.AddSingleton<IOpenPgpVerifier, OpenPgpVerifier>();
+        services.AddSingleton<ITrustedKeyProvider, BundledTrustedKeyProvider>();
         services.AddSingleton<IIsoDownloader>(sp =>
-            new IsoDownloader(sp.GetRequiredService<IHttpStreamSource>(), IsoDownloader.DefaultCacheDirectory));
+            new IsoDownloader(
+                sp.GetRequiredService<IHttpStreamSource>(),
+                IsoDownloader.DefaultCacheDirectory,
+                sp.GetRequiredService<IOpenPgpVerifier>(),
+                sp.GetRequiredService<ITrustedKeyProvider>()));
 
         // UI-thread marshalling for background callbacks (VM process exit).
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
