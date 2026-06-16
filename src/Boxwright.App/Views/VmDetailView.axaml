@@ -150,7 +150,9 @@
                                Text="Run qemu-img check on this VM's disks to detect corruption. The VM must be stopped." />
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="Check integrity" Command="{Binding RunIntegrityCheckCommand}" />
-                        <TextBlock Text="Checking…" IsVisible="{Binding IsCheckingIntegrity}"
+                        <Button Content="Repair…" Command="{Binding RunRepairCommand}"
+                                ToolTip.Tip="Attempt to fix corruptions and leaks (qemu-img check -r all). This rewrites the disk and may discard unrecoverable data — back up first." />
+                        <TextBlock Text="Working…" IsVisible="{Binding IsCheckingIntegrity}"
                                    VerticalAlignment="Center" Opacity="0.7" />
                     </StackPanel>
                     <TextBlock IsVisible="{Binding HasIntegrityResult}" Text="{Binding IntegrityText}"

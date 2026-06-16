@@ -75,7 +75,7 @@ public sealed class VmDiskUsageServiceTests
 
         public bool ThrowQemuNotFound { get; init; }
 
-        public Task<DiskCheckResult> CheckAsync(string path, CancellationToken cancellationToken = default) =>
+        public Task<DiskCheckResult> CheckAsync(string path, DiskRepairMode repair = DiskRepairMode.None, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
         public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default)

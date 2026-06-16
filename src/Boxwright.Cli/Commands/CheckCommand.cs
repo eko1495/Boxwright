@@ -31,7 +31,7 @@ internal sealed class CheckCommand : ICliCommand
 
     public string Summary => "Check a VM's disks for corruption (qemu-img check).";
 
-    public string Usage => "check <id|name> [--json]";
+    public string Usage => "check <id|name> [--repair] [--json]";
 
     public async Task<int> RunAsync(ParsedArgs args, CancellationToken cancellationToken)
     {
@@ -42,10 +42,13 @@ internal sealed class CheckCommand : ICliCommand
         if (_statusProbe.IsRunning(vm))
         {
             throw new CliException(
-                $"VM '{vm.Config.Name}' is running; stop it first (a check on a live disk reports false corruption).");
+                $"VM '{vm.Config.Name}' is running; stop it first (a check on a live disk reports false corruption" +
+                ", and repairing it would race the guest).");
         }
 
-        VmIntegrityReport report = await _integrity.CheckAsync(vm, cancellationToken);
+        // --repair opts into qemu-img check -r all, which rewrites the image and may discard unrecoverable data.
+        DiskRepairMode repair = args.HasFlag("repair") ? DiskRepairMode.All : DiskRepairMode.None;
+        VmIntegrityReport report = await _integrity.CheckAsync(vm, repair, cancellationToken);
 
         if (args.HasFlag("json"))
         {
@@ -53,14 +56,14 @@ internal sealed class CheckCommand : ICliCommand
         }
         else
         {
-            Print(vm, report);
+            Print(vm, report, repair);
         }
 
         // 0 when every checkable disk is consistent; non-zero on corruption, a failed check, or nothing to check.
         return report.Healthy ? 0 : 1;
     }
 
-    private void Print(Vm vm, VmIntegrityReport report)
+    private void Print(Vm vm, VmIntegrityReport report, DiskRepairMode repair)
     {
         if (!report.Checked)
         {
@@ -77,13 +80,25 @@ internal sealed class CheckCommand : ICliCommand
             else if (disk.Result is { } r)
             {
                 string verdict = r.Healthy ? "OK" : "CORRUPTED";
-                _output.Line($"  {disk.File}: {verdict} ({r.Corruptions} corruptions, {r.Leaks} leaks)");
+                string fixedNote = repair != DiskRepairMode.None && r.Repaired
+                    ? $", fixed {r.CorruptionsFixed} corruptions / {r.LeaksFixed} leaks"
+                    : string.Empty;
+                _output.Line($"  {disk.File}: {verdict} ({r.Corruptions} corruptions, {r.Leaks} leaks{fixedNote})");
             }
         }
 
-        _output.Line(report.Healthy
-            ? $"'{vm.Config.Name}': all disks consistent."
-            : $"'{vm.Config.Name}': problems found — see above.");
+        if (repair != DiskRepairMode.None)
+        {
+            _output.Line(report.Healthy
+                ? $"'{vm.Config.Name}': repaired — all disks now consistent."
+                : $"'{vm.Config.Name}': some problems could not be repaired — see above.");
+        }
+        else
+        {
+            _output.Line(report.Healthy
+                ? $"'{vm.Config.Name}': all disks consistent."
+                : $"'{vm.Config.Name}': problems found — run with --repair to attempt a fix.");
+        }
     }
 
     private static IntegrityJson ToJson(VmIntegrityReport report) => new(

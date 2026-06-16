@@ -133,7 +133,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         nameof(ResumeCommand), nameof(ResetCommand), nameof(DeleteCommand),
         nameof(ChooseIsoCommand), nameof(RemoveIsoCommand), nameof(OpenDisplayCommand), nameof(SaveStateCommand),
         nameof(RefreshGuestIpCommand), nameof(TakeLiveSnapshotCommand), nameof(RunIntegrityCheckCommand),
-        nameof(ToggleTemplateCommand), nameof(CreateInstanceCommand))]
+        nameof(RunRepairCommand), nameof(ToggleTemplateCommand), nameof(CreateInstanceCommand))]
     private VmStatus _status = VmStatus.Stopped;
 
     [ObservableProperty]
@@ -472,32 +472,57 @@ public sealed partial class VmListItemViewModel : ObservableObject
     /// <summary>True when an integrity-check result is available to show.</summary>
     public bool HasIntegrityResult => !string.IsNullOrEmpty(IntegrityText);
 
-    /// <summary>Integrity can only be checked while the VM is stopped and has a qcow2 disk (exclusive read).</summary>
+    /// <summary>Integrity can only be checked/repaired while the VM is stopped and has a qcow2 disk (exclusive access).</summary>
     public bool CanCheckIntegrity => Status == VmStatus.Stopped && HasQcow2Disk && !IsCheckingIntegrity;
 
     [RelayCommand(CanExecute = nameof(CanCheckIntegrity))]
-    private async Task RunIntegrityCheckAsync()
+    private Task RunIntegrityCheckAsync() => RunCheckAsync(DiskRepairMode.None);
+
+    // Repair rewrites the image and may discard unrecoverable data — an explicit, separate action (-r all).
+    [RelayCommand(CanExecute = nameof(CanCheckIntegrity))]
+    private Task RunRepairAsync() => RunCheckAsync(DiskRepairMode.All);
+
+    private async Task RunCheckAsync(DiskRepairMode repair)
     {
         IsCheckingIntegrity = true;
         RunIntegrityCheckCommand.NotifyCanExecuteChanged();
+        RunRepairCommand.NotifyCanExecuteChanged();
         try
         {
-            VmIntegrityReport report = await _integrityService.CheckAsync(Vm);
-            IntegrityText = !report.Checked
-                ? "No qcow2 disks to check."
-                : report.Healthy
-                    ? "Integrity: all disks consistent."
-                    : $"Integrity: problems found in {report.Disks.Count(d => d.Error is not null || d.Result is { Healthy: false })} of {report.Disks.Count} disk(s).";
+            VmIntegrityReport report = await _integrityService.CheckAsync(Vm, repair);
+            IntegrityText = DescribeReport(report, repair);
         }
         catch (Exception ex) when (ex is DiskException or QemuNotFoundException)
         {
-            IntegrityText = $"Couldn't check integrity: {ex.Message}";
+            IntegrityText = $"Couldn't {(repair == DiskRepairMode.None ? "check" : "repair")} integrity: {ex.Message}";
         }
         finally
         {
             IsCheckingIntegrity = false;
             RunIntegrityCheckCommand.NotifyCanExecuteChanged();
+            RunRepairCommand.NotifyCanExecuteChanged();
         }
+    }
+
+    private static string DescribeReport(VmIntegrityReport report, DiskRepairMode repair)
+    {
+        if (!report.Checked)
+        {
+            return "No qcow2 disks to check.";
+        }
+
+        int bad = report.Disks.Count(d => d.Error is not null || d.Result is { Healthy: false });
+        if (repair != DiskRepairMode.None)
+        {
+            long fixedCount = report.Disks.Sum(d => (d.Result?.CorruptionsFixed ?? 0) + (d.Result?.LeaksFixed ?? 0));
+            return report.Healthy
+                ? $"Repaired: all disks now consistent ({fixedCount} issue(s) fixed)."
+                : $"Repair left problems in {bad} of {report.Disks.Count} disk(s).";
+        }
+
+        return report.Healthy
+            ? "Integrity: all disks consistent."
+            : $"Integrity: problems found in {bad} of {report.Disks.Count} disk(s) — try Repair.";
     }
 
     // ---- Snapshots (qcow2 internal; stopped-only) ----
