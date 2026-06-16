@@ -277,6 +277,9 @@ public sealed class CatalogVmInstallerTests : IDisposable
             return Task.CompletedTask;
         }
 
+        public Task<DiskCheckResult> CheckAsync(string path, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default) =>
             Task.FromResult(new DiskInfo { VirtualSize = InfoVirtualSize });
 

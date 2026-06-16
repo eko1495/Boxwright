@@ -53,6 +53,7 @@ public sealed class MainWindowViewModelTests : IDisposable
             new FakeVmCloneService(),
             new FakeVmDeletionService(),
             new FakeVmDiskUsageService(),
+            new FakeVmIntegrityService(),
             new FakeLiveSnapshotService());
         return new MainWindowViewModel(
             vms, AcceleratorDetector.CreateDefault(), repository, new FakeDiskService(), opener,

@@ -21,6 +21,7 @@ public sealed class VmListItemViewModelTests : IDisposable
     private readonly FakeVmCloneService _clone = new();
     private readonly FakeVmDeletionService _deletion;
     private readonly FakeVmDiskUsageService _diskUsage = new();
+    private readonly FakeVmIntegrityService _integrity = new();
     private readonly FakeLiveSnapshotService _liveSnapshots = new();
 
     public VmListItemViewModelTests()
@@ -44,7 +45,7 @@ public sealed class VmListItemViewModelTests : IDisposable
 
     private VmListItemViewModel NewItem(IVmLauncher launcher, Vm? vm = null) =>
         new(vm ?? new Vm(Path.Combine(_root, "x"), new VmConfig { Id = "x", Name = "Test" }),
-            launcher, _repository, _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone, _deletion, _diskUsage, _liveSnapshots);
+            launcher, _repository, _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone, _deletion, _diskUsage, _integrity, _liveSnapshots);
 
     private Vm SnapshottableVm() =>
         new(Path.Combine(_root, "x"), new VmConfig
@@ -559,6 +560,36 @@ public sealed class VmListItemViewModelTests : IDisposable
         Assert.True(item.HasDiskUsage);
         Assert.Contains("2.0 GiB on disk", item.DiskUsageText, StringComparison.Ordinal);
         Assert.Contains("20.0 GiB virtual", item.DiskUsageText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunIntegrityCheck_ReportsConsistent_WhenHealthy()
+    {
+        _integrity.Report = new VmIntegrityReport
+        {
+            Disks = [new DiskIntegrity { File = "disk.qcow2", Result = new DiskCheckResult() }],
+        };
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
+
+        await item.RunIntegrityCheckCommand.ExecuteAsync(null);
+
+        Assert.True(item.HasIntegrityResult);
+        Assert.Contains("consistent", item.IntegrityText, StringComparison.Ordinal);
+        Assert.False(item.IsCheckingIntegrity);
+    }
+
+    [Fact]
+    public async Task RunIntegrityCheck_FlagsProblems_WhenCorrupted()
+    {
+        _integrity.Report = new VmIntegrityReport
+        {
+            Disks = [new DiskIntegrity { File = "disk.qcow2", Result = new DiskCheckResult { Corruptions = 2 } }],
+        };
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
+
+        await item.RunIntegrityCheckCommand.ExecuteAsync(null);
+
+        Assert.Contains("problems found", item.IntegrityText, StringComparison.Ordinal);
     }
 
     [Fact]

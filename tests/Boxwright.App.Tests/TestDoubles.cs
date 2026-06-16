@@ -181,6 +181,9 @@ internal sealed class FakeDiskService : IDiskService
         return Task.CompletedTask;
     }
 
+    public Task<DiskCheckResult> CheckAsync(string path, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new DiskCheckResult());
+
     public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default) =>
         Task.FromResult(new DiskInfo { VirtualSize = VirtualSizeBytes });
 
@@ -311,6 +314,15 @@ internal sealed class FakeVmDiskUsageService : IVmDiskUsageService
 
     public Task<VmDiskUsage> MeasureAsync(Vm vm, CancellationToken cancellationToken = default) =>
         Task.FromResult(Usage);
+}
+
+/// <summary>A fake integrity service returning a fixed report.</summary>
+internal sealed class FakeVmIntegrityService : IVmIntegrityService
+{
+    public VmIntegrityReport Report { get; set; } = new();
+
+    public Task<VmIntegrityReport> CheckAsync(Vm vm, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Report);
 }
 
 /// <summary>A fake deletion service: deletes via the given repository (so the folder really goes), or

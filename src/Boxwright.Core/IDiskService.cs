@@ -23,6 +23,14 @@ public interface IDiskService
     /// <exception cref="DiskException">The <c>qemu-img info</c> invocation failed or could not be parsed.</exception>
     Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Runs a read-only consistency check (<c>qemu-img check</c>) on <paramref name="path"/>, returning the
+    /// corruption/leak counts. A corrupted image is reported in the result (not thrown); only a failed or
+    /// unsupported check throws. The image must not be open in a running QEMU (a live image reads as corrupt).
+    /// </summary>
+    /// <exception cref="DiskException">The check could not run, or the image format does not support checks (e.g. raw).</exception>
+    Task<DiskCheckResult> CheckAsync(string path, CancellationToken cancellationToken = default);
+
     /// <summary>Copies a disk image to <paramref name="destinationPath"/> as a standalone image (full clone), preserving <paramref name="format"/>.</summary>
     /// <exception cref="DiskException">The <c>qemu-img convert</c> invocation failed.</exception>
     Task CopyAsync(string sourcePath, string destinationPath, string format = "qcow2", CancellationToken cancellationToken = default);

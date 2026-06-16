@@ -130,6 +130,9 @@ public sealed class VmCloneServiceTests : IDisposable
         public Task CreateAsync(string path, long sizeBytes, string format = "qcow2", CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<DiskCheckResult> CheckAsync(string path, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 

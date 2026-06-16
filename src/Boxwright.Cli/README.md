@@ -24,6 +24,7 @@ boxwright delete <id|name> --yes
 boxwright os list [--json]             # OS catalog ids the GUI's one-click flow uses
 boxwright recipe dir|list [--json]|validate <file>   # local OS recipes that extend the catalog
 boxwright snapshot list [--json]|create|restore|delete <id|name> [tag]   # offline qcow2 snapshots
+boxwright check <id|name> [--json]     # check disks for corruption (qemu-img check)
 boxwright usb list [--json]            # host USB devices (where the OS supports enumeration)
 boxwright usb show|add|remove <id|name> <vendor:product> [--description=TEXT] [--now]   # USB passthrough
 boxwright net show <id|name> [--json]                                  # network mode
@@ -52,6 +53,9 @@ or `--key=value`.
 - **`snapshot`** create/restore/delete span **every** qcow2 disk of the VM, so a multi-disk VM stays
   consistent (a tag is only restorable when present on all disks). `restore` rolls back to a tag (VM
   stopped — offline qcow2 access).
+- **`check`** runs `qemu-img check` on every qcow2 disk (VM stopped — a live disk reads as corrupt) and
+  reports corruptions/leaks per disk. Exits non-zero when any disk is corrupted or its check fails, so it
+  works as a health gate in scripts. Leaks (wasted-but-safe clusters) don't fail the check.
 
 - **`start`** runs in the foreground by default (Ctrl+C → graceful shutdown). `--detach` leaves
   the VM running for a later `stop`/`display`.

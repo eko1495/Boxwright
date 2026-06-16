@@ -24,6 +24,7 @@ public sealed partial class VmListViewModel : ObservableObject
     private readonly IVmCloneService _cloneService;
     private readonly IVmDeletionService _deletionService;
     private readonly IVmDiskUsageService _diskUsageService;
+    private readonly IVmIntegrityService _integrityService;
     private readonly ILiveSnapshotService _liveSnapshotService;
 
     public VmListViewModel(
@@ -38,6 +39,7 @@ public sealed partial class VmListViewModel : ObservableObject
         IVmCloneService cloneService,
         IVmDeletionService deletionService,
         IVmDiskUsageService diskUsageService,
+        IVmIntegrityService integrityService,
         ILiveSnapshotService liveSnapshotService)
     {
         ArgumentNullException.ThrowIfNull(repository);
@@ -51,6 +53,7 @@ public sealed partial class VmListViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(cloneService);
         ArgumentNullException.ThrowIfNull(deletionService);
         ArgumentNullException.ThrowIfNull(diskUsageService);
+        ArgumentNullException.ThrowIfNull(integrityService);
         ArgumentNullException.ThrowIfNull(liveSnapshotService);
 
         _repository = repository;
@@ -64,6 +67,7 @@ public sealed partial class VmListViewModel : ObservableObject
         _cloneService = cloneService;
         _deletionService = deletionService;
         _diskUsageService = diskUsageService;
+        _integrityService = integrityService;
         _liveSnapshotService = liveSnapshotService;
     }
 
@@ -158,7 +162,7 @@ public sealed partial class VmListViewModel : ObservableObject
 
     private VmListItemViewModel CreateItem(Vm vm)
     {
-        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _embeddedVnc, _logReader, _vmSnapshots, _cloneService, _deletionService, _diskUsageService, _liveSnapshotService);
+        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _embeddedVnc, _logReader, _vmSnapshots, _cloneService, _deletionService, _diskUsageService, _integrityService, _liveSnapshotService);
         item.Deleted += OnItemDeleted;
         item.Cloned += OnItemCloned;
         return item;
