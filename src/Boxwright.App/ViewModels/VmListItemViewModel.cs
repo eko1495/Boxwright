@@ -127,11 +127,13 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusText), nameof(CanManageSnapshots), nameof(CanClone), nameof(CanSaveState),
-        nameof(CanTakeLiveSnapshot), nameof(CanManageLiveSnapshots), nameof(CanCheckIntegrity))]
+        nameof(CanTakeLiveSnapshot), nameof(CanManageLiveSnapshots), nameof(CanCheckIntegrity),
+        nameof(CanToggleTemplate), nameof(CanCreateInstance))]
     [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(StopCommand), nameof(PauseCommand),
         nameof(ResumeCommand), nameof(ResetCommand), nameof(DeleteCommand),
         nameof(ChooseIsoCommand), nameof(RemoveIsoCommand), nameof(OpenDisplayCommand), nameof(SaveStateCommand),
-        nameof(RefreshGuestIpCommand), nameof(TakeLiveSnapshotCommand), nameof(RunIntegrityCheckCommand))]
+        nameof(RefreshGuestIpCommand), nameof(TakeLiveSnapshotCommand), nameof(RunIntegrityCheckCommand),
+        nameof(ToggleTemplateCommand), nameof(CreateInstanceCommand))]
     private VmStatus _status = VmStatus.Stopped;
 
     [ObservableProperty]
@@ -172,7 +174,10 @@ public sealed partial class VmListItemViewModel : ObservableObject
     public bool HasLog => !string.IsNullOrEmpty(LogContent);
 
     /// <summary>Human-readable status for the UI.</summary>
-    public string StatusText => Status switch
+    /// <summary>True when this VM is a template (ADR-0025): a frozen base, not bootable; you stamp instances off it.</summary>
+    public bool IsTemplate => Vm.Config.IsTemplate;
+
+    public string StatusText => IsTemplate ? "Template" : Status switch
     {
         VmStatus.Stopped => "Stopped",
         VmStatus.Starting => "Starting…",
@@ -278,7 +283,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         }
     }
 
-    private bool CanStart() => Status == VmStatus.Stopped;
+    private bool CanStart() => Status == VmStatus.Stopped && !IsTemplate;
 
     // A guest needs more than a few seconds to finish an ACPI shutdown; too short a grace
     // turns Stop into a hard kill, which risks corrupting the guest filesystem. 60s is a
@@ -869,6 +874,60 @@ public sealed partial class VmListItemViewModel : ObservableObject
         }
     }
 
+    // ---- Templates (ADR-0025; stopped-only) ----
+
+    [ObservableProperty]
+    private string? _instanceName;
+
+    /// <summary>Label for the convert action — depends on whether this VM is currently a template.</summary>
+    public string TemplateToggleLabel => IsTemplate ? "Convert to normal VM" : "Convert to template";
+
+    /// <summary>A VM can be marked/unmarked as a template only while stopped (its disk must be quiescent).</summary>
+    public bool CanToggleTemplate => Status == VmStatus.Stopped;
+
+    /// <summary>Instances can only be stamped from a template (and a template is always stopped).</summary>
+    public bool CanCreateInstance => IsTemplate && Status == VmStatus.Stopped;
+
+    [RelayCommand(CanExecute = nameof(CanToggleTemplate))]
+    private async Task ToggleTemplateAsync()
+    {
+        bool makingTemplate = !IsTemplate;
+        try
+        {
+            await UpdateConfigAsync(config => config with { IsTemplate = makingTemplate });
+            StatusMessage = makingTemplate
+                ? "Marked as a template. Stamp instances from it below; it can't be booted while it's a template."
+                : "Converted back to a normal, bootable VM.";
+        }
+        catch (Exception ex) when (ex is IOException or VmConfigException or UnauthorizedAccessException)
+        {
+            StatusMessage = $"Couldn't change the template flag: {ex.Message}";
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCreateInstance))]
+    private async Task CreateInstanceAsync()
+    {
+        if (!CanCreateInstance)
+        {
+            return;
+        }
+
+        // An instance is a linked clone by default (instant, space-efficient) — each a fresh non-template VM.
+        string name = string.IsNullOrWhiteSpace(InstanceName) ? $"{Name} instance" : InstanceName.Trim();
+        try
+        {
+            Vm instance = await _cloneService.CloneAsync(Vm, name, CloneMode.Linked);
+            InstanceName = null;
+            StatusMessage = $"Created instance '{name}'. Keep this template in place — the instance overlays its disk.";
+            Cloned?.Invoke(this, instance);
+        }
+        catch (Exception ex) when (ex is DiskException or IOException or VmConfigException)
+        {
+            StatusMessage = $"Couldn't create the instance: {ex.Message}";
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanDelete))]
     private void Delete() => IsConfirmingDelete = true;
 
@@ -965,6 +1024,12 @@ public sealed partial class VmListItemViewModel : ObservableObject
         OnPropertyChanged(nameof(IsoPath));
         OnPropertyChanged(nameof(HasIso));
         OnPropertyChanged(nameof(BootSummary));
+        OnPropertyChanged(nameof(IsTemplate));
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(TemplateToggleLabel));
+        OnPropertyChanged(nameof(CanCreateInstance));
+        StartCommand.NotifyCanExecuteChanged();      // a template can't boot
+        CreateInstanceCommand.NotifyCanExecuteChanged();
     }
 
     private async Task TeardownSessionAsync()

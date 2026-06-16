@@ -1,6 +1,6 @@
 # ADR-0025: VM templates (clone instances from a frozen base)
 
-- **Status:** Accepted (phase 1 — Core + CLI — implemented; GUI is phase 2)
+- **Status:** Accepted (phase 1 — Core + CLI — and phase 2 — the GUI templates picker — implemented)
 - **Date:** 2026-06-15
 
 ## Context
@@ -42,8 +42,11 @@ Two real problems a naïve "just clone it" approach hits:
    fresh concrete VM; `boxwright template list|create|new|delete`. The disk "freeze" is achieved by the
    launch-refusal (a template never boots, so its disk — the linked-instance backing — never changes), so
    no separate `chmod`/convert step was needed.
-2. **GUI (pending):** templates surfaced/grouped in the VM list; a "New from template" dialog. (Avalonia —
-   wants a real GUI smoke test, per the pattern.)
+2. **GUI (DONE):** the VM detail panel shows a template's status (the list pill reads "Template"), refuses
+   to start a template (`CanStart` is gated off, matching the launcher), and adds a "Template" section to
+   convert a stopped VM to/from a template and stamp **linked instances** from it (each a fresh non-template
+   VM, added to the list via the existing clone path). The viewmodel logic is unit-tested; the Avalonia
+   bindings still want a real GUI smoke test, per the pattern.
 3. **Delete-guard (DONE):** `IVmDeletionService`/`VmDeletionService` refuses to delete any VM that backs a
    linked clone. It scans every VM's qcow2 backing pointers (`qemu-img info`) and, if any resolves into the
    target's folder, throws `VmHasDependentsException` listing the dependents instead of orphaning them. Both

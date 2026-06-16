@@ -826,4 +826,61 @@ public sealed class VmListItemViewModelTests : IDisposable
         Assert.NotEmpty(item.DiskHistory);
         Assert.NotNull(item.MemoryText);
     }
+
+    private Vm TemplateVm() =>
+        new(Path.Combine(_root, "x"), new VmConfig { Id = "x", Name = "Base", IsTemplate = true });
+
+    [Fact]
+    public void Template_CannotBeStarted_AndShowsTemplateStatus()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), TemplateVm());
+
+        Assert.True(item.IsTemplate);
+        Assert.Equal("Template", item.StatusText);
+        Assert.False(item.StartCommand.CanExecute(null)); // a template can't boot
+        Assert.True(item.CanCreateInstance);
+    }
+
+    [Fact]
+    public async Task ToggleTemplate_MarksAVm_ThenUnmarksIt()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm())); // ordinary stopped VM
+
+        await item.ToggleTemplateCommand.ExecuteAsync(null);
+
+        Assert.True(item.IsTemplate);
+        Assert.Equal("Template", item.StatusText);
+        Assert.False(item.StartCommand.CanExecute(null));
+        Assert.True((await _repository.ListAsync()).Single(v => v.Config.Id == "x").Config.IsTemplate); // persisted
+
+        await item.ToggleTemplateCommand.ExecuteAsync(null);
+
+        Assert.False(item.IsTemplate);
+        Assert.True(item.StartCommand.CanExecute(null)); // bootable again
+    }
+
+    [Fact]
+    public async Task CreateInstance_LinkedClonesTheTemplate_AndRaisesCloned()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), TemplateVm());
+        Vm? raised = null;
+        item.Cloned += (_, vm) => raised = vm;
+        item.InstanceName = "dev-box";
+
+        await item.CreateInstanceCommand.ExecuteAsync(null);
+
+        Assert.Contains(("dev-box", CloneMode.Linked), _clone.Clones);
+        Assert.NotNull(raised);
+    }
+
+    [Fact]
+    public async Task CreateInstance_IsRefusedOnANonTemplate()
+    {
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm())); // not a template
+
+        Assert.False(item.CanCreateInstance);
+        await item.CreateInstanceCommand.ExecuteAsync(null);
+
+        Assert.Empty(_clone.Clones);
+    }
 }
