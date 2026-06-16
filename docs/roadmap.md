@@ -72,9 +72,11 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
 - [x] **Built-in OS catalog** with one-click ISO download — our own bundled JSON
       behind an interface, now fronted by a **remote, community-maintainable
       manifest** (remote → last-good cache → bundled, best-effort; the catalog grows
-      and refreshes without an app update). First cut: Ubuntu 24.04 Desktop/Server,
-      Debian 13 netinst; Fedora/Mint/Windows to follow (Windows needs a non-direct
-      acquisition flow). See ADR-0010 and ADR-0020.
+      and refreshes without an app update). A cache served past a freshness window
+      because the remote was unreachable is now surfaced (warned + flagged), not
+      silently stale. First cut: Ubuntu 24.04 Desktop/Server, Debian 13 netinst;
+      Fedora/Mint/Windows to follow (Windows needs a non-direct acquisition flow).
+      See ADR-0010 and ADR-0020.
 - [x] Checksum (SHA-256) verification + provenance display for downloads.
 - [~] GPG/PGP *signature* verification (ADR-0027) — phase 1 done: a pure-managed OpenPGP verifier
       (`IOpenPgpVerifier`/`OpenPgpVerifier`, BouncyCastle) checks a detached signature against a trusted

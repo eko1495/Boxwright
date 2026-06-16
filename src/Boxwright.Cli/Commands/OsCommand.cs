@@ -69,6 +69,18 @@ internal sealed class OsCommand : ICliCommand
         }
 
         _output.Out.Write(table.Render());
+
+        // A one-line freshness note (text output only — --json stays a pure entry array). Surfaces a stale
+        // cache so the user isn't silently looking at possibly-outdated ISO URLs/SHA-256 (ADR-0020).
+        if (_catalog is IOsCatalogFreshnessProvider freshness)
+        {
+            string? note = DescribeFreshness(freshness.GetFreshness());
+            if (note is not null)
+            {
+                _output.Line(note);
+            }
+        }
+
         return 0;
     }
 
@@ -117,5 +129,20 @@ internal sealed class OsCommand : ICliCommand
         }
 
         return 0;
+    }
+
+    private static string? DescribeFreshness(OsCatalogFreshness freshness)
+    {
+        // Clamp at 0: a cache file with a future mtime (clock skew, copied from another machine) would
+        // otherwise print "cached -3 day(s) ago".
+        int days = Math.Max(0, (int)(freshness.Age?.TotalDays ?? 0));
+        return freshness.State switch
+        {
+            OsCatalogFreshnessState.Remote => "Catalog: served from the remote manifest.",
+            OsCatalogFreshnessState.FreshCache => $"Catalog: cached {days} day(s) ago.",
+            OsCatalogFreshnessState.StaleCache => $"Catalog: cached {days} day(s) ago (stale; remote unreachable, ISO URLs/SHA-256 may be outdated).",
+            OsCatalogFreshnessState.Bundled => "Catalog: bundled baseline (remote and cache unavailable).",
+            _ => null,
+        };
     }
 }

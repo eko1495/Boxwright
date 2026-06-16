@@ -33,6 +33,21 @@ honest (Directive 9), cross-platform (Directive 4), and never blocking the user 
   fresher, so a successful fetch **replaces** the bundled list rather than merging. Bundled is purely the
   offline fallback.
 
+## Freshness check (refinement)
+The original "fall back **silently**" rule was too blunt for one case: a cache served **only because the
+remote was unreachable** can drift out of date (a distro point release changes the ISO URL/SHA-256), and a
+silent stale cache is dishonest (Directive 9). So the silent rule is refined — **the cache fallback is no
+longer silent once the cache is older than a configurable freshness window (default ~21 days).** In that
+case the cache is *still served* (offline users keep a usable list — behaviour unchanged) but it is logged
+as a warning and reported via a new `OsCatalogFreshness { State, CachedAtUtc, Age, IsStale }` snapshot
+(`IOsCatalogFreshnessProvider`, forwarded by `CompositeOsCatalogSource`) so the CLI/GUI can tell the user.
+Three states are distinguished: **Remote** (live this session), **FreshCache** (silent), **StaleCache**
+(warned + flagged), and **Bundled** — the shipped baseline, which is **explicitly not "stale"** because it
+is the floor, not an aged copy. The cache's refresh time is the cache file's `LastWriteTimeUtc`, stamped
+from an injectable `TimeProvider` (default `TimeProvider.System`) so the check is deterministic and unit-
+testable without a clock or network. The CLI `os list` prints a one-line note (e.g. `Catalog: cached 30
+day(s) ago (stale; remote unreachable, ISO URLs/SHA-256 may be outdated).`); `--json` output is unchanged.
+
 ## Trust model
 The catalog is **project-hosted over HTTPS** and grows by **pull requests to the repo** — the GitHub repo
 + TLS is the trust boundary, the same one a user already extends to the app binary. Crucially, this does
@@ -68,8 +83,13 @@ Supersedes the "a remote manifest can implement the same interface later" note i
   remote failure with a cache returns the cache (bundled untouched); remote failure with no cache returns
   bundled; malformed remote JSON falls back without throwing and does **not** overwrite the cache; an
   internal timeout falls back; caller cancellation propagates as `OperationCanceledException`; a second
-  call is memoized (network touched exactly once). All against a fake `IHttpStreamSource` + fake bundled
-  source, no network.
+  call is memoized (network touched exactly once). Freshness: a within-window cache is served silently
+  (no warning); a remote-unreachable cache past the window is still served but flagged `StaleCache` and
+  warned exactly once; a no-cache bundled fallback is `Bundled` and never stale; freshness is `Unknown`
+  before the first load; the window boundary (age == window) is treated as fresh; the configurable window
+  flips the same cache age between fresh/stale; and `CompositeOsCatalogSource` forwards the wrapped remote
+  source's freshness. All against a fake `IHttpStreamSource` + fake bundled source + fake `TimeProvider`,
+  no network.
 - **Live:** pointed at the real hosted URL, the app fetches + parses the catalog and writes
   `os-catalog-cache.json`; with a bad URL it serves the cache; with the cache removed it serves the bundled
   list — none of which surfaces an error in the catalog UI.

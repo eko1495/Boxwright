@@ -8,7 +8,7 @@ namespace Boxwright.Core;
 /// remote entry. First-seen order is preserved. A source that throws is logged and skipped, so one broken
 /// source never empties the catalog.
 /// </summary>
-public sealed class CompositeOsCatalogSource : IOsCatalogSource
+public sealed class CompositeOsCatalogSource : IOsCatalogSource, IOsCatalogFreshnessProvider
 {
     private readonly IReadOnlyList<IOsCatalogSource> _sources;
     private readonly ILogger? _logger;
@@ -52,5 +52,24 @@ public sealed class CompositeOsCatalogSource : IOsCatalogSource
         }
 
         return order.Select(id => byId[id]).ToList();
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Forwards the freshness of the first wrapped source that tracks it (the <see cref="RemoteOsCatalogSource"/>),
+    /// so callers holding only the composite can still surface a stale cache (ADR-0020). Returns
+    /// <see cref="OsCatalogFreshnessState.Unknown"/> when no wrapped source reports freshness.
+    /// </remarks>
+    public OsCatalogFreshness GetFreshness()
+    {
+        foreach (IOsCatalogSource source in _sources)
+        {
+            if (source is IOsCatalogFreshnessProvider provider)
+            {
+                return provider.GetFreshness();
+            }
+        }
+
+        return new OsCatalogFreshness(OsCatalogFreshnessState.Unknown);
     }
 }
