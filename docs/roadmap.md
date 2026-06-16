@@ -219,7 +219,8 @@ Invest here only if Stage 2 metrics trend positive.
       the GUI, so they interoperate. Remaining gap: Windows unattended stays GUI-only.
 - [x] Human-readable VM folders (ADR-0028). `boxwright rename <vm> <new-name>` updates the display name and
       reslugs the GUID folder to a browsable `name-<id8>` slug; the id stays the stable internal key
-      (`SaveAsync` gained a folder-aware overload so edits don't orphan a renamed folder). The rename is
+      (`VmRepository.SaveAsync`/`DeleteAsync` resolve a VM's folder by id, so every edit path and delete stay
+      in the slug folder — a renamed VM is never orphaned). The rename is
       **guarded**: stopped-only, and refused when the VM backs a linked clone (its absolute backing path
       points into the folder — reuses `IVmDeletionService.FindDependentsAsync`). GUI rename is deferred;
       the logic lives in Core (`IVmRenameService`) for both shells to adopt.

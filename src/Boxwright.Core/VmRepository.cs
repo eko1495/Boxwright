@@ -96,11 +96,11 @@ public sealed class VmRepository
     }
 
     /// <summary>
-    /// Writes a config to <c>root/&lt;id&gt;/vm.json</c>, creating the folder if needed. The config must
-    /// have a non-empty Id. Use this only for brand-new VMs (where folder == id by construction, as in
-    /// <see cref="CreateAsync"/>); to edit an existing VM use <see cref="SaveAsync(Vm, CancellationToken)"/>,
-    /// which writes to the VM's actual on-disk folder — a slugged folder (ADR-0028) is not <c>root/id</c>,
-    /// and recomputing the path from the id here would silently orphan it on the next save.
+    /// Writes a config back into the VM's <em>actual</em> on-disk folder, creating it for a brand-new VM.
+    /// The folder is found by the config's id (<see cref="FindFolderByIdAsync"/>), falling back to
+    /// <c>root/&lt;id&gt;</c> when no folder exists yet — so a slug-renamed folder (ADR-0028, where folder
+    /// != id) is honored and never orphaned, no matter which edit path calls this. The id stays the stable
+    /// internal key; the folder name is cosmetic.
     /// </summary>
     public async Task SaveAsync(VmConfig config, CancellationToken cancellationToken = default)
     {
@@ -110,18 +110,68 @@ public sealed class VmRepository
             throw new ArgumentException("The VM config must have a non-empty Id to be saved.", nameof(config));
         }
 
-        string folder = Path.Combine(_rootDirectory, config.Id);
+        string folder = await FindFolderByIdAsync(config.Id, cancellationToken)
+            ?? Path.Combine(_rootDirectory, config.Id);
         Directory.CreateDirectory(folder);
         await VmConfigJson.SaveAsync(Path.Combine(folder, ConfigFileName), config, cancellationToken);
     }
 
     /// <summary>
-    /// Writes a VM's config back into its <em>actual</em> folder (<see cref="Vm.FolderPath"/>), not a path
-    /// recomputed from the id. This is the folder-aware save the edit paths must use once a folder can be a
-    /// human-readable slug rather than the GUID id (ADR-0028): the id stays the stable internal key inside
-    /// <c>vm.json</c>, while the folder name is cosmetic, so the writer must honor the on-disk location it
-    /// was handed instead of fabricating <c>root/id</c> and orphaning the slug folder (with its disks and
-    /// <c>runtime.json</c>). The read path (<see cref="ListAsync"/>) already tolerates folder != id.
+    /// Finds the on-disk folder holding the VM with <paramref name="id"/>, or null if none. Because a VM's
+    /// folder may be a human-readable slug rather than its id (ADR-0028), callers that hold only an id must
+    /// resolve the folder rather than assume <c>root/id</c>. The common case (folder == id) is an O(1)
+    /// check; only a renamed VM forces a scan of the root.
+    /// </summary>
+    private async Task<string?> FindFolderByIdAsync(string id, CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(_rootDirectory))
+        {
+            return null;
+        }
+
+        string direct = Path.Combine(_rootDirectory, id);
+        if (await FolderHoldsIdAsync(direct, id, cancellationToken))
+        {
+            return direct;
+        }
+
+        foreach (string folder in Directory.EnumerateDirectories(_rootDirectory))
+        {
+            if (!string.Equals(folder, direct, StringComparison.Ordinal)
+                && await FolderHoldsIdAsync(folder, id, cancellationToken))
+            {
+                return folder;
+            }
+        }
+
+        return null;
+    }
+
+    private static async Task<bool> FolderHoldsIdAsync(string folder, string id, CancellationToken cancellationToken)
+    {
+        string configPath = Path.Combine(folder, ConfigFileName);
+        if (!File.Exists(configPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            VmConfig config = await VmConfigJson.LoadAsync(configPath, cancellationToken);
+            return string.Equals(config.Id, id, StringComparison.Ordinal);
+        }
+        catch (Exception ex) when (ex is VmConfigException or IOException or UnauthorizedAccessException)
+        {
+            return false; // an unreadable folder can't be the match we want
+        }
+    }
+
+    /// <summary>
+    /// Writes a VM's config into the exact folder it was loaded from (<see cref="Vm.FolderPath"/>) — an
+    /// explicit-folder fast path for callers that already hold the <see cref="Vm"/>, avoiding the id→folder
+    /// lookup that <see cref="SaveAsync(VmConfig, CancellationToken)"/> does. Both are folder-safe for a
+    /// slug-renamed VM (ADR-0028); this one just skips the scan. The folder must be an immediate child of
+    /// this repository's root.
     /// </summary>
     public async Task SaveAsync(Vm vm, CancellationToken cancellationToken = default)
     {
@@ -185,7 +235,9 @@ public sealed class VmRepository
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
 
-        string folder = Path.Combine(_rootDirectory, id);
+        // Resolve the VM's actual folder by id — a slug-renamed VM (ADR-0028) is not at root/id, so a naive
+        // root/id delete would silently leave it on disk.
+        string folder = await FindFolderByIdAsync(id, cancellationToken) ?? Path.Combine(_rootDirectory, id);
         if (Directory.Exists(folder))
         {
             await Task.Run(() => Directory.Delete(folder, recursive: true), cancellationToken);

@@ -28,9 +28,13 @@ folder rename dangerous:
   VMs share a name and keeps the folder traceable to its VM.
 - **id-only folders stay valid forever.** Migration is opt-in / lazy: `VmRepository` never assumes
   `folder == id` on read, so a never-renamed VM keeps its GUID folder with no penalty.
-- **`SaveAsync` gains a folder-aware overload** `SaveAsync(Vm)` that writes into `vm.FolderPath`. The
-  edit paths (`SetCommand`) use it so editing a slugged VM stays in its folder; `SaveAsync(VmConfig)`
-  survives only for brand-new VMs in `CreateAsync`, where `folder == id` by construction.
+- **`SaveAsync` and `DeleteAsync` resolve a VM's folder by its id, not `root/<id>`.** `VmRepository`
+  gains a private `FindFolderByIdAsync` (an O(1) `root/<id>` fast path, scanning only when a VM has been
+  renamed). `SaveAsync(VmConfig)` and `DeleteAsync(id)` both use it, so **every** edit path (the GUI
+  settings save, `set`/`net`/`usb`/`template`, live-snapshot config rewrites, the catalog installer) and
+  delete-by-id stay in the slug folder automatically — no per-call-site change and no orphaning. A
+  `SaveAsync(Vm)` overload also exists as an explicit-folder fast path for callers already holding the
+  `Vm` (it skips the lookup). New VMs (`CreateAsync`, before the folder exists) fall back to `root/<id>`.
 - **A guarded `IVmRenameService` / `VmRenameService`** does the rename. It:
   1. **Refuses when the VM backs a linked clone**, reusing `IVmDeletionService.FindDependentsAsync`
      (the same qcow2-backing scan the delete-guard uses — not re-derived) so the absolute-backing-path
