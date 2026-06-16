@@ -160,6 +160,14 @@ public sealed class IsoDownloader : IIsoDownloader
     private async Task VerifySignatureAsync(
         OsCatalogEntry entry, OsCatalogSignature signature, CancellationToken cancellationToken)
     {
+        // A signature block that's present but incomplete (missing url/key in the catalog JSON) must fail
+        // closed, not silently skip verification — the whole point of the block is the extra gate.
+        if (signature.ChecksumsUrl is null || signature.SignatureUrl is null || string.IsNullOrWhiteSpace(signature.KeyId))
+        {
+            throw new DownloadException(
+                $"{entry.Name} has an incomplete OpenPGP signature block (needs checksumsUrl, signatureUrl, and keyId); the download was discarded.");
+        }
+
         if (_pgp is null || _keys is null)
         {
             // An entry asked for signature verification but this downloader wasn't given the means to do

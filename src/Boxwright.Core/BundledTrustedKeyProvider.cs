@@ -39,9 +39,12 @@ public sealed class BundledTrustedKeyProvider : ITrustedKeyProvider
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(keyId);
 
-        // A catalog entry's KeyId is untrusted text; reject any value that couldn't be a bare resource
-        // segment so it can't reach for a different embedded resource (e.g. "../OsCatalog").
-        if (keyId.IndexOfAny(['.', '/', '\\']) >= 0)
+        // A catalog entry's KeyId is untrusted text; restrict it to a safe key-name charset (letters,
+        // digits, dot, dash, underscore) so it can't reach for a different embedded resource. Dots are
+        // allowed so real release-key ids like "canonical.archive" resolve; path separators and "<..>"
+        // parent refs are rejected.
+        if (keyId.Contains("..", StringComparison.Ordinal) ||
+            keyId.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_')))
         {
             return null;
         }

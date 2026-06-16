@@ -127,6 +127,23 @@ public sealed class IsoDownloaderSignatureTests
     }
 
     [Fact]
+    public async Task IncompleteSignatureBlock_FailsClosed_AndNeverFetches()
+    {
+        using var temp = new TempDir();
+        // A signature block present in the catalog but missing its checksums URL must fail closed —
+        // not silently fall back to SHA-256-only. No fetch should even be attempted.
+        var entry = SignedEntry() with
+        {
+            Signature = new OsCatalogSignature { SignatureUrl = new Uri(SignatureUrl), KeyId = KeyId },
+        };
+        var http = MultiHttp.Serving([], []); // any fetch would be observed
+        var downloader = Downloader(http, temp.Path, PgpTestKeys.NewProvider(PgpTestKeys.NewKey()));
+
+        await Assert.ThrowsAsync<DownloadException>(() => downloader.EnsureAsync(entry));
+        Assert.Empty(Directory.GetFiles(temp.Path));
+    }
+
+    [Fact]
     public async Task UnknownBundledKeyId_ThrowsAndLeavesNothing()
     {
         using var temp = new TempDir();
