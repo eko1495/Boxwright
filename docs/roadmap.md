@@ -173,6 +173,10 @@ Invest here only if Stage 2 metrics trend positive.
 - [x] External/live snapshots via `blockdev-snapshot-sync` (+ `transaction`) — take a point-in-time of a
       **running** VM with no downtime, atomically across disks; revert/delete while stopped (qcow2 overlay
       chain, safe-mode `qemu-img rebase` on delete). See ADR-0021.
+- [x] Disk-usage reporting (`IVmDiskUsageService`) — per-VM on-disk footprint (actual vs virtual, summed
+      across the configured disks via `qemu-img info`), surfaced in `boxwright list`/`info` (+ `--json`) and
+      the GUI detail panel. Best-effort: a missing `qemu-img` or unreadable disk degrades to "unmeasured"
+      rather than failing.
 
 ---
 

@@ -14,7 +14,7 @@ public sealed class InfoCommandTests
         var probe = new FakeStatusProbe();
         probe.MarkRunning(vm.Config.Id);
         var output = new CapturingOutput();
-        var command = new InfoCommand(new VmResolver(store.Repository), probe, output.Cli);
+        var command = new InfoCommand(new VmResolver(store.Repository), probe, new VmDiskUsageService(new FakeDiskService()), output.Cli);
 
         int code = await command.RunAsync(ParsedArgs.Parse(["alpha"]), CancellationToken.None);
 
@@ -30,7 +30,7 @@ public sealed class InfoCommandTests
     public async Task Missing_reference_is_a_usage_error()
     {
         using var store = new TempVmStore();
-        var command = new InfoCommand(new VmResolver(store.Repository), new FakeStatusProbe(), new CapturingOutput().Cli);
+        var command = new InfoCommand(new VmResolver(store.Repository), new FakeStatusProbe(), new VmDiskUsageService(new FakeDiskService()), new CapturingOutput().Cli);
 
         await Assert.ThrowsAsync<CliException>(() =>
             command.RunAsync(ParsedArgs.Parse([]), CancellationToken.None));

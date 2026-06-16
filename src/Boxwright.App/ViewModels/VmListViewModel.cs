@@ -23,6 +23,7 @@ public sealed partial class VmListViewModel : ObservableObject
     private readonly IVmSnapshotService _vmSnapshots;
     private readonly IVmCloneService _cloneService;
     private readonly IVmDeletionService _deletionService;
+    private readonly IVmDiskUsageService _diskUsageService;
     private readonly ILiveSnapshotService _liveSnapshotService;
 
     public VmListViewModel(
@@ -36,6 +37,7 @@ public sealed partial class VmListViewModel : ObservableObject
         IVmSnapshotService vmSnapshots,
         IVmCloneService cloneService,
         IVmDeletionService deletionService,
+        IVmDiskUsageService diskUsageService,
         ILiveSnapshotService liveSnapshotService)
     {
         ArgumentNullException.ThrowIfNull(repository);
@@ -48,6 +50,7 @@ public sealed partial class VmListViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(vmSnapshots);
         ArgumentNullException.ThrowIfNull(cloneService);
         ArgumentNullException.ThrowIfNull(deletionService);
+        ArgumentNullException.ThrowIfNull(diskUsageService);
         ArgumentNullException.ThrowIfNull(liveSnapshotService);
 
         _repository = repository;
@@ -60,6 +63,7 @@ public sealed partial class VmListViewModel : ObservableObject
         _vmSnapshots = vmSnapshots;
         _cloneService = cloneService;
         _deletionService = deletionService;
+        _diskUsageService = diskUsageService;
         _liveSnapshotService = liveSnapshotService;
     }
 
@@ -79,6 +83,7 @@ public sealed partial class VmListViewModel : ObservableObject
     {
         value?.RefreshSnapshotsCommand.Execute(null);
         value?.RefreshLiveSnapshotsCommand.Execute(null);
+        value?.RefreshDiskUsageCommand.Execute(null);
     }
 
     [ObservableProperty]
@@ -153,7 +158,7 @@ public sealed partial class VmListViewModel : ObservableObject
 
     private VmListItemViewModel CreateItem(Vm vm)
     {
-        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _embeddedVnc, _logReader, _vmSnapshots, _cloneService, _deletionService, _liveSnapshotService);
+        var item = new VmListItemViewModel(vm, _launcher, _repository, _dispatcher, _filePicker, _displayLauncher, _embeddedVnc, _logReader, _vmSnapshots, _cloneService, _deletionService, _diskUsageService, _liveSnapshotService);
         item.Deleted += OnItemDeleted;
         item.Cloned += OnItemCloned;
         return item;

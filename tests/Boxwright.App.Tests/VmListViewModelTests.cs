@@ -19,6 +19,7 @@ public sealed class VmListViewModelTests : IDisposable
     private readonly FakeSnapshotService _snapshots = new();
     private readonly FakeVmCloneService _clone = new();
     private readonly FakeVmDeletionService _deletion = new();
+    private readonly FakeVmDiskUsageService _diskUsage = new();
     private readonly FakeLiveSnapshotService _liveSnapshots = new();
 
     public VmListViewModelTests()
@@ -41,7 +42,7 @@ public sealed class VmListViewModelTests : IDisposable
     private VmRepository NewRepository() => new(_root);
 
     private VmListViewModel NewSut(VmRepository repository) =>
-        new(repository, new FakeVmLauncher(new FakeRunningVm()), _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone, _deletion, _liveSnapshots);
+        new(repository, new FakeVmLauncher(new FakeRunningVm()), _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone, _deletion, _diskUsage, _liveSnapshots);
 
     [Fact]
     public async Task Refresh_WithNoVms_LeavesListEmptyAndFlagsEmpty()
@@ -189,7 +190,7 @@ public sealed class VmListViewModelTests : IDisposable
         VmRepository repo = NewRepository();
         await repo.CreateAsync(new VmConfig { Name = "survivor" });
         var launcher = new FakeVmLauncher(new FakeRunningVm()) { AdoptResult = new FakeRunningVm() };
-        var sut = new VmListViewModel(repo, launcher, _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone, _deletion, _liveSnapshots);
+        var sut = new VmListViewModel(repo, launcher, _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone, _deletion, _diskUsage, _liveSnapshots);
 
         await sut.RefreshCommand.ExecuteAsync(null);
 

@@ -11,7 +11,7 @@ public sealed class ListCommandTests
     {
         using var store = new TempVmStore();
         var output = new CapturingOutput();
-        var command = new ListCommand(store.Repository, new FakeStatusProbe(), output.Cli);
+        var command = new ListCommand(store.Repository, new FakeStatusProbe(), new VmDiskUsageService(new FakeDiskService()), output.Cli);
 
         int code = await command.RunAsync(ParsedArgs.Parse([]), CancellationToken.None);
 
@@ -28,7 +28,7 @@ public sealed class ListCommandTests
         var probe = new FakeStatusProbe();
         probe.MarkRunning(running.Config.Id);
         var output = new CapturingOutput();
-        var command = new ListCommand(store.Repository, probe, output.Cli);
+        var command = new ListCommand(store.Repository, probe, new VmDiskUsageService(new FakeDiskService()), output.Cli);
 
         int code = await command.RunAsync(ParsedArgs.Parse([]), CancellationToken.None);
 
