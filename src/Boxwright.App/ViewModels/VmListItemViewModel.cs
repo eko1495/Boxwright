@@ -42,6 +42,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     private readonly ILogReader _logReader;
     private readonly IVmSnapshotService _vmSnapshots;
     private readonly IVmCloneService _cloneService;
+    private readonly IVmDeletionService _deletionService;
     private readonly ILiveSnapshotService _liveSnapshotService;
     private IRunningVm? _session;
 
@@ -56,6 +57,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         ILogReader logReader,
         IVmSnapshotService vmSnapshots,
         IVmCloneService cloneService,
+        IVmDeletionService deletionService,
         ILiveSnapshotService liveSnapshotService)
     {
         ArgumentNullException.ThrowIfNull(vm);
@@ -68,6 +70,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(logReader);
         ArgumentNullException.ThrowIfNull(vmSnapshots);
         ArgumentNullException.ThrowIfNull(cloneService);
+        ArgumentNullException.ThrowIfNull(deletionService);
         ArgumentNullException.ThrowIfNull(liveSnapshotService);
 
         Vm = vm;
@@ -80,6 +83,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         _logReader = logReader;
         _vmSnapshots = vmSnapshots;
         _cloneService = cloneService;
+        _deletionService = deletionService;
         _liveSnapshotService = liveSnapshotService;
     }
 
@@ -799,7 +803,18 @@ public sealed partial class VmListItemViewModel : ObservableObject
     [RelayCommand]
     private async Task ConfirmDeleteAsync()
     {
-        await _repository.DeleteAsync(Vm.Config.Id);
+        try
+        {
+            await _deletionService.DeleteAsync(Vm);
+        }
+        catch (VmHasDependentsException ex)
+        {
+            // A linked clone is backed by this VM's disks — deleting it would corrupt the clone (ADR-0025).
+            IsConfirmingDelete = false;
+            StatusMessage = ex.Message;
+            return;
+        }
+
         IsConfirmingDelete = false;
         Deleted?.Invoke(this, EventArgs.Empty);
     }

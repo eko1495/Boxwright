@@ -69,6 +69,8 @@ or `--key=value`.
 - **`template`** turns a stopped VM into a reusable frozen base (`create`) and stamps out instances from
   it (`new`, linked by default — instant — or `--full`). A template can't be booted; each instance is a
   fresh concrete VM with its own id and MAC. See ADR-0025.
+- **`delete`** refuses (even with `--yes`) when the VM backs a **linked clone** — deleting it would corrupt
+  the clone — and lists the dependents so you can remove them (or `--full`-clone them off) first.
 - **`net`** sets a VM's network mode: `user` (SLIRP NAT, the default), `bridge` (join a host bridge via
   `qemu-bridge-helper`), or `tap` (a pre-created TAP device). Bridge/TAP are **Linux-only** (a launch on
   another host fails with a clear message) and need the host bridge/TAP + setuid helper set up yourself —

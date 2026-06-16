@@ -19,6 +19,7 @@ public sealed class VmListItemViewModelTests : IDisposable
     private readonly FakeLogReader _logReader = new();
     private readonly FakeSnapshotService _snapshots = new();
     private readonly FakeVmCloneService _clone = new();
+    private readonly FakeVmDeletionService _deletion;
     private readonly FakeLiveSnapshotService _liveSnapshots = new();
 
     public VmListItemViewModelTests()
@@ -26,6 +27,7 @@ public sealed class VmListItemViewModelTests : IDisposable
         _root = Path.Combine(Path.GetTempPath(), "boxwright-item-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_root);
         _repository = new VmRepository(_root);
+        _deletion = new FakeVmDeletionService(_repository);
     }
 
     public void Dispose()
@@ -41,7 +43,7 @@ public sealed class VmListItemViewModelTests : IDisposable
 
     private VmListItemViewModel NewItem(IVmLauncher launcher, Vm? vm = null) =>
         new(vm ?? new Vm(Path.Combine(_root, "x"), new VmConfig { Id = "x", Name = "Test" }),
-            launcher, _repository, _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone, _liveSnapshots);
+            launcher, _repository, _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone, _deletion, _liveSnapshots);
 
     private Vm SnapshottableVm() =>
         new(Path.Combine(_root, "x"), new VmConfig
@@ -537,6 +539,24 @@ public sealed class VmListItemViewModelTests : IDisposable
         Assert.True(raised);
         Assert.False(item.IsConfirmingDelete);
         Assert.False(Directory.Exists(vm.FolderPath));
+    }
+
+    [Fact]
+    public async Task Delete_WhenLinkedClonesDependOnIt_IsRefused_AndSurfacesTheReason()
+    {
+        Vm vm = await _repository.CreateAsync(new VmConfig { Name = "template" });
+        _deletion.FailWith = new VmHasDependentsException("Can't delete 'template': 1 linked clone(s) ('inst').", ["inst"]);
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()), vm);
+        bool raised = false;
+        item.Deleted += (_, _) => raised = true;
+
+        item.DeleteCommand.Execute(null);
+        await item.ConfirmDeleteCommand.ExecuteAsync(null);
+
+        Assert.False(raised); // not deleted
+        Assert.False(item.IsConfirmingDelete); // dialog dismissed
+        Assert.Contains("linked clone", item.StatusMessage, StringComparison.Ordinal);
+        Assert.True(Directory.Exists(vm.FolderPath)); // folder kept
     }
 
     [Fact]

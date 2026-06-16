@@ -111,6 +111,9 @@ internal sealed class FakeDiskService : IDiskService
 {
     public List<(string Path, long SizeBytes, string Format)> Created { get; } = [];
 
+    /// <summary>Maps a disk path to its qcow2 backing file (for linked-clone dependency checks). Default: no backing.</summary>
+    public Dictionary<string, string> Backing { get; } = new(StringComparer.Ordinal);
+
     public Task CreateAsync(string path, long sizeBytes, string format = "qcow2", CancellationToken cancellationToken = default)
     {
         Created.Add((path, sizeBytes, format));
@@ -120,7 +123,7 @@ internal sealed class FakeDiskService : IDiskService
     public Task ResizeAsync(string path, long sizeBytes, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException();
+        Task.FromResult(new DiskInfo { FullBackingFilename = Backing.TryGetValue(path, out string? b) ? b : null });
 
     public Task CopyAsync(string sourcePath, string destinationPath, string format = "qcow2", CancellationToken cancellationToken = default) =>
         Task.CompletedTask;

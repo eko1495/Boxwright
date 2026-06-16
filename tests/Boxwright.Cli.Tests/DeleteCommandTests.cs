@@ -6,8 +6,8 @@ namespace Boxwright.Cli.Tests;
 
 public sealed class DeleteCommandTests
 {
-    private static DeleteCommand Build(TempVmStore store, IVmStatusProbe probe, CapturingOutput output) =>
-        new(new VmResolver(store.Repository), store.Repository, probe, output.Cli);
+    private static DeleteCommand Build(TempVmStore store, IVmStatusProbe probe, CapturingOutput output, FakeDiskService? disks = null) =>
+        new(new VmResolver(store.Repository), new VmDeletionService(store.Repository, disks ?? new FakeDiskService()), probe, output.Cli);
 
     [Fact]
     public async Task Deletes_with_yes()
@@ -49,5 +49,22 @@ public sealed class DeleteCommandTests
 
         Assert.Contains("running", ex.Message, StringComparison.Ordinal);
         Assert.Single(await store.Repository.ListAsync());
+    }
+
+    [Fact]
+    public async Task Refuses_when_a_linked_clone_depends_on_it()
+    {
+        using var store = new TempVmStore();
+        Vm template = store.Add("template");
+        Vm clone = store.Add("instance");
+        var disks = new FakeDiskService();
+        disks.Backing[Path.Combine(clone.FolderPath, "disk.qcow2")] = Path.Combine(template.FolderPath, "disk.qcow2");
+        DeleteCommand command = Build(store, new FakeStatusProbe(), new CapturingOutput(), disks);
+
+        VmHasDependentsException ex = await Assert.ThrowsAsync<VmHasDependentsException>(() =>
+            command.RunAsync(ParsedArgs.Parse(["template", "--yes"]), CancellationToken.None));
+
+        Assert.Contains("instance", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(2, (await store.Repository.ListAsync()).Count); // nothing deleted
     }
 }

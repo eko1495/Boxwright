@@ -304,6 +304,36 @@ internal sealed class FakeVmCloneService : IVmCloneService
     }
 }
 
+/// <summary>A fake deletion service: deletes via the given repository (so the folder really goes), or
+/// throws <see cref="FailWith"/> to simulate a linked-clone dependency refusal.</summary>
+internal sealed class FakeVmDeletionService : IVmDeletionService
+{
+    private readonly VmRepository? _repository;
+
+    public FakeVmDeletionService(VmRepository? repository = null) => _repository = repository;
+
+    public VmHasDependentsException? FailWith { get; set; }
+
+    public List<string> Deleted { get; } = [];
+
+    public Task<IReadOnlyList<Vm>> FindDependentsAsync(Vm vm, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Vm>>([]);
+
+    public async Task DeleteAsync(Vm vm, CancellationToken cancellationToken = default)
+    {
+        if (FailWith is not null)
+        {
+            throw FailWith;
+        }
+
+        Deleted.Add(vm.Config.Id);
+        if (_repository is not null)
+        {
+            await _repository.DeleteAsync(vm.Config.Id, cancellationToken);
+        }
+    }
+}
+
 /// <summary>A fake live-snapshot service: records calls and serves a scriptable snapshot list (or fails on demand).</summary>
 internal sealed class FakeLiveSnapshotService : ILiveSnapshotService
 {
