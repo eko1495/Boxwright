@@ -46,7 +46,9 @@ or `--key=value`.
   camelCase JSON for `jq`-friendly scripting instead of the human table.
 - **`clone`** requires the source stopped; `--linked` makes an instant qcow2 overlay backed by
   the source's disks (keep the source in place), otherwise it's a full independent copy.
-- **`snapshot restore`** rolls the disk back to a tag (VM stopped — offline qcow2 access).
+- **`snapshot`** create/restore/delete span **every** qcow2 disk of the VM, so a multi-disk VM stays
+  consistent (a tag is only restorable when present on all disks). `restore` rolls back to a tag (VM
+  stopped — offline qcow2 access).
 
 - **`start`** runs in the foreground by default (Ctrl+C → graceful shutdown). `--detach` leaves
   the VM running for a later `stop`/`display`.

@@ -73,35 +73,35 @@ internal sealed class FakeStatusProbe : IVmStatusProbe
     public bool IsRunning(Vm vm) => _running.Contains(vm.Config.Id);
 }
 
-/// <summary>Records snapshot operations and returns a canned list.</summary>
-internal sealed class FakeSnapshotService : ISnapshotService
+/// <summary>Records VM-level snapshot operations and returns a canned list.</summary>
+internal sealed class FakeSnapshotService : IVmSnapshotService
 {
     public List<VmSnapshot> Snapshots { get; } = [];
 
-    public List<(string Disk, string Tag)> Created { get; } = [];
+    public List<(Vm Vm, string Tag)> Created { get; } = [];
 
-    public List<(string Disk, string Tag)> Restored { get; } = [];
+    public List<(Vm Vm, string Tag)> Restored { get; } = [];
 
-    public List<(string Disk, string Tag)> Deleted { get; } = [];
+    public List<(Vm Vm, string Tag)> Deleted { get; } = [];
 
-    public Task<IReadOnlyList<VmSnapshot>> ListAsync(string diskPath, CancellationToken cancellationToken = default) =>
+    public Task<IReadOnlyList<VmSnapshot>> ListAsync(Vm vm, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<VmSnapshot>>(Snapshots);
 
-    public Task CreateAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    public Task CreateAsync(Vm vm, string tag, CancellationToken cancellationToken = default)
     {
-        Created.Add((diskPath, tag));
+        Created.Add((vm, tag));
         return Task.CompletedTask;
     }
 
-    public Task RestoreAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    public Task RestoreAsync(Vm vm, string tag, CancellationToken cancellationToken = default)
     {
-        Restored.Add((diskPath, tag));
+        Restored.Add((vm, tag));
         return Task.CompletedTask;
     }
 
-    public Task DeleteAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    public Task DeleteAsync(Vm vm, string tag, CancellationToken cancellationToken = default)
     {
-        Deleted.Add((diskPath, tag));
+        Deleted.Add((vm, tag));
         return Task.CompletedTask;
     }
 }

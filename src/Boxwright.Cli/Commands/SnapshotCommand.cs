@@ -4,18 +4,18 @@ using Boxwright.Core;
 namespace Boxwright.Cli.Commands;
 
 /// <summary>
-/// Manages a VM's offline qcow2 internal snapshots on its primary disk via
-/// <see cref="ISnapshotService"/>. <c>create</c>/<c>restore</c>/<c>delete</c> need exclusive image
+/// Manages a VM's offline qcow2 internal snapshots — across all of its qcow2 disks — via
+/// <see cref="IVmSnapshotService"/>. <c>create</c>/<c>restore</c>/<c>delete</c> need exclusive image
 /// access, so they require the VM to be stopped (live snapshots are a separate, GUI-side feature — ADR-0021).
 /// </summary>
 internal sealed class SnapshotCommand : ICliCommand
 {
     private readonly VmResolver _resolver;
     private readonly IVmStatusProbe _statusProbe;
-    private readonly ISnapshotService _snapshots;
+    private readonly IVmSnapshotService _snapshots;
     private readonly CliOutput _output;
 
-    public SnapshotCommand(VmResolver resolver, IVmStatusProbe statusProbe, ISnapshotService snapshots, CliOutput output)
+    public SnapshotCommand(VmResolver resolver, IVmStatusProbe statusProbe, IVmSnapshotService snapshots, CliOutput output)
     {
         ArgumentNullException.ThrowIfNull(resolver);
         ArgumentNullException.ThrowIfNull(statusProbe);
@@ -41,26 +41,25 @@ internal sealed class SnapshotCommand : ICliCommand
             ?? throw new CliException($"Usage: boxwright {Usage}");
 
         Vm vm = await _resolver.ResolveAsync(reference, cancellationToken);
-        string diskPath = PrimaryDiskPath(vm);
 
         switch (sub.ToLowerInvariant())
         {
             case "list":
-                return await ListAsync(diskPath, args.HasFlag("json"), cancellationToken);
+                return await ListAsync(vm, args.HasFlag("json"), cancellationToken);
             case "create":
-                return await CreateAsync(vm, diskPath, RequireTag(args), cancellationToken);
+                return await CreateAsync(vm, RequireTag(args), cancellationToken);
             case "restore":
-                return await RestoreAsync(vm, diskPath, RequireTag(args), cancellationToken);
+                return await RestoreAsync(vm, RequireTag(args), cancellationToken);
             case "delete":
-                return await DeleteAsync(vm, diskPath, RequireTag(args), cancellationToken);
+                return await DeleteAsync(vm, RequireTag(args), cancellationToken);
             default:
                 throw new CliException($"Unknown 'snapshot' subcommand '{sub}'. Usage: boxwright {Usage}");
         }
     }
 
-    private async Task<int> ListAsync(string diskPath, bool asJson, CancellationToken cancellationToken)
+    private async Task<int> ListAsync(Vm vm, bool asJson, CancellationToken cancellationToken)
     {
-        IReadOnlyList<VmSnapshot> snapshots = await _snapshots.ListAsync(diskPath, cancellationToken);
+        IReadOnlyList<VmSnapshot> snapshots = await _snapshots.ListAsync(vm, cancellationToken);
 
         if (asJson)
         {
@@ -90,26 +89,26 @@ internal sealed class SnapshotCommand : ICliCommand
         return 0;
     }
 
-    private async Task<int> CreateAsync(Vm vm, string diskPath, string tag, CancellationToken cancellationToken)
+    private async Task<int> CreateAsync(Vm vm, string tag, CancellationToken cancellationToken)
     {
         RequireStopped(vm, "create a snapshot");
-        await _snapshots.CreateAsync(diskPath, tag, cancellationToken);
+        await _snapshots.CreateAsync(vm, tag, cancellationToken);
         _output.Line($"Created snapshot '{tag}' on '{vm.Config.Name}'.");
         return 0;
     }
 
-    private async Task<int> RestoreAsync(Vm vm, string diskPath, string tag, CancellationToken cancellationToken)
+    private async Task<int> RestoreAsync(Vm vm, string tag, CancellationToken cancellationToken)
     {
         RequireStopped(vm, "restore a snapshot");
-        await _snapshots.RestoreAsync(diskPath, tag, cancellationToken);
+        await _snapshots.RestoreAsync(vm, tag, cancellationToken);
         _output.Line($"Restored '{vm.Config.Name}' to snapshot '{tag}'.");
         return 0;
     }
 
-    private async Task<int> DeleteAsync(Vm vm, string diskPath, string tag, CancellationToken cancellationToken)
+    private async Task<int> DeleteAsync(Vm vm, string tag, CancellationToken cancellationToken)
     {
         RequireStopped(vm, "delete a snapshot");
-        await _snapshots.DeleteAsync(diskPath, tag, cancellationToken);
+        await _snapshots.DeleteAsync(vm, tag, cancellationToken);
         _output.Line($"Deleted snapshot '{tag}' from '{vm.Config.Name}'.");
         return 0;
     }
@@ -125,14 +124,4 @@ internal sealed class SnapshotCommand : ICliCommand
 
     private static string RequireTag(ParsedArgs args) =>
         args.PositionalOrNull(2) ?? throw new CliException("A snapshot tag is required.");
-
-    private static string PrimaryDiskPath(Vm vm)
-    {
-        if (vm.Config.Disks.Count == 0)
-        {
-            throw new CliException($"VM '{vm.Config.Name}' has no disks to snapshot.");
-        }
-
-        return Path.Combine(vm.FolderPath, vm.Config.Disks[0].File);
-    }
 }

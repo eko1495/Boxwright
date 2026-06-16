@@ -40,7 +40,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     private readonly IDisplayLauncher _displayLauncher;
     private readonly IEmbeddedVncDisplay _embeddedVnc;
     private readonly ILogReader _logReader;
-    private readonly ISnapshotService _snapshotService;
+    private readonly IVmSnapshotService _vmSnapshots;
     private readonly IVmCloneService _cloneService;
     private readonly ILiveSnapshotService _liveSnapshotService;
     private IRunningVm? _session;
@@ -54,7 +54,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         IDisplayLauncher displayLauncher,
         IEmbeddedVncDisplay embeddedVnc,
         ILogReader logReader,
-        ISnapshotService snapshotService,
+        IVmSnapshotService vmSnapshots,
         IVmCloneService cloneService,
         ILiveSnapshotService liveSnapshotService)
     {
@@ -66,7 +66,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(displayLauncher);
         ArgumentNullException.ThrowIfNull(embeddedVnc);
         ArgumentNullException.ThrowIfNull(logReader);
-        ArgumentNullException.ThrowIfNull(snapshotService);
+        ArgumentNullException.ThrowIfNull(vmSnapshots);
         ArgumentNullException.ThrowIfNull(cloneService);
         ArgumentNullException.ThrowIfNull(liveSnapshotService);
 
@@ -78,7 +78,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         _displayLauncher = displayLauncher;
         _embeddedVnc = embeddedVnc;
         _logReader = logReader;
-        _snapshotService = snapshotService;
+        _vmSnapshots = vmSnapshots;
         _cloneService = cloneService;
         _liveSnapshotService = liveSnapshotService;
     }
@@ -419,7 +419,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
     // ---- Snapshots (qcow2 internal; stopped-only) ----
 
-    /// <summary>Snapshots of this VM's primary qcow2 disk (loaded on demand).</summary>
+    /// <summary>The VM's complete internal snapshots — those present on every qcow2 disk (loaded on demand).</summary>
     public ObservableCollection<VmSnapshot> Snapshots { get; } = [];
 
     [ObservableProperty]
@@ -435,30 +435,23 @@ public sealed partial class VmListItemViewModel : ObservableObject
     /// <summary>True when there are snapshots to show.</summary>
     public bool HasSnapshots => Snapshots.Count > 0;
 
-    /// <summary>Snapshots can only be managed while the VM is stopped and has a qcow2 disk (offline access).</summary>
-    public bool CanManageSnapshots => Status == VmStatus.Stopped && PrimaryDiskPath is not null;
-
-    // qcow2 internal snapshots operate on the first qcow2 disk (the common single-disk case).
-    private string? PrimaryDiskPath
-    {
-        get
-        {
-            DiskConfig? disk = Vm.Config.Disks
-                .FirstOrDefault(d => string.Equals(d.Format, "qcow2", StringComparison.OrdinalIgnoreCase));
-            return disk is null ? null : Path.Combine(Vm.FolderPath, disk.File);
-        }
-    }
+    /// <summary>
+    /// Snapshots can only be managed while the VM is stopped and has a qcow2 disk (offline access).
+    /// Internal snapshots span every qcow2 disk (<see cref="IVmSnapshotService"/>); <see cref="HasQcow2Disk"/>
+    /// just gates the UI on there being at least one to snapshot.
+    /// </summary>
+    public bool CanManageSnapshots => Status == VmStatus.Stopped && HasQcow2Disk;
 
     [RelayCommand]
     private async Task RefreshSnapshotsAsync()
     {
         Snapshots.Clear();
         bool savedState = false;
-        if (CanManageSnapshots && PrimaryDiskPath is { } disk)
+        if (CanManageSnapshots)
         {
             try
             {
-                foreach (VmSnapshot snapshot in await _snapshotService.ListAsync(disk))
+                foreach (VmSnapshot snapshot in await _vmSnapshots.ListAsync(Vm))
                 {
                     if (string.Equals(snapshot.Name, SavedStateTag, StringComparison.Ordinal))
                     {
@@ -490,14 +483,14 @@ public sealed partial class VmListItemViewModel : ObservableObject
             return;
         }
 
-        if (!CanManageSnapshots || PrimaryDiskPath is not { } disk)
+        if (!CanManageSnapshots)
         {
             return;
         }
 
         try
         {
-            await _snapshotService.CreateAsync(disk, tag);
+            await _vmSnapshots.CreateAsync(Vm, tag);
             NewSnapshotName = null;
             await RefreshSnapshotsAsync();
         }
@@ -519,14 +512,14 @@ public sealed partial class VmListItemViewModel : ObservableObject
     {
         VmSnapshot? snapshot = SnapshotPendingRestore;
         SnapshotPendingRestore = null;
-        if (snapshot is null || !CanManageSnapshots || PrimaryDiskPath is not { } disk)
+        if (snapshot is null || !CanManageSnapshots)
         {
             return;
         }
 
         try
         {
-            await _snapshotService.RestoreAsync(disk, snapshot.Name);
+            await _vmSnapshots.RestoreAsync(Vm, snapshot.Name);
             StatusMessage = $"Restored snapshot '{snapshot.Name}'.";
             await RefreshSnapshotsAsync();
         }
@@ -539,14 +532,14 @@ public sealed partial class VmListItemViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteSnapshotAsync(VmSnapshot snapshot)
     {
-        if (!CanManageSnapshots || PrimaryDiskPath is not { } disk)
+        if (!CanManageSnapshots)
         {
             return;
         }
 
         try
         {
-            await _snapshotService.DeleteAsync(disk, snapshot.Name);
+            await _vmSnapshots.DeleteAsync(Vm, snapshot.Name);
             await RefreshSnapshotsAsync();
         }
         catch (DiskException ex)
@@ -711,7 +704,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     /// </summary>
     public bool CanSaveState =>
         Status == VmStatus.Running &&
-        PrimaryDiskPath is not null &&
+        HasQcow2Disk &&
         _session is { Accelerator: Accelerator.Kvm or Accelerator.Tcg };
 
     [RelayCommand(CanExecute = nameof(CanSaveState))]
@@ -744,14 +737,14 @@ public sealed partial class VmListItemViewModel : ObservableObject
     [RelayCommand]
     private async Task DiscardSavedStateAsync()
     {
-        if (!HasSavedState || PrimaryDiskPath is not { } disk)
+        if (!HasSavedState || !HasQcow2Disk)
         {
             return;
         }
 
         try
         {
-            await _snapshotService.DeleteAsync(disk, SavedStateTag);
+            await _vmSnapshots.DeleteAsync(Vm, SavedStateTag);
             HasSavedState = false;
             await RefreshSnapshotsAsync();
         }
