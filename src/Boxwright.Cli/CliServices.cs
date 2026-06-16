@@ -46,6 +46,7 @@ internal static class CliServices
         services.AddSingleton<IVmSnapshotService, VmSnapshotService>();
         services.AddSingleton<IVmCloneService, VmCloneService>();
         services.AddSingleton<IVmDeletionService, VmDeletionService>();
+        services.AddSingleton<IVmRenameService, VmRenameService>();
         services.AddSingleton<IVmDiskUsageService, VmDiskUsageService>();
         services.AddSingleton<IVmIntegrityService, VmIntegrityService>();
         services.AddSingleton<IDisplayLauncher, DisplayLauncher>();
@@ -119,6 +120,7 @@ internal static class CliServices
         AddCommand<StopCommand>(services);
         AddCommand<DisplayCommand>(services);
         AddCommand<DeleteCommand>(services);
+        AddCommand<RenameCommand>(services);
         AddCommand<OsCommand>(services);
         AddCommand<SnapshotCommand>(services);
         AddCommand<CheckCommand>(services);
