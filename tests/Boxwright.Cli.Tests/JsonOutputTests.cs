@@ -17,7 +17,7 @@ public sealed class JsonOutputTests
         var probe = new FakeStatusProbe();
         probe.MarkRunning(running.Config.Id);
         var output = new CapturingOutput();
-        var command = new ListCommand(store.Repository, probe, output.Cli);
+        var command = new ListCommand(store.Repository, probe, new VmDiskUsageService(new FakeDiskService()), output.Cli);
 
         await command.RunAsync(ParsedArgs.Parse(["--json"]), CancellationToken.None);
 
@@ -35,7 +35,7 @@ public sealed class JsonOutputTests
     {
         using var store = new TempVmStore();
         var output = new CapturingOutput();
-        var command = new ListCommand(store.Repository, new FakeStatusProbe(), output.Cli);
+        var command = new ListCommand(store.Repository, new FakeStatusProbe(), new VmDiskUsageService(new FakeDiskService()), output.Cli);
 
         await command.RunAsync(ParsedArgs.Parse(["--json"]), CancellationToken.None);
 
@@ -50,7 +50,7 @@ public sealed class JsonOutputTests
         using var store = new TempVmStore();
         Vm vm = store.Add("alpha");
         var output = new CapturingOutput();
-        var command = new InfoCommand(new VmResolver(store.Repository), new FakeStatusProbe(), output.Cli);
+        var command = new InfoCommand(new VmResolver(store.Repository), new FakeStatusProbe(), new VmDiskUsageService(new FakeDiskService()), output.Cli);
 
         await command.RunAsync(ParsedArgs.Parse(["alpha", "--json"]), CancellationToken.None);
 
@@ -61,6 +61,40 @@ public sealed class JsonOutputTests
         Assert.Equal("stopped", root.GetProperty("status").GetString());
         Assert.Equal(1, root.GetProperty("disks").GetArrayLength());
         Assert.Equal("disk.qcow2", root.GetProperty("disks")[0].GetProperty("file").GetString());
+    }
+
+    [Fact]
+    public async Task Info_json_reports_disk_usage_when_measurable()
+    {
+        using var store = new TempVmStore();
+        Vm vm = store.Add("alpha");
+        var disks = new FakeDiskService();
+        disks.Sizes[Path.Combine(vm.FolderPath, "disk.qcow2")] = (Actual: 2_000_000, Virtual: 20_000_000);
+        var output = new CapturingOutput();
+        var command = new InfoCommand(new VmResolver(store.Repository), new FakeStatusProbe(), new VmDiskUsageService(disks), output.Cli);
+
+        await command.RunAsync(ParsedArgs.Parse(["alpha", "--json"]), CancellationToken.None);
+
+        JsonElement root = JsonDocument.Parse(output.Out).RootElement;
+        Assert.Equal(2_000_000, root.GetProperty("diskActualBytes").GetInt64());
+        Assert.Equal(20_000_000, root.GetProperty("diskVirtualBytes").GetInt64());
+        Assert.Equal(2_000_000, root.GetProperty("disks")[0].GetProperty("actualBytes").GetInt64());
+    }
+
+    [Fact]
+    public async Task List_json_reports_each_vms_on_disk_footprint()
+    {
+        using var store = new TempVmStore();
+        Vm vm = store.Add("alpha");
+        var disks = new FakeDiskService();
+        disks.Sizes[Path.Combine(vm.FolderPath, "disk.qcow2")] = (Actual: 5_000_000, Virtual: 40_000_000);
+        var output = new CapturingOutput();
+        var command = new ListCommand(store.Repository, new FakeStatusProbe(), new VmDiskUsageService(disks), output.Cli);
+
+        await command.RunAsync(ParsedArgs.Parse(["--json"]), CancellationToken.None);
+
+        JsonElement item = JsonDocument.Parse(output.Out).RootElement[0];
+        Assert.Equal(5_000_000, item.GetProperty("diskActualBytes").GetInt64());
     }
 
     [Fact]

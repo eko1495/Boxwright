@@ -11,8 +11,8 @@ can be started, stopped, or adopted by the other — no daemon, no IPC.
 ## Commands
 
 ```
-boxwright list [--json]                # all VMs + run status
-boxwright info <id|name> [--json]      # a VM's configuration
+boxwright list [--json]                # all VMs + run status + on-disk size
+boxwright info <id|name> [--json]      # a VM's configuration + per-disk usage
 boxwright create <name> --os <id> [--unattended --user U --password P [--hostname H]]
 boxwright create <name> [options]      # blank VM + fresh disk (optionally --iso PATH)
 boxwright clone <id|name> <new-name> [--linked]   # full copy, or qcow2 overlay
@@ -44,6 +44,9 @@ or `--key=value`.
 
 - **`--json`** on the read commands (`list`, `info`, `os list`, `snapshot list`) emits
   camelCase JSON for `jq`-friendly scripting instead of the human table.
+- **Disk usage:** `list` shows each VM's on-disk footprint (a `DISK` column) and `info` breaks it down
+  per disk (actual on-disk vs virtual capacity) via `qemu-img info`. Best-effort — if `qemu-img` is
+  missing or a disk is unreadable the size shows as `—` (JSON: `null`) rather than failing the command.
 - **`clone`** requires the source stopped; `--linked` makes an instant qcow2 overlay backed by
   the source's disks (keep the source in place), otherwise it's a full independent copy.
 - **`snapshot`** create/restore/delete span **every** qcow2 disk of the VM, so a multi-disk VM stays

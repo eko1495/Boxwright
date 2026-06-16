@@ -43,6 +43,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     private readonly IVmSnapshotService _vmSnapshots;
     private readonly IVmCloneService _cloneService;
     private readonly IVmDeletionService _deletionService;
+    private readonly IVmDiskUsageService _diskUsageService;
     private readonly ILiveSnapshotService _liveSnapshotService;
     private IRunningVm? _session;
 
@@ -58,6 +59,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         IVmSnapshotService vmSnapshots,
         IVmCloneService cloneService,
         IVmDeletionService deletionService,
+        IVmDiskUsageService diskUsageService,
         ILiveSnapshotService liveSnapshotService)
     {
         ArgumentNullException.ThrowIfNull(vm);
@@ -71,6 +73,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(vmSnapshots);
         ArgumentNullException.ThrowIfNull(cloneService);
         ArgumentNullException.ThrowIfNull(deletionService);
+        ArgumentNullException.ThrowIfNull(diskUsageService);
         ArgumentNullException.ThrowIfNull(liveSnapshotService);
 
         Vm = vm;
@@ -84,6 +87,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         _vmSnapshots = vmSnapshots;
         _cloneService = cloneService;
         _deletionService = deletionService;
+        _diskUsageService = diskUsageService;
         _liveSnapshotService = liveSnapshotService;
     }
 
@@ -418,6 +422,31 @@ public sealed partial class VmListItemViewModel : ObservableObject
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             StatusMessage = $"Couldn't read the guest IP: {ex.Message}";
+        }
+    }
+
+    // ---- Disk usage (on-disk footprint; refreshed on selection) ----
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDiskUsage))]
+    private string? _diskUsageText;
+
+    /// <summary>True when a disk-usage line is available to show.</summary>
+    public bool HasDiskUsage => !string.IsNullOrEmpty(DiskUsageText);
+
+    [RelayCommand]
+    private async Task RefreshDiskUsageAsync()
+    {
+        try
+        {
+            VmDiskUsage usage = await _diskUsageService.MeasureAsync(Vm);
+            DiskUsageText = usage.Disks.Any(d => d.Measured)
+                ? $"Storage: {ByteSize.Format(usage.ActualBytes)} on disk / {ByteSize.Format(usage.VirtualBytes)} virtual{(usage.Complete ? "" : " (some disks unmeasured)")}"
+                : null;
+        }
+        catch (Exception ex) when (ex is DiskException or QemuNotFoundException)
+        {
+            DiskUsageText = null; // best-effort — never break the panel over a size readout
         }
     }
 

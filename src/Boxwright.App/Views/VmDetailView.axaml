@@ -23,6 +23,8 @@
                         </Border>
                     </Grid>
                     <TextBlock Text="{Binding Summary}" Opacity="0.6" />
+                    <TextBlock IsVisible="{Binding HasDiskUsage}" FontSize="12" Opacity="0.6"
+                               Text="{Binding DiskUsageText}" />
                     <TextBlock IsVisible="{Binding HasGuestAddresses}" FontSize="12" Opacity="0.7"
                                Text="{Binding GuestAddresses, StringFormat='Guest IP: {0}'}" />
                 </StackPanel>

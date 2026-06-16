@@ -114,6 +114,9 @@ internal sealed class FakeDiskService : IDiskService
     /// <summary>Maps a disk path to its qcow2 backing file (for linked-clone dependency checks). Default: no backing.</summary>
     public Dictionary<string, string> Backing { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Maps a disk path to its (actual, virtual) size for disk-usage reporting. Default: 0/0.</summary>
+    public Dictionary<string, (long Actual, long Virtual)> Sizes { get; } = new(StringComparer.Ordinal);
+
     public Task CreateAsync(string path, long sizeBytes, string format = "qcow2", CancellationToken cancellationToken = default)
     {
         Created.Add((path, sizeBytes, format));
@@ -122,8 +125,16 @@ internal sealed class FakeDiskService : IDiskService
 
     public Task ResizeAsync(string path, long sizeBytes, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-    public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default) =>
-        Task.FromResult(new DiskInfo { FullBackingFilename = Backing.TryGetValue(path, out string? b) ? b : null });
+    public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default)
+    {
+        (long actual, long @virtual) = Sizes.TryGetValue(path, out (long Actual, long Virtual) s) ? s : (0, 0);
+        return Task.FromResult(new DiskInfo
+        {
+            FullBackingFilename = Backing.TryGetValue(path, out string? b) ? b : null,
+            ActualSize = actual,
+            VirtualSize = @virtual,
+        });
+    }
 
     public Task CopyAsync(string sourcePath, string destinationPath, string format = "qcow2", CancellationToken cancellationToken = default) =>
         Task.CompletedTask;

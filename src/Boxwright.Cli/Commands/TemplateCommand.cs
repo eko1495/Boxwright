@@ -66,7 +66,7 @@ internal sealed class TemplateCommand : ICliCommand
         if (args.HasFlag("json"))
         {
             VmSummaryJson[] payload = templates.Select(v => new VmSummaryJson(
-                v.Config.Id, v.Config.Name, "template", v.Config.OsType, v.Config.Arch, v.Config.MemoryMiB)).ToArray();
+                v.Config.Id, v.Config.Name, "template", v.Config.OsType, v.Config.Arch, v.Config.MemoryMiB, DiskActualBytes: null)).ToArray();
             _output.Line(CliJson.Write(payload));
             return 0;
         }

@@ -304,6 +304,15 @@ internal sealed class FakeVmCloneService : IVmCloneService
     }
 }
 
+/// <summary>A fake disk-usage service returning a fixed (or empty) report.</summary>
+internal sealed class FakeVmDiskUsageService : IVmDiskUsageService
+{
+    public VmDiskUsage Usage { get; set; } = new();
+
+    public Task<VmDiskUsage> MeasureAsync(Vm vm, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Usage);
+}
+
 /// <summary>A fake deletion service: deletes via the given repository (so the folder really goes), or
 /// throws <see cref="FailWith"/> to simulate a linked-clone dependency refusal.</summary>
 internal sealed class FakeVmDeletionService : IVmDeletionService

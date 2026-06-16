@@ -14,11 +14,11 @@ internal static class CliJson
     public static string Write<T>(T value) => JsonSerializer.Serialize(value, typeof(T), CliJsonContext.Default);
 }
 
-/// <summary>A VM as listed by <c>list --json</c>.</summary>
-internal sealed record VmSummaryJson(string Id, string Name, string Status, string OsType, string Arch, int MemoryMiB);
+/// <summary>A VM as listed by <c>list --json</c>. <c>diskActualBytes</c> is the on-disk footprint (null if unmeasurable).</summary>
+internal sealed record VmSummaryJson(string Id, string Name, string Status, string OsType, string Arch, int MemoryMiB, long? DiskActualBytes);
 
-/// <summary>A disk in <c>info --json</c>.</summary>
-internal sealed record DiskJson(string File, string Format, string Interface);
+/// <summary>A disk in <c>info --json</c>, with its actual/virtual size (null when it couldn't be measured).</summary>
+internal sealed record DiskJson(string File, string Format, string Interface, long? ActualBytes, long? VirtualBytes);
 
 /// <summary>A removable-media slot in <c>info --json</c>.</summary>
 internal sealed record MediaJson(string Type, string? File, bool Attached);
@@ -45,7 +45,9 @@ internal sealed record VmInfoJson(
     string NetworkModel,
     bool AudioEnabled,
     IReadOnlyList<DiskJson> Disks,
-    IReadOnlyList<MediaJson> RemovableMedia);
+    IReadOnlyList<MediaJson> RemovableMedia,
+    long? DiskActualBytes,
+    long? DiskVirtualBytes);
 
 /// <summary>An OS catalog entry as listed by <c>os list --json</c>.</summary>
 internal sealed record OsEntryJson(string Id, string Name, string Version, string Arch, bool SupportsAutoinstall);

@@ -8,15 +8,18 @@ internal sealed class InfoCommand : ICliCommand
 {
     private readonly VmResolver _resolver;
     private readonly IVmStatusProbe _statusProbe;
+    private readonly IVmDiskUsageService _diskUsage;
     private readonly CliOutput _output;
 
-    public InfoCommand(VmResolver resolver, IVmStatusProbe statusProbe, CliOutput output)
+    public InfoCommand(VmResolver resolver, IVmStatusProbe statusProbe, IVmDiskUsageService diskUsage, CliOutput output)
     {
         ArgumentNullException.ThrowIfNull(resolver);
         ArgumentNullException.ThrowIfNull(statusProbe);
+        ArgumentNullException.ThrowIfNull(diskUsage);
         ArgumentNullException.ThrowIfNull(output);
         _resolver = resolver;
         _statusProbe = statusProbe;
+        _diskUsage = diskUsage;
         _output = output;
     }
 
@@ -33,10 +36,11 @@ internal sealed class InfoCommand : ICliCommand
         Vm vm = await _resolver.ResolveAsync(reference, cancellationToken);
         VmConfig config = vm.Config;
         string status = _statusProbe.IsRunning(vm) ? "running" : "stopped";
+        VmDiskUsage usage = await _diskUsage.MeasureAsync(vm, cancellationToken);
 
         if (args.HasFlag("json"))
         {
-            _output.Line(CliJson.Write(ToJson(vm, status)));
+            _output.Line(CliJson.Write(ToJson(vm, status, usage)));
             return 0;
         }
 
@@ -58,10 +62,20 @@ internal sealed class InfoCommand : ICliCommand
         if (config.Disks.Count > 0)
         {
             _output.Line("Disks:");
-            foreach (DiskConfig disk in config.Disks)
+            for (int i = 0; i < config.Disks.Count; i++)
             {
-                _output.Line($"  - {disk.File} ({disk.Format}, {disk.Interface})");
+                DiskConfig disk = config.Disks[i];
+                DiskUsage? du = i < usage.Disks.Count ? usage.Disks[i] : null;
+                string size = du is { Measured: true }
+                    ? $", {ByteSize.Format(du.ActualBytes)} on disk / {ByteSize.Format(du.VirtualBytes)} virtual"
+                    : ", size unavailable";
+                _output.Line($"  - {disk.File} ({disk.Format}, {disk.Interface}{size})");
             }
+
+            string total = usage.Disks.Any(d => d.Measured)
+                ? $"{ByteSize.Format(usage.ActualBytes)} on disk / {ByteSize.Format(usage.VirtualBytes)} virtual{(usage.Complete ? "" : " (some disks unmeasured)")}"
+                : "unavailable (qemu-img not found?)";
+            _output.Line($"Disk usage:  {total}");
         }
 
         IReadOnlyList<RemovableMediaConfig> media = config.RemovableMedia;
@@ -78,7 +92,7 @@ internal sealed class InfoCommand : ICliCommand
         return 0;
     }
 
-    private static VmInfoJson ToJson(Vm vm, string status)
+    private static VmInfoJson ToJson(Vm vm, string status, VmDiskUsage usage)
     {
         VmConfig c = vm.Config;
         return new VmInfoJson(
@@ -101,7 +115,14 @@ internal sealed class InfoCommand : ICliCommand
             c.Network.Mode,
             c.Network.Model,
             c.Audio.Enabled,
-            c.Disks.Select(d => new DiskJson(d.File, d.Format, d.Interface)).ToList(),
-            c.RemovableMedia.Select(m => new MediaJson(m.Type, m.File, m.Attached)).ToList());
+            c.Disks.Select((d, i) =>
+            {
+                DiskUsage? du = i < usage.Disks.Count ? usage.Disks[i] : null;
+                bool measured = du is { Measured: true };
+                return new DiskJson(d.File, d.Format, d.Interface, measured ? du!.ActualBytes : null, measured ? du!.VirtualBytes : null);
+            }).ToList(),
+            c.RemovableMedia.Select(m => new MediaJson(m.Type, m.File, m.Attached)).ToList(),
+            usage.Disks.Any(d => d.Measured) ? usage.ActualBytes : null,
+            usage.Disks.Any(d => d.Measured) ? usage.VirtualBytes : null);
     }
 }

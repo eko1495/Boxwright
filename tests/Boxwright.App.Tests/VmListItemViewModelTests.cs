@@ -20,6 +20,7 @@ public sealed class VmListItemViewModelTests : IDisposable
     private readonly FakeSnapshotService _snapshots = new();
     private readonly FakeVmCloneService _clone = new();
     private readonly FakeVmDeletionService _deletion;
+    private readonly FakeVmDiskUsageService _diskUsage = new();
     private readonly FakeLiveSnapshotService _liveSnapshots = new();
 
     public VmListItemViewModelTests()
@@ -43,7 +44,7 @@ public sealed class VmListItemViewModelTests : IDisposable
 
     private VmListItemViewModel NewItem(IVmLauncher launcher, Vm? vm = null) =>
         new(vm ?? new Vm(Path.Combine(_root, "x"), new VmConfig { Id = "x", Name = "Test" }),
-            launcher, _repository, _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone, _deletion, _liveSnapshots);
+            launcher, _repository, _dispatcher, _filePicker, _display, _embeddedVnc, _logReader, _snapshots, _clone, _deletion, _diskUsage, _liveSnapshots);
 
     private Vm SnapshottableVm() =>
         new(Path.Combine(_root, "x"), new VmConfig
@@ -539,6 +540,37 @@ public sealed class VmListItemViewModelTests : IDisposable
         Assert.True(raised);
         Assert.False(item.IsConfirmingDelete);
         Assert.False(Directory.Exists(vm.FolderPath));
+    }
+
+    [Fact]
+    public async Task RefreshDiskUsage_ShowsTheOnDiskFootprint_WhenMeasured()
+    {
+        _diskUsage.Usage = new VmDiskUsage
+        {
+            ActualBytes = 2L * 1024 * 1024 * 1024,
+            VirtualBytes = 20L * 1024 * 1024 * 1024,
+            Disks = [new DiskUsage { File = "disk.qcow2", ActualBytes = 2L * 1024 * 1024 * 1024, Measured = true }],
+            Complete = true,
+        };
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
+
+        await item.RefreshDiskUsageCommand.ExecuteAsync(null);
+
+        Assert.True(item.HasDiskUsage);
+        Assert.Contains("2.0 GiB on disk", item.DiskUsageText, StringComparison.Ordinal);
+        Assert.Contains("20.0 GiB virtual", item.DiskUsageText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RefreshDiskUsage_HidesTheLine_WhenNothingCouldBeMeasured()
+    {
+        _diskUsage.Usage = new VmDiskUsage { Disks = [new DiskUsage { File = "disk.qcow2", Measured = false }], Complete = false };
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
+
+        await item.RefreshDiskUsageCommand.ExecuteAsync(null);
+
+        Assert.False(item.HasDiskUsage);
+        Assert.Null(item.DiskUsageText);
     }
 
     [Fact]
