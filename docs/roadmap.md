@@ -76,7 +76,10 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
       Debian 13 netinst; Fedora/Mint/Windows to follow (Windows needs a non-direct
       acquisition flow). See ADR-0010 and ADR-0020.
 - [x] Checksum (SHA-256) verification + provenance display for downloads.
-      GPG/PGP *signature* verification is a fast-follow.
+- [~] GPG/PGP *signature* verification (ADR-0027) — phase 1 done: a pure-managed OpenPGP verifier
+      (`IOpenPgpVerifier`/`OpenPgpVerifier`, BouncyCastle) checks a detached signature against a trusted
+      key, fully unit-tested. SHA-256 stays mandatory; the signature is an additional gate. Phase 2
+      (wiring per-distro signatures + bundled release keys into the download) is a follow-on.
 - **Unattended install** for Ubuntu — two paths (see ADR-0013):
   - [x] *Cloud image* — the pre-installed `…-server-cloudimg-amd64.img` is flattened into the VM disk
         (`qemu-img convert`), grown to size (`qemu-img resize`), and booted with the cloud-init

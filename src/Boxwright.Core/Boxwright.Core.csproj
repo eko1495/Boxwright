@@ -16,6 +16,8 @@
     <PackageReference Include="LTRData.DiscUtils.Fat" />
     <!-- Pure-managed ISO9660 (Joliet) writer for the Windows Autounattend.xml seed CD (ADR-0015). MIT; cross-platform. -->
     <PackageReference Include="LTRData.DiscUtils.Iso9660" />
+    <!-- Pure-managed OpenPGP for verifying catalog-download signatures (ADR-0027). MIT; cross-platform; no external gpg. -->
+    <PackageReference Include="BouncyCastle.Cryptography" />
   </ItemGroup>
 
   <ItemGroup>
