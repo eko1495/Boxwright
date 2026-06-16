@@ -74,8 +74,16 @@ internal static class CliServices
                 sp.GetRequiredService<LocalRecipeCatalogSource>(),
             ],
             sp.GetService<ILogger<CompositeOsCatalogSource>>()));
+        // OpenPGP provenance gate for catalog downloads (ADR-0027): a pure-managed verifier plus the
+        // bundled trusted-key store. Entries without a signature block are unaffected (SHA-256 only).
+        services.AddSingleton<IOpenPgpVerifier, OpenPgpVerifier>();
+        services.AddSingleton<ITrustedKeyProvider, BundledTrustedKeyProvider>();
         services.AddSingleton<IIsoDownloader>(sp =>
-            new IsoDownloader(sp.GetRequiredService<IHttpStreamSource>(), IsoDownloader.DefaultCacheDirectory));
+            new IsoDownloader(
+                sp.GetRequiredService<IHttpStreamSource>(),
+                IsoDownloader.DefaultCacheDirectory,
+                sp.GetRequiredService<IOpenPgpVerifier>(),
+                sp.GetRequiredService<ITrustedKeyProvider>()));
 
         // Unattended-install seed generators + the per-family installer resolver (ADR-0013/0016/0017),
         // and the catalog-VM orchestration that ties download + disk + seed together (ADR-0022) so

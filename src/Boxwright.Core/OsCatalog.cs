@@ -89,6 +89,44 @@ public sealed record OsCatalogEntry
     /// resolved by <see cref="OsFamily"/> — so the community can add a distro's unattended install as data.
     /// </summary>
     public UnattendedRecipe? Unattended { get; init; }
+
+    /// <summary>
+    /// Optional OpenPGP signature gate (ADR-0027). When present, a download is trusted only after its
+    /// <see cref="Sha256"/> is found in a checksums document whose detached signature verifies against a
+    /// <b>bundled</b> trusted key — provenance on top of integrity. When absent, behaviour is exactly as
+    /// before: SHA-256 only. SHA-256 stays mandatory either way; the signature never replaces it.
+    /// </summary>
+    public OsCatalogSignature? Signature { get; init; }
+}
+
+/// <summary>
+/// The optional OpenPGP signature gate for an <see cref="OsCatalogEntry"/> (ADR-0027). It names the
+/// distro's checksums document, a detached signature over that document, and the id of the bundled
+/// trusted key (<see cref="ITrustedKeyProvider"/>) expected to have signed it. The download is trusted
+/// only when the signature verifies under that bundled key <em>and</em> the entry's
+/// <see cref="OsCatalogEntry.Sha256"/> appears in the signed checksums against the expected filename.
+/// </summary>
+public sealed record OsCatalogSignature
+{
+    /// <summary>URL (https) of the distro's checksums document (e.g. a <c>SHA256SUMS</c> file).</summary>
+    public Uri ChecksumsUrl { get; init; } = null!;
+
+    /// <summary>URL (https) of the detached OpenPGP signature over <see cref="ChecksumsUrl"/> (e.g. <c>SHA256SUMS.gpg</c>).</summary>
+    public Uri SignatureUrl { get; init; } = null!;
+
+    /// <summary>
+    /// Id of the bundled trusted public key expected to have signed the checksums — the name of the
+    /// armored key under <c>keys/</c> (see <see cref="BundledTrustedKeyProvider"/>), resolved out of band.
+    /// </summary>
+    public string KeyId { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The ISO's filename as it appears in the checksums document (a <c>SHA256SUMS</c> line is
+    /// <c>&lt;hash&gt;  &lt;filename&gt;</c>). When empty, the last path segment of
+    /// <see cref="OsCatalogEntry.IsoUrl"/> is used. This pins the hash to the right file so a checksums
+    /// document listing many images can't have one entry's hash matched against another's filename.
+    /// </summary>
+    public string? ChecksumsFileName { get; init; }
 }
 
 /// <summary>

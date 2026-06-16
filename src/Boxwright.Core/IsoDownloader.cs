@@ -25,13 +25,29 @@ public sealed class IsoDownloader : IIsoDownloader
 
     private readonly IHttpStreamSource _http;
     private readonly string _cacheDirectory;
+    private readonly IOpenPgpVerifier? _pgp;
+    private readonly ITrustedKeyProvider? _keys;
 
     public IsoDownloader(IHttpStreamSource http, string cacheDirectory)
+        : this(http, cacheDirectory, pgp: null, keys: null)
+    {
+    }
+
+    /// <param name="http">The HTTP stream source for the ISO and (when an entry is signed) its checksums/signature.</param>
+    /// <param name="cacheDirectory">The shared ISO cache directory.</param>
+    /// <param name="pgp">
+    /// Optional OpenPGP verifier (ADR-0027). Required to honour an entry's <see cref="OsCatalogSignature"/>;
+    /// when null, an entry that carries signature info is rejected rather than silently downgraded.
+    /// </param>
+    /// <param name="keys">Optional bundled trusted-key provider — the trust anchor for signature verification.</param>
+    public IsoDownloader(IHttpStreamSource http, string cacheDirectory, IOpenPgpVerifier? pgp, ITrustedKeyProvider? keys)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentException.ThrowIfNullOrWhiteSpace(cacheDirectory);
         _http = http;
         _cacheDirectory = cacheDirectory;
+        _pgp = pgp;
+        _keys = keys;
     }
 
     /// <summary>The default shared ISO cache (e.g. <c>%LOCALAPPDATA%\Boxwright\ISOs</c>).</summary>
@@ -53,6 +69,9 @@ public sealed class IsoDownloader : IIsoDownloader
 
         // Cache hit: a previously-verified file whose marker still matches and which still passes the
         // integrity guards (size always; full content when the caller opts in) — reuse, no download.
+        // The marker is written only after the full gate (SHA-256 and, when the entry opts in, the
+        // OpenPGP signature) passed, so its presence re-establishes trust without re-fetching the
+        // checksums/signature — a signed entry's cache hit makes zero network calls.
         if (File.Exists(finalPath) && File.Exists(markerPath))
         {
             string recorded = (await File.ReadAllTextAsync(markerPath, cancellationToken)).Trim();
@@ -80,6 +99,14 @@ public sealed class IsoDownloader : IIsoDownloader
                 throw new DownloadException(
                     $"Checksum did not match for {entry.Name} (expected {entry.Sha256}, got {actualHash}). " +
                     "The download was discarded — the catalog entry may be out of date.");
+            }
+
+            // SHA-256 proved integrity. If the entry opts into a signature, also prove provenance: the
+            // hash must appear in a checksums document signed by a bundled trusted key (ADR-0027). This is
+            // an *additional* gate after SHA-256, never a fallback — any failure throws and discards.
+            if (entry.Signature is { } signature)
+            {
+                await VerifySignatureAsync(entry, signature, cancellationToken);
             }
 
             File.Move(partPath, finalPath, overwrite: true);
@@ -123,6 +150,93 @@ public sealed class IsoDownloader : IIsoDownloader
 
         progress?.Report(new IsoDownloadProgress(received, total ?? received));
         return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    // The OpenPGP provenance gate (ADR-0027), run AFTER SHA-256 matched and BEFORE the .part is promoted.
+    // Fetches the checksums document and its detached signature, verifies the signature against the
+    // bundled trusted key the entry names, and confirms the entry's SHA-256 is listed in the (now-trusted)
+    // checksums against the expected filename. Fails closed: any problem throws DownloadException and the
+    // caller discards the .part — there is no silent downgrade to SHA-256-only.
+    private async Task VerifySignatureAsync(
+        OsCatalogEntry entry, OsCatalogSignature signature, CancellationToken cancellationToken)
+    {
+        // A signature block that's present but incomplete (missing url/key in the catalog JSON) must fail
+        // closed, not silently skip verification — the whole point of the block is the extra gate.
+        if (signature.ChecksumsUrl is null || signature.SignatureUrl is null || string.IsNullOrWhiteSpace(signature.KeyId))
+        {
+            throw new DownloadException(
+                $"{entry.Name} has an incomplete OpenPGP signature block (needs checksumsUrl, signatureUrl, and keyId); the download was discarded.");
+        }
+
+        if (_pgp is null || _keys is null)
+        {
+            // An entry asked for signature verification but this downloader wasn't given the means to do
+            // it. Refuse rather than trust the bytes on SHA-256 alone — that would defeat the opt-in gate.
+            throw new DownloadException(
+                $"{entry.Name} requires OpenPGP signature verification, but no verifier is configured. " +
+                "The download was discarded.");
+        }
+
+        await using Stream? publicKey = _keys.OpenPublicKey(signature.KeyId);
+        if (publicKey is null)
+        {
+            throw new DownloadException(
+                $"No bundled trusted key '{signature.KeyId}' for {entry.Name}; the download was discarded. " +
+                "The catalog entry references a key this build does not ship.");
+        }
+
+        byte[] checksums = await FetchAsync(signature.ChecksumsUrl, cancellationToken);
+        byte[] detachedSignature = await FetchAsync(signature.SignatureUrl, cancellationToken);
+
+        OpenPgpVerification verification;
+        try
+        {
+            verification = _pgp.Verify(
+                new MemoryStream(checksums, writable: false),
+                new MemoryStream(detachedSignature, writable: false),
+                publicKey);
+        }
+        catch (OpenPgpException ex)
+        {
+            // Malformed signature/key material, or a signature whose key id doesn't match the bundled key.
+            throw new DownloadException(
+                $"The OpenPGP signature for {entry.Name} could not be verified; the download was discarded.", ex);
+        }
+
+        if (!verification.IsValid)
+        {
+            throw new DownloadException(
+                $"The OpenPGP signature for {entry.Name}'s checksums did not verify against the bundled key " +
+                $"'{signature.KeyId}'; the download was discarded.");
+        }
+
+        // The checksums document is now authentic. Confirm THIS entry's hash is the one it vouches for,
+        // pinned to the expected filename so a multi-image SHA256SUMS can't match one image's hash to
+        // another's name.
+        string expectedFileName = string.IsNullOrWhiteSpace(signature.ChecksumsFileName)
+            ? LastUrlSegment(entry.IsoUrl)
+            : signature.ChecksumsFileName!;
+
+        if (!SignedChecksums.Contains(checksums, entry.Sha256, expectedFileName))
+        {
+            throw new DownloadException(
+                $"{entry.Name}'s SHA-256 was not found for '{expectedFileName}' in the signed checksums; " +
+                "the download was discarded. The catalog entry's hash and the signed checksums disagree.");
+        }
+    }
+
+    private async Task<byte[]> FetchAsync(Uri uri, CancellationToken cancellationToken)
+    {
+        using HttpDownload download = await _http.OpenReadAsync(uri, cancellationToken);
+        using var buffer = new MemoryStream();
+        await download.Content.CopyToAsync(buffer, cancellationToken);
+        return buffer.ToArray();
+    }
+
+    private static string LastUrlSegment(Uri uri)
+    {
+        string segment = uri.Segments.Length > 0 ? uri.Segments[^1] : string.Empty;
+        return Uri.UnescapeDataString(segment).Trim('/');
     }
 
     // Whether a marker-matched cached file still looks intact. The size check is O(1) and always runs;

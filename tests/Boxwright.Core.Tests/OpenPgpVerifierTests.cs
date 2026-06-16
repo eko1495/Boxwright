@@ -1,18 +1,13 @@
 using System.Text;
 using Boxwright.Core;
-using Org.BouncyCastle.Bcpg;
 using Org.BouncyCastle.Bcpg.OpenPgp;
-using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Crypto.Generators;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Math;
-using Org.BouncyCastle.Security;
 using Xunit;
 
 namespace Boxwright.Core.Tests;
 
 // OpenPgpVerifier checks a detached OpenPGP signature against a trusted public key. Each test mints a
-// throwaway PGP key, signs in-process, and verifies — no external gpg, no checked-in key material.
+// throwaway PGP key (via PgpTestKeys), signs in-process, and verifies — no external gpg, no checked-in
+// key material.
 public sealed class OpenPgpVerifierTests
 {
     private static readonly byte[] Data = Encoding.UTF8.GetBytes("ubuntu-24.04.iso  sha256  deadbeef\n");
@@ -66,53 +61,11 @@ public sealed class OpenPgpVerifierTests
             new OpenPgpVerifier().Verify(new MemoryStream(Data), new MemoryStream("not a signature"u8.ToArray()), new MemoryStream(publicKey)));
     }
 
-    // ---- test PGP helpers (BouncyCastle) ----
+    // ---- shared throwaway-key helpers (PgpTestKeys) ----
 
-    private static PgpSecretKey NewKey()
-    {
-        var generator = new RsaKeyPairGenerator();
-        generator.Init(new RsaKeyGenerationParameters(BigInteger.ValueOf(0x10001), new SecureRandom(), 1024, 12));
-        AsymmetricCipherKeyPair pair = generator.GenerateKeyPair();
+    private static PgpSecretKey NewKey() => PgpTestKeys.NewKey();
 
-        return new PgpSecretKey(
-            PgpSignature.BinaryDocument,
-            PublicKeyAlgorithmTag.RsaGeneral,
-            pair.Public,
-            pair.Private,
-            DateTime.UnixEpoch,
-            "Boxwright Test <test@example.invalid>",
-            SymmetricKeyAlgorithmTag.Null,
-            [],
-            null,
-            null,
-            new SecureRandom());
-    }
+    private static byte[] Sign(PgpSecretKey key, byte[] data) => PgpTestKeys.Sign(key, data);
 
-    private static byte[] Sign(PgpSecretKey key, byte[] data)
-    {
-        PgpPrivateKey privateKey = key.ExtractPrivateKey([]);
-        var generator = new PgpSignatureGenerator(key.PublicKey.Algorithm, HashAlgorithmTag.Sha256);
-        generator.InitSign(PgpSignature.BinaryDocument, privateKey);
-        generator.Update(data);
-        PgpSignature signature = generator.Generate();
-
-        using var memory = new MemoryStream();
-        using (var armored = new ArmoredOutputStream(memory))
-        {
-            signature.Encode(armored);
-        }
-
-        return memory.ToArray();
-    }
-
-    private static byte[] ExportPublicKey(PgpSecretKey key)
-    {
-        using var memory = new MemoryStream();
-        using (var armored = new ArmoredOutputStream(memory))
-        {
-            key.PublicKey.Encode(armored);
-        }
-
-        return memory.ToArray();
-    }
+    private static byte[] ExportPublicKey(PgpSecretKey key) => PgpTestKeys.ExportPublicKey(key);
 }
