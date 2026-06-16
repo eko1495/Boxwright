@@ -39,7 +39,7 @@ public sealed class SnapshotCommandTests
     }
 
     [Fact]
-    public async Task Create_passes_the_primary_disk_path_and_tag()
+    public async Task Create_passes_the_vm_and_tag()
     {
         using var store = new TempVmStore();
         Vm vm = store.Add("vm");
@@ -48,9 +48,9 @@ public sealed class SnapshotCommandTests
 
         await command.RunAsync(ParsedArgs.Parse(["create", "vm", "v1"]), CancellationToken.None);
 
-        (string disk, string tag) = Assert.Single(snapshots.Created);
+        (Vm received, string tag) = Assert.Single(snapshots.Created);
         Assert.Equal("v1", tag);
-        Assert.Equal(Path.Combine(vm.FolderPath, "disk.qcow2"), disk);
+        Assert.Equal(vm.FolderPath, received.FolderPath);
     }
 
     [Fact]
@@ -91,9 +91,9 @@ public sealed class SnapshotCommandTests
 
         await command.RunAsync(ParsedArgs.Parse(["restore", "vm", "s1"]), CancellationToken.None);
 
-        (string disk, string tag) = Assert.Single(snapshots.Restored);
+        (Vm received, string tag) = Assert.Single(snapshots.Restored);
         Assert.Equal("s1", tag);
-        Assert.Equal(Path.Combine(vm.FolderPath, "disk.qcow2"), disk);
+        Assert.Equal(vm.FolderPath, received.FolderPath);
     }
 
     [Fact]
@@ -134,16 +134,5 @@ public sealed class SnapshotCommandTests
 
         await Assert.ThrowsAsync<CliException>(() =>
             command.RunAsync(ParsedArgs.Parse(["frobnicate", "vm"]), CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task No_disks_is_an_error()
-    {
-        using var store = new TempVmStore();
-        store.Add("vm", disks: []);
-        SnapshotCommand command = Build(store, new FakeStatusProbe(), new FakeSnapshotService(), new CapturingOutput());
-
-        await Assert.ThrowsAsync<CliException>(() =>
-            command.RunAsync(ParsedArgs.Parse(["list", "vm"]), CancellationToken.None));
     }
 }

@@ -119,7 +119,12 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
         override), injecting the storage driver in windowsPE + storage/network in offlineServicing so Setup
         sees the virtio disk. SATA stays the no-download default. Unit-tested; live-smoked (QEMU accepts the
         virtio devices + Setup boots) — a complete virtio install needs an Ent/Edu/LTSC ISO (ConX wall).
-- [ ] qcow2 internal snapshots (create / list / revert / delete).
+- [x] qcow2 internal snapshots (create / list / revert / delete). `SnapshotService` wraps `qemu-img
+      snapshot` per disk; `VmSnapshotService` orchestrates it across **all** of a VM's qcow2 disks so a
+      multi-disk VM snapshots/reverts consistently (create is all-or-nothing with rollback; restore
+      validates the tag is on every disk first; list shows only complete snapshots) — the cold analogue of
+      the live/external path (ADR-0021). Stopped-only (exclusive image access). Surfaced in the CLI
+      (`boxwright snapshot list|create|restore|delete`) and the GUI's VM detail panel.
 - [ ] First public launch posts: r/qemu, r/linux, r/homelab, r/selfhosted,
       Hacker News — *only* once signed binaries exist for all three OSes.
 

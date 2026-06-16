@@ -250,33 +250,33 @@ internal sealed class FakeFolderOpener : IFolderOpener
     public void OpenFolder(string path) => LastPath = path;
 }
 
-/// <summary>A fake snapshot service: records operations and keeps an in-memory list, instead of invoking qemu-img.</summary>
-internal sealed class FakeSnapshotService : ISnapshotService
+/// <summary>A fake VM snapshot service: records operations and keeps an in-memory list, instead of invoking qemu-img.</summary>
+internal sealed class FakeSnapshotService : IVmSnapshotService
 {
     public List<string> Calls { get; } = [];
 
     public List<VmSnapshot> Snapshots { get; } = [];
 
-    public Task<IReadOnlyList<VmSnapshot>> ListAsync(string diskPath, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<VmSnapshot>> ListAsync(Vm vm, CancellationToken cancellationToken = default)
     {
-        Calls.Add($"list:{diskPath}");
+        Calls.Add("list");
         return Task.FromResult<IReadOnlyList<VmSnapshot>>(Snapshots.ToList());
     }
 
-    public Task CreateAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    public Task CreateAsync(Vm vm, string tag, CancellationToken cancellationToken = default)
     {
         Calls.Add($"create:{tag}");
         Snapshots.Add(new VmSnapshot { Name = tag });
         return Task.CompletedTask;
     }
 
-    public Task RestoreAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    public Task RestoreAsync(Vm vm, string tag, CancellationToken cancellationToken = default)
     {
         Calls.Add($"restore:{tag}");
         return Task.CompletedTask;
     }
 
-    public Task DeleteAsync(string diskPath, string tag, CancellationToken cancellationToken = default)
+    public Task DeleteAsync(Vm vm, string tag, CancellationToken cancellationToken = default)
     {
         Calls.Add($"delete:{tag}");
         Snapshots.RemoveAll(s => s.Name == tag);

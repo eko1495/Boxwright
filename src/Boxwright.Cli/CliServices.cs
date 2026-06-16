@@ -43,6 +43,7 @@ internal static class CliServices
         // Core services (orchestration).
         services.AddSingleton<IDiskService, DiskService>();
         services.AddSingleton<ISnapshotService, SnapshotService>();
+        services.AddSingleton<IVmSnapshotService, VmSnapshotService>();
         services.AddSingleton<IVmCloneService, VmCloneService>();
         services.AddSingleton<IDisplayLauncher, DisplayLauncher>();
         services.AddSingleton<IVmLauncher, VmLauncher>();
