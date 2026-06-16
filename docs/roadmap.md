@@ -188,14 +188,15 @@ Invest here only if Stage 2 metrics trend positive.
 - [ ] Embedded **SPICE** (clipboard, folder sharing, multi-monitor, USB redirect).
       (Evaluated 2026-06 and deferred — no .NET SPICE client, native FFI risks cross-platform
       parity, and remote-viewer is already smooth. See ADR-0013.)
-- [~] VM templates + linked clones (ADR-0025). Linked/full clones exist (`VmCloneService`,
-      `clone --linked`); per-VM MAC stamping (no bridge collisions) and templates are now built in Core +
+- [x] VM templates + linked clones (ADR-0025). Linked/full clones exist (`VmCloneService`,
+      `clone --linked`); per-VM MAC stamping (no bridge collisions) and templates are built in Core +
       CLI: `VmConfig.IsTemplate`, launch-refusal for templates, and `boxwright template
       list|create|new|delete` (instances are linked clones by default, each a fresh non-template VM with
-      its own MAC). A **delete-guard** (`IVmDeletionService`) now refuses to delete any VM that backs a
+      its own MAC). A **delete-guard** (`IVmDeletionService`) refuses to delete any VM that backs a
       linked clone — it scans every VM's qcow2 backing pointers and lists the dependents (`VmHasDependentsException`)
-      rather than orphaning them; both the CLI `delete` and the GUI delete route through it. Remaining: a GUI
-      templates picker (phase 2).
+      rather than orphaning them; both the CLI `delete` and the GUI delete route through it. The **GUI
+      templates picker** (phase 2) surfaces a template's status in the list, refuses to start it, and adds a
+      detail-panel action to convert a stopped VM to/from a template and stamp linked instances from it.
 - [~] Headless mode / CLI parity (the GUI becomes optional, not mandatory). The `boxwright`
       CLI (`Boxwright.Cli`, ADR-0022) drives Core directly — `list`/`info`/`create` (blank or
       `--os <id>` from the catalog, with `--unattended`)/`clone`/`start` (with `--detach`)/`stop`/

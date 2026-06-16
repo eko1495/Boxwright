@@ -305,6 +305,34 @@
                 </StackPanel>
             </Expander>
 
+            <!-- Templates -->
+            <Expander HorizontalAlignment="Stretch">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ui:SymbolIcon Symbol="Copy" /><TextBlock Text="Template" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Expander.Header>
+                <StackPanel Spacing="8">
+                    <TextBlock IsVisible="{Binding !CanToggleTemplate}" FontSize="12" Opacity="0.55"
+                               TextWrapping="Wrap" Text="Stop the VM to change its template state." />
+
+                    <StackPanel IsVisible="{Binding CanToggleTemplate}" Spacing="8">
+                        <Button Content="{Binding TemplateToggleLabel}" Command="{Binding ToggleTemplateCommand}" />
+                        <TextBlock FontSize="11" Opacity="0.55" TextWrapping="Wrap"
+                                   Text="A template is a frozen base you stamp instances from. It can't be booted while it's a template; each instance is a fresh, normal VM (a linked clone by default)." />
+
+                        <StackPanel IsVisible="{Binding IsTemplate}" Spacing="8">
+                            <TextBlock Text="New instance from this template" FontSize="12" Opacity="0.7" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBox Text="{Binding InstanceName}" Watermark="Instance name (optional)"
+                                         Width="220" VerticalAlignment="Center" />
+                                <Button Content="New instance" Command="{Binding CreateInstanceCommand}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
             <!-- Logs -->
             <Expander HorizontalAlignment="Stretch">
                 <Expander.Header>
