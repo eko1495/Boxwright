@@ -48,6 +48,9 @@ internal static class ServiceConfiguration
         services.AddSingleton<ILiveSnapshotService, LiveSnapshotService>();
         services.AddSingleton<IVmCloneService, VmCloneService>();
         services.AddSingleton<IVmDeletionService, VmDeletionService>();
+        // GUI rename is deferred (ADR-0028 phase 2), but the service is registered here to keep the two
+        // composition roots mirrored (ADR-0022) so a future viewmodel can adopt it with no Core change.
+        services.AddSingleton<IVmRenameService, VmRenameService>();
         services.AddSingleton<IVmDiskUsageService, VmDiskUsageService>();
         services.AddSingleton<IVmIntegrityService, VmIntegrityService>();
         services.AddSingleton<IDisplayLauncher, DisplayLauncher>();

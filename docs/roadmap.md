@@ -217,6 +217,12 @@ Invest here only if Stage 2 metrics trend positive.
       (`ICatalogVmInstaller`) and shared by both front ends — the GUI's `CatalogViewModel` delegates to
       it rather than duplicating the sequence. The CLI shares the per-VM folders and `runtime.json` with
       the GUI, so they interoperate. Remaining gap: Windows unattended stays GUI-only.
+- [x] Human-readable VM folders (ADR-0028). `boxwright rename <vm> <new-name>` updates the display name and
+      reslugs the GUID folder to a browsable `name-<id8>` slug; the id stays the stable internal key
+      (`SaveAsync` gained a folder-aware overload so edits don't orphan a renamed folder). The rename is
+      **guarded**: stopped-only, and refused when the VM backs a linked clone (its absolute backing path
+      points into the folder — reuses `IVmDeletionService.FindDependentsAsync`). GUI rename is deferred;
+      the logic lives in Core (`IVmRenameService`) for both shells to adopt.
 - [~] Plugin/recipe API for community-contributed OS definitions (ADR-0026). **Declarative JSON recipes**
       (data, not code; code plugins rejected for security / GPL / cross-platform / scope). Phase 1 built:
       `LocalRecipeCatalogSource` loads `recipes/*.json` (catalog documents) from a local folder and

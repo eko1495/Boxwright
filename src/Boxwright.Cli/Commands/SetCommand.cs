@@ -142,7 +142,10 @@ internal sealed class SetCommand : ICliCommand
             throw new CliException($"Specify at least one setting to change. Usage: boxwright {Usage}");
         }
 
-        await _repository.SaveAsync(config, cancellationToken);
+        // Write back into the VM's ACTUAL folder, not root/id: a renamed VM (ADR-0028) lives in a slug
+        // folder, and SaveAsync(VmConfig) would re-create root/id and orphan it. The folder-aware overload
+        // honors vm.FolderPath. (`--name` here only changes the display name; `boxwright rename` reslugs the folder.)
+        await _repository.SaveAsync(new Vm(vm.FolderPath, config), cancellationToken);
 
         _output.Line($"Updated '{config.Name}': {string.Join(", ", changes)}.");
         if (_statusProbe.IsRunning(vm))

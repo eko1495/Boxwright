@@ -131,6 +131,44 @@ public class VmRepositoryTests
     }
 
     [Fact]
+    public async Task SaveAsyncVm_WritesIntoTheVmsActualFolder_NotRootId()
+    {
+        // ADR-0028: a slugged folder is not root/id. SaveAsync(Vm) must honor the VM's actual folder so an
+        // edit doesn't re-create root/id and orphan the slug folder. Simulate a renamed VM via MoveFolderAsync.
+        await WithTempRootAsync(async repo =>
+        {
+            Vm vm = await repo.CreateAsync(new VmConfig { Name = "edit-me", MemoryMiB = 2048 });
+            Vm relocated = await repo.MoveFolderAsync(vm, "edit-me-slug");
+
+            await repo.SaveAsync(relocated with { Config = relocated.Config with { MemoryMiB = 8192 } });
+
+            // Written into the slug folder, and root/id was NOT re-created.
+            Assert.True(File.Exists(Path.Combine(repo.RootDirectory, "edit-me-slug", VmRepository.ConfigFileName)));
+            Assert.False(Directory.Exists(Path.Combine(repo.RootDirectory, vm.Config.Id)));
+            Vm only = Assert.Single(await repo.ListAsync());
+            Assert.Equal(8192, only.Config.MemoryMiB);
+            Assert.Equal(vm.Config.Id, only.Config.Id); // id still the key
+        });
+    }
+
+    [Fact]
+    public async Task MoveFolderAsync_RelocatesTheFolderAndKeepsTheConfig()
+    {
+        await WithTempRootAsync(async repo =>
+        {
+            Vm vm = await repo.CreateAsync(new VmConfig { Name = "movable" });
+            string oldFolder = vm.FolderPath;
+
+            Vm moved = await repo.MoveFolderAsync(vm, "movable-slug");
+
+            Assert.False(Directory.Exists(oldFolder));
+            Assert.True(File.Exists(moved.ConfigPath));
+            Assert.EndsWith("movable-slug", moved.FolderPath.TrimEnd(Path.DirectorySeparatorChar), StringComparison.Ordinal);
+            Assert.Equal(vm.Config.Id, moved.Config.Id);
+        });
+    }
+
+    [Fact]
     public async Task DeleteAsync_RemovesTheVmFolder()
     {
         await WithTempRootAsync(async repo =>
