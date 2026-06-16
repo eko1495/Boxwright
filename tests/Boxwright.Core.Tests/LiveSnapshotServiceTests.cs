@@ -207,6 +207,9 @@ public sealed class LiveSnapshotServiceTests
         public Task CreateAsync(string path, long sizeBytes, string format = "qcow2", CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 
+        public Task<DiskCheckResult> CheckAsync(string path, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default)
         {
             string key = Path.GetFullPath(path);

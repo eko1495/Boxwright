@@ -136,6 +136,12 @@ internal sealed class FakeDiskService : IDiskService
         });
     }
 
+    /// <summary>Maps a disk path to its integrity-check result (for `check`). Default: healthy.</summary>
+    public Dictionary<string, DiskCheckResult> Checks { get; } = new(StringComparer.Ordinal);
+
+    public Task<DiskCheckResult> CheckAsync(string path, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Checks.TryGetValue(path, out DiskCheckResult? r) ? r : new DiskCheckResult());
+
     public Task CopyAsync(string sourcePath, string destinationPath, string format = "qcow2", CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
 

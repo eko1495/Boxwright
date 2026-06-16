@@ -61,6 +61,12 @@ internal sealed record UsbJson(string Id, string VendorId, string ProductId, str
 /// <summary>A VM's networking as emitted by <c>net show --json</c>.</summary>
 internal sealed record NetworkJson(string Mode, string Model, string MacAddress, string Bridge, string TapDevice);
 
+/// <summary>One disk's integrity result in <c>check --json</c> (null counts when the check couldn't run — see <c>error</c>).</summary>
+internal sealed record DiskCheckJson(string File, bool? Healthy, long? Corruptions, long? Leaks, string? Error);
+
+/// <summary>A VM's integrity report as emitted by <c>check --json</c>.</summary>
+internal sealed record IntegrityJson(bool Healthy, bool Checked, DiskCheckJson[] Disks);
+
 /// <summary>A recipe file's parse result as emitted by <c>recipe list --json</c>.</summary>
 internal sealed record RecipeJson(string File, bool Ok, string[] Entries, string? Error);
 
@@ -75,4 +81,5 @@ internal sealed record RecipeJson(string File, bool Ok, string[] Entries, string
 [JsonSerializable(typeof(UsbJson[]))]
 [JsonSerializable(typeof(NetworkJson))]
 [JsonSerializable(typeof(RecipeJson[]))]
+[JsonSerializable(typeof(IntegrityJson))]
 internal sealed partial class CliJsonContext : JsonSerializerContext;

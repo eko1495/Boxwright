@@ -49,6 +49,7 @@ internal static class ServiceConfiguration
         services.AddSingleton<IVmCloneService, VmCloneService>();
         services.AddSingleton<IVmDeletionService, VmDeletionService>();
         services.AddSingleton<IVmDiskUsageService, VmDiskUsageService>();
+        services.AddSingleton<IVmIntegrityService, VmIntegrityService>();
         services.AddSingleton<IDisplayLauncher, DisplayLauncher>();
         services.AddSingleton<IVmLauncher, VmLauncher>();
         services.AddSingleton(sp => new VmRepository(VmRepository.DefaultRootDirectory, sp.GetService<ILogger<VmRepository>>()));

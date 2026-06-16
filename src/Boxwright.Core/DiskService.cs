@@ -90,6 +90,35 @@ public sealed class DiskService : IDiskService
     }
 
     /// <inheritdoc />
+    public async Task<DiskCheckResult> CheckAsync(string path, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        string qemuImg = _locator.ResolveImageTool();
+        ProcessResult result = await _processRunner.RunAsync(
+            qemuImg,
+            ["check", "--output=json", path],
+            cancellationToken);
+
+        // qemu-img check exit codes: 0 = consistent, 2 = corrupted, 3 = leaks (not corrupt). All three emit
+        // the JSON report. 1 = internal error, 63 = format doesn't support checks (e.g. raw) — no usable JSON.
+        if (result.ExitCode is not (0 or 2 or 3))
+        {
+            throw new DiskException($"qemu-img check failed (exit {result.ExitCode}): {result.StandardError.Trim()}");
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<DiskCheckResult>(result.StandardOutput, InfoOptions)
+                ?? throw new DiskException("qemu-img check returned no data.");
+        }
+        catch (JsonException ex)
+        {
+            throw new DiskException("Could not parse qemu-img check output.", ex);
+        }
+    }
+
+    /// <inheritdoc />
     public async Task CopyAsync(string sourcePath, string destinationPath, string format = "qcow2", CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);

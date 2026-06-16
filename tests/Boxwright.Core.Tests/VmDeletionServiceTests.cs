@@ -127,6 +127,9 @@ public sealed class VmDeletionServiceTests : IDisposable
 
         public HashSet<string> ThrowFor { get; } = new(StringComparer.Ordinal);
 
+        public Task<DiskCheckResult> CheckAsync(string path, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default)
         {
             if (ThrowFor.Contains(path))

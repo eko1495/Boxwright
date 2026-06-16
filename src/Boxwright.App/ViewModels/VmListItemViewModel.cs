@@ -44,6 +44,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
     private readonly IVmCloneService _cloneService;
     private readonly IVmDeletionService _deletionService;
     private readonly IVmDiskUsageService _diskUsageService;
+    private readonly IVmIntegrityService _integrityService;
     private readonly ILiveSnapshotService _liveSnapshotService;
     private IRunningVm? _session;
 
@@ -60,6 +61,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         IVmCloneService cloneService,
         IVmDeletionService deletionService,
         IVmDiskUsageService diskUsageService,
+        IVmIntegrityService integrityService,
         ILiveSnapshotService liveSnapshotService)
     {
         ArgumentNullException.ThrowIfNull(vm);
@@ -74,6 +76,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(cloneService);
         ArgumentNullException.ThrowIfNull(deletionService);
         ArgumentNullException.ThrowIfNull(diskUsageService);
+        ArgumentNullException.ThrowIfNull(integrityService);
         ArgumentNullException.ThrowIfNull(liveSnapshotService);
 
         Vm = vm;
@@ -88,6 +91,7 @@ public sealed partial class VmListItemViewModel : ObservableObject
         _cloneService = cloneService;
         _deletionService = deletionService;
         _diskUsageService = diskUsageService;
+        _integrityService = integrityService;
         _liveSnapshotService = liveSnapshotService;
     }
 
@@ -123,11 +127,11 @@ public sealed partial class VmListItemViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusText), nameof(CanManageSnapshots), nameof(CanClone), nameof(CanSaveState),
-        nameof(CanTakeLiveSnapshot), nameof(CanManageLiveSnapshots))]
+        nameof(CanTakeLiveSnapshot), nameof(CanManageLiveSnapshots), nameof(CanCheckIntegrity))]
     [NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(StopCommand), nameof(PauseCommand),
         nameof(ResumeCommand), nameof(ResetCommand), nameof(DeleteCommand),
         nameof(ChooseIsoCommand), nameof(RemoveIsoCommand), nameof(OpenDisplayCommand), nameof(SaveStateCommand),
-        nameof(RefreshGuestIpCommand), nameof(TakeLiveSnapshotCommand))]
+        nameof(RefreshGuestIpCommand), nameof(TakeLiveSnapshotCommand), nameof(RunIntegrityCheckCommand))]
     private VmStatus _status = VmStatus.Stopped;
 
     [ObservableProperty]
@@ -447,6 +451,47 @@ public sealed partial class VmListItemViewModel : ObservableObject
         catch (Exception ex) when (ex is DiskException or QemuNotFoundException)
         {
             DiskUsageText = null; // best-effort — never break the panel over a size readout
+        }
+    }
+
+    // ---- Integrity check (qemu-img check; stopped-only) ----
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasIntegrityResult))]
+    private string? _integrityText;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanCheckIntegrity))]
+    private bool _isCheckingIntegrity;
+
+    /// <summary>True when an integrity-check result is available to show.</summary>
+    public bool HasIntegrityResult => !string.IsNullOrEmpty(IntegrityText);
+
+    /// <summary>Integrity can only be checked while the VM is stopped and has a qcow2 disk (exclusive read).</summary>
+    public bool CanCheckIntegrity => Status == VmStatus.Stopped && HasQcow2Disk && !IsCheckingIntegrity;
+
+    [RelayCommand(CanExecute = nameof(CanCheckIntegrity))]
+    private async Task RunIntegrityCheckAsync()
+    {
+        IsCheckingIntegrity = true;
+        RunIntegrityCheckCommand.NotifyCanExecuteChanged();
+        try
+        {
+            VmIntegrityReport report = await _integrityService.CheckAsync(Vm);
+            IntegrityText = !report.Checked
+                ? "No qcow2 disks to check."
+                : report.Healthy
+                    ? "Integrity: all disks consistent."
+                    : $"Integrity: problems found in {report.Disks.Count(d => d.Error is not null || d.Result is { Healthy: false })} of {report.Disks.Count} disk(s).";
+        }
+        catch (Exception ex) when (ex is DiskException or QemuNotFoundException)
+        {
+            IntegrityText = $"Couldn't check integrity: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingIntegrity = false;
+            RunIntegrityCheckCommand.NotifyCanExecuteChanged();
         }
     }
 
