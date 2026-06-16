@@ -55,3 +55,4 @@ What we rejected and why.
 | [0024](0024-bridged-tap-networking.md) | Bridged / TAP networking on Linux (beyond user-mode NAT), capability-gated | Accepted |
 | [0025](0025-vm-templates.md) | VM templates: clone instances from a frozen base (+ per-VM MAC) | Accepted (phase 1) |
 | [0026](0026-declarative-os-recipes.md) | Declarative OS recipes for community-contributed OS definitions (data, not code) | Accepted (phase 1 + 2: initrd-inject + cloud-init) |
+| [0027](0027-openpgp-signature-verification.md) | OpenPGP signature verification for catalog downloads (BouncyCastle, bundled trust anchors) | Accepted (phase 1: the verifier) |
