@@ -44,6 +44,38 @@ public sealed class CheckCommandTests
     }
 
     [Fact]
+    public async Task Repair_flag_requests_repair_and_reports_fixed_counts()
+    {
+        using var store = new TempVmStore();
+        Vm vm = store.Add("vm");
+        var disks = new FakeDiskService();
+        disks.Checks[Path.Combine(vm.FolderPath, "disk.qcow2")] =
+            new DiskCheckResult { Corruptions = 2, CorruptionsFixed = 2, Leaks = 1, LeaksFixed = 1 };
+        var output = new CapturingOutput();
+        CheckCommand command = Build(store, new FakeStatusProbe(), disks, output);
+
+        int code = await command.RunAsync(ParsedArgs.Parse(["vm", "--repair"]), CancellationToken.None);
+
+        Assert.Equal(DiskRepairMode.All, disks.LastRepair); // opted into -r all
+        Assert.Equal(0, code); // healthy after repair (no remaining corruptions/check-errors)
+        Assert.Contains("fixed 2 corruptions / 1 leaks", output.Out, StringComparison.Ordinal);
+        Assert.Contains("repaired", output.Out, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Without_repair_flag_no_repair_is_requested()
+    {
+        using var store = new TempVmStore();
+        Vm vm = store.Add("vm");
+        var disks = new FakeDiskService();
+        CheckCommand command = Build(store, new FakeStatusProbe(), disks, new CapturingOutput());
+
+        await command.RunAsync(ParsedArgs.Parse(["vm"]), CancellationToken.None);
+
+        Assert.Equal(DiskRepairMode.None, disks.LastRepair);
+    }
+
+    [Fact]
     public async Task Refused_while_running()
     {
         using var store = new TempVmStore();

@@ -13,7 +13,7 @@ internal sealed class ParsedArgs
     // follows a boolean flag (e.g. a positional) for the flag's "value".
     private static readonly HashSet<string> BooleanFlags = new(StringComparer.OrdinalIgnoreCase)
     {
-        "detach", "display", "force", "yes", "linked", "unattended", "json", "now", "help",
+        "detach", "display", "force", "yes", "linked", "unattended", "json", "now", "help", "repair",
     };
 
     private readonly List<string> _positionals;

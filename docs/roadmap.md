@@ -180,6 +180,8 @@ Invest here only if Stage 2 metrics trend positive.
 - [x] Disk integrity check (`IVmIntegrityService`) — `qemu-img check` across a VM's qcow2 disks (stopped
       only) to detect corruption, reporting corruption/leak counts per disk. `boxwright check <vm>` (+
       `--json`, non-zero exit on corruption) and a GUI "Integrity" action. Leaks are reported but don't fail.
+      An opt-in **repair** (`--repair` / GUI "Repair…") runs `qemu-img check -r all` to fix corruptions and
+      leaks — explicit because it rewrites the image and may discard unrecoverable data.
 
 ---
 

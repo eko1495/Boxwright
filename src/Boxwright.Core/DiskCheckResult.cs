@@ -21,7 +21,24 @@ public sealed record DiskCheckResult
     [JsonPropertyName("check-errors")]
     public long CheckErrors { get; init; }
 
-    /// <summary>True when the image is consistent: no corruptions and no check errors (leaks are tolerated).</summary>
+    /// <summary>Number of corruptions repaired this run (0 unless a repair was requested).</summary>
+    [JsonPropertyName("corruptions-fixed")]
+    public long CorruptionsFixed { get; init; }
+
+    /// <summary>Number of leaked clusters reclaimed this run (0 unless a repair was requested).</summary>
+    [JsonPropertyName("leaks-fixed")]
+    public long LeaksFixed { get; init; }
+
+    /// <summary>
+    /// True when the image is consistent: no <b>unfixed</b> corruptions and no check errors (leaks are
+    /// tolerated). For a read-only check nothing is fixed, so this is "no corruptions found"; after a
+    /// repair it's "every found corruption was fixed" (<see cref="Corruptions"/> counts those found, not
+    /// those remaining — qemu-img reports the fixed count separately).
+    /// </summary>
     [JsonIgnore]
-    public bool Healthy => Corruptions == 0 && CheckErrors == 0;
+    public bool Healthy => Corruptions - CorruptionsFixed <= 0 && CheckErrors == 0;
+
+    /// <summary>True when this run repaired anything (corruptions or leaks fixed).</summary>
+    [JsonIgnore]
+    public bool Repaired => CorruptionsFixed > 0 || LeaksFixed > 0;
 }

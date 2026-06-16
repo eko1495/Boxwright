@@ -90,18 +90,25 @@ public sealed class DiskService : IDiskService
     }
 
     /// <inheritdoc />
-    public async Task<DiskCheckResult> CheckAsync(string path, CancellationToken cancellationToken = default)
+    public async Task<DiskCheckResult> CheckAsync(string path, DiskRepairMode repair = DiskRepairMode.None, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         string qemuImg = _locator.ResolveImageTool();
+        string[] repairArgs = repair switch
+        {
+            DiskRepairMode.Leaks => ["-r", "leaks"],
+            DiskRepairMode.All => ["-r", "all"],
+            _ => [],
+        };
         ProcessResult result = await _processRunner.RunAsync(
             qemuImg,
-            ["check", "--output=json", path],
+            ["check", "--output=json", .. repairArgs, path],
             cancellationToken);
 
         // qemu-img check exit codes: 0 = consistent, 2 = corrupted, 3 = leaks (not corrupt). All three emit
         // the JSON report. 1 = internal error, 63 = format doesn't support checks (e.g. raw) — no usable JSON.
+        // With -r, the codes describe what REMAINS after the repair (e.g. 0 once everything was fixed).
         if (result.ExitCode is not (0 or 2 or 3))
         {
             throw new DiskException($"qemu-img check failed (exit {result.ExitCode}): {result.StandardError.Trim()}");

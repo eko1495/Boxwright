@@ -52,6 +52,52 @@ public sealed class DiskServiceCheckTests
     }
 
     [Fact]
+    public async Task Repair_all_passes_the_r_all_flag_and_parses_fixed_counts()
+    {
+        const string repairedJson = "{\"corruptions\":3,\"corruptions-fixed\":3,\"leaks\":2,\"leaks-fixed\":2,\"check-errors\":0}";
+        await WithStubQemuImgAsync(async locator =>
+        {
+            var fake = new FakeProcessRunner(exitCode: 0, standardOutput: repairedJson);
+            var service = new DiskService(fake, locator);
+
+            DiskCheckResult result = await service.CheckAsync("disk.qcow2", DiskRepairMode.All);
+
+            Assert.Equal("check --output=json -r all disk.qcow2", string.Join(' ', fake.Invocations[0].Arguments));
+            Assert.Equal(3, result.CorruptionsFixed);
+            Assert.Equal(2, result.LeaksFixed);
+            Assert.True(result.Repaired);
+        });
+    }
+
+    [Fact]
+    public async Task Repair_leaks_passes_the_r_leaks_flag()
+    {
+        await WithStubQemuImgAsync(async locator =>
+        {
+            var fake = new FakeProcessRunner(exitCode: 0, standardOutput: HealthyJson);
+            var service = new DiskService(fake, locator);
+
+            await service.CheckAsync("disk.qcow2", DiskRepairMode.Leaks);
+
+            Assert.Equal("check --output=json -r leaks disk.qcow2", string.Join(' ', fake.Invocations[0].Arguments));
+        });
+    }
+
+    [Fact]
+    public async Task NoRepair_omits_the_r_flag()
+    {
+        await WithStubQemuImgAsync(async locator =>
+        {
+            var fake = new FakeProcessRunner(exitCode: 0, standardOutput: HealthyJson);
+            var service = new DiskService(fake, locator);
+
+            await service.CheckAsync("disk.qcow2");
+
+            Assert.Equal("check --output=json disk.qcow2", string.Join(' ', fake.Invocations[0].Arguments));
+        });
+    }
+
+    [Fact]
     public async Task Exit63_unsupported_format_throws()
     {
         await WithStubQemuImgAsync(async locator =>
@@ -130,6 +176,19 @@ public sealed class VmIntegrityServiceTests
     }
 
     [Fact]
+    public async Task Repair_mode_is_passed_through_to_each_disk()
+    {
+        var fake = new FakeDiskService();
+        fake.Results[Path.Combine("/vms/vm1", "os.qcow2")] = new DiskCheckResult { CorruptionsFixed = 1 };
+        var service = new VmIntegrityService(fake);
+
+        VmIntegrityReport report = await service.CheckAsync(VmWith(Disk("os.qcow2")), DiskRepairMode.All);
+
+        Assert.Equal(DiskRepairMode.All, fake.LastRepair);
+        Assert.Equal(1, report.Disks.Single().Result!.CorruptionsFixed);
+    }
+
+    [Fact]
     public async Task A_vm_with_only_raw_disks_reports_nothing_checked()
     {
         VmIntegrityReport report = await new VmIntegrityService(new FakeDiskService())
@@ -146,8 +205,11 @@ public sealed class VmIntegrityServiceTests
 
         public HashSet<string> Throw { get; } = new(StringComparer.Ordinal);
 
-        public Task<DiskCheckResult> CheckAsync(string path, CancellationToken cancellationToken = default)
+        public DiskRepairMode LastRepair { get; private set; } = DiskRepairMode.None;
+
+        public Task<DiskCheckResult> CheckAsync(string path, DiskRepairMode repair = DiskRepairMode.None, CancellationToken cancellationToken = default)
         {
+            LastRepair = repair;
             if (Throw.Contains(path))
             {
                 throw new DiskException($"qemu-img check failed for {path}");

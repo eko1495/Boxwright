@@ -24,12 +24,15 @@ public interface IDiskService
     Task<DiskInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Runs a read-only consistency check (<c>qemu-img check</c>) on <paramref name="path"/>, returning the
-    /// corruption/leak counts. A corrupted image is reported in the result (not thrown); only a failed or
-    /// unsupported check throws. The image must not be open in a running QEMU (a live image reads as corrupt).
+    /// Runs a consistency check (<c>qemu-img check</c>) on <paramref name="path"/>, returning the
+    /// corruption/leak counts (and, when <paramref name="repair"/> is set, the counts fixed). A corrupted
+    /// image is reported in the result (not thrown); only a failed or unsupported check throws.
+    /// <paramref name="repair"/> opts into <c>-r leaks|all</c>, which <b>rewrites</b> the image and may
+    /// discard unrecoverable data. The image must not be open in a running QEMU (a live image reads as
+    /// corrupt, and repairing it would race the guest).
     /// </summary>
     /// <exception cref="DiskException">The check could not run, or the image format does not support checks (e.g. raw).</exception>
-    Task<DiskCheckResult> CheckAsync(string path, CancellationToken cancellationToken = default);
+    Task<DiskCheckResult> CheckAsync(string path, DiskRepairMode repair = DiskRepairMode.None, CancellationToken cancellationToken = default);
 
     /// <summary>Copies a disk image to <paramref name="destinationPath"/> as a standalone image (full clone), preserving <paramref name="format"/>.</summary>
     /// <exception cref="DiskException">The <c>qemu-img convert</c> invocation failed.</exception>

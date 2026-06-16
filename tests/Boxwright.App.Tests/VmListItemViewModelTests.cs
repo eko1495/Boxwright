@@ -593,6 +593,22 @@ public sealed class VmListItemViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task RunRepair_RequestsRepairAll_AndReportsFixed()
+    {
+        _integrity.Report = new VmIntegrityReport
+        {
+            Disks = [new DiskIntegrity { File = "disk.qcow2", Result = new DiskCheckResult { CorruptionsFixed = 1, LeaksFixed = 2 } }],
+        };
+        var item = NewItem(new FakeVmLauncher(new FakeRunningVm()));
+
+        await item.RunRepairCommand.ExecuteAsync(null);
+
+        Assert.Equal(DiskRepairMode.All, _integrity.LastRepair);
+        Assert.Contains("Repaired", item.IntegrityText, StringComparison.Ordinal);
+        Assert.Contains("3 issue(s) fixed", item.IntegrityText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RefreshDiskUsage_HidesTheLine_WhenNothingCouldBeMeasured()
     {
         _diskUsage.Usage = new VmDiskUsage { Disks = [new DiskUsage { File = "disk.qcow2", Measured = false }], Complete = false };

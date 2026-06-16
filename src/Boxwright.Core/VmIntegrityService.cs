@@ -11,9 +11,10 @@ public interface IVmIntegrityService
     /// <summary>
     /// Checks each qcow2 disk of <paramref name="vm"/>. Raw disks are skipped. A disk whose check can't run
     /// (e.g. qemu-img missing) is recorded with an <see cref="DiskIntegrity.Error"/> rather than throwing,
-    /// so one unreadable disk doesn't hide the others' results.
+    /// so one unreadable disk doesn't hide the others' results. <paramref name="repair"/> opts into
+    /// rewriting the images to fix problems (<c>-r leaks|all</c>) — it can discard unrecoverable data.
     /// </summary>
-    Task<VmIntegrityReport> CheckAsync(Vm vm, CancellationToken cancellationToken = default);
+    Task<VmIntegrityReport> CheckAsync(Vm vm, DiskRepairMode repair = DiskRepairMode.None, CancellationToken cancellationToken = default);
 }
 
 /// <summary>The default <see cref="IVmIntegrityService"/>, over <see cref="IDiskService.CheckAsync"/>.</summary>
@@ -29,7 +30,7 @@ public sealed class VmIntegrityService : IVmIntegrityService
     }
 
     /// <inheritdoc />
-    public async Task<VmIntegrityReport> CheckAsync(Vm vm, CancellationToken cancellationToken = default)
+    public async Task<VmIntegrityReport> CheckAsync(Vm vm, DiskRepairMode repair = DiskRepairMode.None, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(vm);
 
@@ -44,7 +45,7 @@ public sealed class VmIntegrityService : IVmIntegrityService
             string path = Path.Combine(vm.FolderPath, disk.File);
             try
             {
-                DiskCheckResult result = await _diskService.CheckAsync(path, cancellationToken);
+                DiskCheckResult result = await _diskService.CheckAsync(path, repair, cancellationToken);
                 disks.Add(new DiskIntegrity { File = disk.File, Result = result });
             }
             catch (Exception ex) when (ex is DiskException or QemuNotFoundException)
