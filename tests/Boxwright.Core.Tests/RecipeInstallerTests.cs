@@ -105,8 +105,8 @@ public sealed class RecipeInstallerTests : IDisposable
         Assert.Equal("initrd", plan.Boot.InitrdFile);
         Assert.Empty(plan.SeedDisks);
         // {username}/{hostname}/{isoLabel} substituted. (CDBuilder pads the Joliet volume id, so the
-        // label readback has trailing fill chars in this synthetic ISO — real distro ISOs come back clean,
-        // as the FedoraKickstart path is verified to; assert the meaningful prefix, not the padding.)
+        // label readback has trailing fill chars in this synthetic ISO — real distro ISOs come back clean;
+        // assert the meaningful prefix, not the padding.)
         Assert.StartsWith("auto=true hostname=node7 inst.stage2=hd:LABEL=INSTLABEL", plan.Boot.Append, StringComparison.Ordinal);
         Assert.DoesNotContain("{", plan.Boot.Append, StringComparison.Ordinal); // all placeholders resolved
     }

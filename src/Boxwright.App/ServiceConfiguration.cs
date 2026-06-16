@@ -106,9 +106,10 @@ internal static class ServiceConfiguration
 
         // Per-family unattended installers, resolved by OS family (ADR-0016): Ubuntu autoinstall (cloud-init
         // CIDATA seed) and Debian preseed (initrd-injected). New families are just one more registration here.
+        // Ubuntu still uses a bespoke installer (its casper/layerfs grub.cfg introspection needs code);
+        // Debian + Fedora are now declarative recipes in the bundled catalog (ADR-0026), routed through
+        // RecipeInstaller, so their per-family installers were deleted.
         services.AddSingleton<IUnattendedInstaller, UbuntuAutoinstaller>();
-        services.AddSingleton<IUnattendedInstaller, DebianPreseedInstaller>();
-        services.AddSingleton<IUnattendedInstaller, FedoraKickstartInstaller>();
         services.AddSingleton<IUnattendedInstallerResolver, UnattendedInstallerResolver>();
         services.AddSingleton<IRecipeInstaller, RecipeInstaller>();
 

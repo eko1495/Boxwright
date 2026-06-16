@@ -1,6 +1,9 @@
 # ADR-0017: Fedora unattended install via an Anaconda kickstart (netinst)
 
-- **Status:** Accepted
+- **Status:** Accepted (the mechanism stands; the implementation was re-expressed as a declarative
+  `initrd-inject` recipe on the bundled `fedora-44-netinst` entry and the bespoke `FedoraKickstartInstaller`
+  deleted — see ADR-0026. The recipe derives `inst.stage2` from the ISO volume label rather than parsing
+  grub.cfg; for a netinst the two are identical)
 - **Date:** 2026-06-06
 
 ## Context

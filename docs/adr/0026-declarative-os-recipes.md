@@ -1,6 +1,6 @@
 # ADR-0026: Declarative OS recipes (community-contributed OS definitions)
 
-- **Status:** Accepted (phase 1 — sourcing — and phase 2 — the recipe-driven install engine, both the `initrd-inject` and `cloud-init` kinds — implemented)
+- **Status:** Accepted (phase 1 — sourcing — and phase 2 — the recipe-driven install engine, both the `initrd-inject` and `cloud-init` kinds, plus Debian + Fedora re-expressed as bundled recipes — implemented; Ubuntu + Windows stay bespoke by design)
 - **Date:** 2026-06-15
 
 ## Context
@@ -66,12 +66,24 @@ liability, a cross-platform-parity risk, a potential GPL-contamination vector, a
      out of the ISO, writes the substituted `user-data` as the CIDATA seed (leaving the initrd untouched),
      attaches it as a raw seed disk, and boots the substituted kernel command line (the recipe author
      supplies the matching `ds=nocloud` arg). So a community recipe can add an Ubuntu-autoinstall-style
-     distro's **hands-free** install with no C#. Re-expressing the four built-in installers as recipes to
-     prove full coverage is left as a follow-up (the bundled installers stay authoritative for now).
+     distro's **hands-free** install with no C#.
+   - **2c — DONE (built-in installers re-expressed as recipes, where they fit).** `DebianPreseedInstaller`
+     and `FedoraKickstartInstaller` (+ their `DebianPreseed`/`FedoraKickstart` builders) were replaced by
+     bundled `initrd-inject` recipe blocks on the `debian-13-netinst` and `fedora-44-netinst` catalog
+     entries and deleted — the preseed/kickstart now live as `seedTemplate` data, routed through
+     `RecipeInstaller`. This proves the schema covers the two initrd-inject mechanisms on real, shipped
+     entries. **Ubuntu and Windows intentionally stay as C#:** Ubuntu's autoinstaller introspects the ISO's
+     own grub.cfg to preserve casper `layerfs-path=` args (`InstallMediaExtractor`), and Windows is a
+     multi-pass `Autounattend.xml` with conditional virtio-driver injection, partition geometry, UTF-16LE
+     password encoding, and a held-key boot dance — neither fits a static text-substitution template, and
+     forcing them in would turn the schema into a Turing tarpit. The one accepted behaviour change: the
+     Fedora recipe derives `inst.stage2` from the ISO volume label (`{isoLabel}`) instead of parsing
+     grub.cfg; for a netinst the grub.cfg label and the volume label are identical.
 
 ## Consequences
-- **Easier:** the community adds a distro by editing data, not C#; the install layer stops being four
-  bespoke classes and becomes one engine + a recipe set; offline/local recipes work the same as remote.
+- **Easier:** the community adds a distro by editing data, not C#; the install layer is collapsing from
+  bespoke per-family classes toward one engine + a recipe set (Debian + Fedora done; Ubuntu + Windows stay
+  bespoke where the schema genuinely can't reach); offline/local recipes work the same as remote.
 - **Harder / accepted:** the recipe schema must be expressive enough for real installers without becoming
   a Turing tarpit — Phase 1 (re-expressing the existing four) is the guardrail; anything they can't model
   declaratively stays a built-in. Versioning/compat of the recipe schema is a long-term maintenance load.

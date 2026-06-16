@@ -29,8 +29,9 @@ public sealed class OsCatalogTests
             Assert.False(string.IsNullOrWhiteSpace(e.SourceName));
             Assert.False(string.IsNullOrWhiteSpace(e.OsFamily));
 
-            // Unattended install is gated to the families with a registered installer (ADR-0013/0016/0017):
-            // Ubuntu (autoinstall), Debian (preseed), Fedora (kickstart). Must not leak to other families.
+            // Unattended install is gated to the families Boxwright can drive (ADR-0013/0016/0017/0026):
+            // Ubuntu (bespoke autoinstaller), Debian (preseed recipe), Fedora (kickstart recipe). Must not
+            // leak to other families.
             if (e.SupportsAutoinstall)
             {
                 Assert.True(e.OsFamily is "ubuntu" or "debian" or "fedora", $"Unexpected autoinstall family: {e.OsFamily}");
