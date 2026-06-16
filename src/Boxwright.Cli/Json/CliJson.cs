@@ -52,6 +52,27 @@ internal sealed record VmInfoJson(
 /// <summary>An OS catalog entry as listed by <c>os list --json</c>.</summary>
 internal sealed record OsEntryJson(string Id, string Name, string Version, string Arch, bool SupportsAutoinstall);
 
+/// <summary>A catalog entry's full detail as emitted by <c>os show --json</c>.</summary>
+internal sealed record OsDetailJson(
+    string Id,
+    string Name,
+    string Version,
+    string Arch,
+    string ImageKind,
+    string Url,
+    string Sha256,
+    long SizeBytes,
+    string SourceName,
+    bool RequiresLicense,
+    string OsFamily,
+    bool SupportsAutoinstall,
+    bool HasUnattendedRecipe,
+    string? Notes,
+    int MemoryMiB,
+    int CpuCores,
+    int DiskGiB,
+    string Firmware);
+
 /// <summary>A snapshot as listed by <c>snapshot list --json</c>.</summary>
 internal sealed record SnapshotJson(string Tag, bool HasVmState, string Created);
 
@@ -77,6 +98,7 @@ internal sealed record RecipeJson(string File, bool Ok, string[] Entries, string
 [JsonSerializable(typeof(VmSummaryJson[]))]
 [JsonSerializable(typeof(VmInfoJson))]
 [JsonSerializable(typeof(OsEntryJson[]))]
+[JsonSerializable(typeof(OsDetailJson))]
 [JsonSerializable(typeof(SnapshotJson[]))]
 [JsonSerializable(typeof(UsbJson[]))]
 [JsonSerializable(typeof(NetworkJson))]

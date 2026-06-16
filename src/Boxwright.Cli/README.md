@@ -23,6 +23,7 @@ boxwright stop <id|name> [--force] [--timeout=SECONDS]
 boxwright display <id|name>            # open remote-viewer against a running VM
 boxwright delete <id|name> --yes
 boxwright os list [--json]             # OS catalog ids the GUI's one-click flow uses
+boxwright os show <id> [--json]        # one catalog entry's full details (url, sha256, size, specs)
 boxwright recipe dir|list [--json]|validate <file>   # local OS recipes that extend the catalog
 boxwright snapshot list [--json]|create|restore|delete <id|name> [tag]   # offline qcow2 snapshots
 boxwright check <id|name> [--repair] [--json]   # check disks for corruption; --repair attempts a fix
@@ -44,7 +45,7 @@ or `--key=value`.
     only login the guest gets).
   - Windows (which needs a user-supplied ISO + virtio + Autounattend) stays **GUI-only** for now.
 
-- **`--json`** on the read commands (`list`, `info`, `os list`, `snapshot list`) emits
+- **`--json`** on the read commands (`list`, `info`, `os list`, `os show`, `snapshot list`, `check`) emits
   camelCase JSON for `jq`-friendly scripting instead of the human table.
 - **Disk usage:** `list` shows each VM's on-disk footprint (a `DISK` column) and `info` breaks it down
   per disk (actual on-disk vs virtual capacity) via `qemu-img info`. Best-effort — if `qemu-img` is
