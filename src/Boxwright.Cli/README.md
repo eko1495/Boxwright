@@ -13,6 +13,7 @@ can be started, stopped, or adopted by the other — no daemon, no IPC.
 ```
 boxwright list [--json]                # all VMs + run status + on-disk size
 boxwright info <id|name> [--json]      # a VM's configuration + per-disk usage
+boxwright set <id|name> [--name N] [--memory MiB] [--cpus N] [--firmware bios|uefi] [--os-type linux|windows|macos] [--arch A] [--display-protocol spice|vnc] [--gl true|false] [--audio true|false] [--boot-menu true|false]   # edit a VM's settings
 boxwright create <name> --os <id> [--unattended --user U --password P [--hostname H]]
 boxwright create <name> [options]      # blank VM + fresh disk (optionally --iso PATH)
 boxwright clone <id|name> <new-name> [--linked]   # full copy, or qcow2 overlay
@@ -53,6 +54,10 @@ or `--key=value`.
 - **`snapshot`** create/restore/delete span **every** qcow2 disk of the VM, so a multi-disk VM stays
   consistent (a tag is only restorable when present on all disks). `restore` rolls back to a tag (VM
   stopped — offline qcow2 access).
+- **`set`** edits a VM's boot-time settings (the CLI counterpart to the GUI settings panel) — only the
+  options you pass change; everything else (id, disks, networking) is preserved. Settings take effect on
+  the next launch, so editing a running VM is allowed but flagged. Renames are rejected if the name is
+  taken by another VM.
 - **`check`** runs `qemu-img check` on every qcow2 disk (VM stopped — a live disk reads as corrupt) and
   reports corruptions/leaks per disk. Exits non-zero when any disk is corrupted or its check fails, so it
   works as a health gate in scripts. Leaks (wasted-but-safe clusters) don't fail the check.
