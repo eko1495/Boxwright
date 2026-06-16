@@ -1,6 +1,8 @@
 # ADR-0016: Debian unattended install via an initrd-injected preseed (+ a per-family installer seam)
 
-- **Status:** Accepted
+- **Status:** Accepted (the mechanism stands; the implementation was re-expressed as a declarative
+  `initrd-inject` recipe on the bundled `debian-13-netinst` entry and the bespoke `DebianPreseedInstaller`
+  deleted — see ADR-0026)
 - **Date:** 2026-06-05
 
 ## Context

@@ -93,6 +93,9 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
         external tool), and boots `-append "auto=true priority=critical"` so d-i runs fully non-interactively
         (auto-confirming the partman disk-write prompts). Installs a GNOME desktop and powers off, after which
         the VM graduates to a disk boot (same finalize path as Ubuntu).
+  - [x] *Re-expressed as a recipe* (ADR-0026) — `DebianPreseedInstaller`/`DebianPreseed` were replaced by an
+        `initrd-inject` recipe block on the bundled `debian-13-netinst` entry (same kernel/initrd paths,
+        append, and preseed, now data), routed through `RecipeInstaller`. The bespoke C# was deleted.
 - **Unattended install** for Fedora (see ADR-0017):
   - [x] *Netinst kickstart* — a new Fedora **Everything netinst** catalog entry routes (by `osFamily`) to
         `FedoraKickstartInstaller`, which extracts `images/pxeboot/{vmlinuz,initrd.img}`, **injects** a
@@ -100,6 +103,10 @@ This is the "Quickemu moment" — the feature most likely to attract stars.
         `-append "inst.ks=file:/ks.cfg inst.stage2=hd:LABEL=… inst.text"` so Anaconda runs fully
         non-interactively. Installs the GNOME (Workstation) environment and powers off → graduates like the
         others. The Fedora **Live** entry stays interactive (Live media can't kickstart).
+  - [x] *Re-expressed as a recipe* (ADR-0026) — `FedoraKickstartInstaller`/`FedoraKickstart` were replaced by
+        an `initrd-inject` recipe block on the bundled `fedora-44-netinst` entry, routed through
+        `RecipeInstaller`. The bespoke C# was deleted; `inst.stage2` now uses the ISO volume label
+        (`{isoLabel}`) instead of grub.cfg parsing — for a netinst the two labels are identical.
 - **Unattended Windows** install (see ADR-0015):
   - [x] *Bring-your-own ISO* — pick a Windows 10/11 ISO in the New-VM flow + credentials; Boxwright bakes
         an `Autounattend.xml` seed CD (local admin + auto-login), bypasses the Win11 TPM/Secure-Boot

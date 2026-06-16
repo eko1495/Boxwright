@@ -67,7 +67,18 @@
       "sizeBytes": 696254464,
       "recommended": { "memoryMiB": 2048, "cpuCores": 2, "diskGiB": 20, "firmware": "uefi" },
       "sourceName": "Debian · cdimage.debian.org",
-      "notes": "Network installer — needs an internet connection during installation. Unattended installs a GNOME desktop, so the first install downloads a lot of packages and takes a while."
+      "notes": "Network installer — needs an internet connection during installation. Unattended installs a GNOME desktop, so the first install downloads a lot of packages and takes a while.",
+      // Unattended via a declarative recipe (ADR-0026): a debian-installer preseed injected into the
+      // text-installer initrd, booted with auto=true priority=critical. Routes through RecipeInstaller
+      // (the bespoke DebianPreseedInstaller it replaced was deleted). Backslash paths — DiscUtils convention.
+      "unattended": {
+        "kind": "initrd-inject",
+        "kernelPath": "install.amd\\vmlinuz",
+        "initrdPaths": ["install.amd\\initrd.gz"],
+        "append": "auto=true priority=critical",
+        "seedFileName": "preseed.cfg",
+        "seedTemplate": "### Localization\nd-i debian-installer/locale string {locale}\nd-i keyboard-configuration/xkb-keymap select {keyboard}\n\n### Network\nd-i netcfg/choose_interface select auto\nd-i netcfg/get_hostname string {hostname}\nd-i netcfg/hostname string {hostname}\nd-i netcfg/get_domain string\n\n### Apt mirror\nd-i mirror/country string manual\nd-i mirror/http/hostname string deb.debian.org\nd-i mirror/http/directory string /debian\nd-i mirror/http/proxy string\n\n### Clock and time zone\nd-i clock-setup/utc boolean true\nd-i time/zone string {timezone}\nd-i clock-setup/ntp boolean true\n\n### Account setup (root login disabled; the user is a sudoer)\nd-i passwd/root-login boolean false\nd-i passwd/user-fullname string {username}\nd-i passwd/username string {username}\nd-i passwd/user-password-crypted password {passwordHash}\nd-i user-setup/allow-password-weak boolean true\nd-i user-setup/encrypt-home boolean false\n\n### Partitioning (guided, whole disk, LVM) — auto-confirm every write prompt\nd-i partman-auto/method string lvm\nd-i partman-lvm/device_remove_lvm boolean true\nd-i partman-md/device_remove_md boolean true\nd-i partman-lvm/confirm boolean true\nd-i partman-lvm/confirm_nooverwrite boolean true\nd-i partman-auto/choose_recipe select atomic\nd-i partman-partitioning/confirm_write_new_label boolean true\nd-i partman/choose_partition select finish\nd-i partman/confirm boolean true\nd-i partman/confirm_nooverwrite boolean true\n\n### Base system + packages\nd-i apt-setup/non-free-firmware boolean true\ntasksel tasksel/first multiselect standard, gnome-desktop\nd-i pkgsel/upgrade select none\npopularity-contest popularity-contest/participate boolean false\n\n### Boot loader\nd-i grub-installer/only_debian boolean true\nd-i grub-installer/with_other_os boolean true\nd-i grub-installer/bootdev string default\n\n### Finish — power off so Boxwright graduates the VM to a disk boot\nd-i finish-install/reboot_in_progress note\nd-i debian-installer/exit/poweroff boolean true\n"
+      }
     },
     {
       "id": "fedora-44-workstation",
@@ -85,8 +96,10 @@
     },
     {
       // Network installer (Anaconda): unattended via a kickstart injected into the installer initrd
-      // (ADR-0017). A Live image can't kickstart, so unattended Fedora uses this netinst. The osFamily
-      // routes to FedoraKickstartInstaller; supportsAutoinstall surfaces the "Install automatically" opt-in.
+      // (ADR-0017). A Live image can't kickstart, so unattended Fedora uses this netinst. The declarative
+      // recipe below (ADR-0026) drives it through RecipeInstaller; supportsAutoinstall surfaces the
+      // "Install automatically" opt-in. inst.stage2 uses the ISO volume label ({isoLabel}) — for a Fedora
+      // netinst the grub.cfg's stage2 label and the volume label are the same.
       "id": "fedora-44-netinst",
       "osFamily": "fedora",
       "supportsAutoinstall": true,
@@ -99,7 +112,15 @@
       "recommended": { "memoryMiB": 4096, "cpuCores": 2, "diskGiB": 25, "firmware": "uefi" },
       "sourceName": "Fedora Project · mirrors.edge.kernel.org",
       "requiresLicense": false,
-      "notes": "Network installer — needs an internet connection during installation. Unattended installs the GNOME (Workstation) desktop, so the first install downloads a lot of packages and takes a while."
+      "notes": "Network installer — needs an internet connection during installation. Unattended installs the GNOME (Workstation) desktop, so the first install downloads a lot of packages and takes a while.",
+      "unattended": {
+        "kind": "initrd-inject",
+        "kernelPath": "images\\pxeboot\\vmlinuz",
+        "initrdPaths": ["images\\pxeboot\\initrd.img"],
+        "append": "inst.ks=file:/ks.cfg inst.stage2=hd:LABEL={isoLabel} inst.text",
+        "seedFileName": "ks.cfg",
+        "seedTemplate": "# Boxwright-generated Fedora kickstart (unattended Workstation install).\ntext\nkeyboard --vckeymap={keyboard}\nlang {locale}\ntimezone {timezone} --utc\n\n# Network (DHCP over QEMU user-mode networking).\nnetwork --bootproto=dhcp --hostname={hostname}\n\n# Install source: the netinst ISO ships no packages, so pull from the Fedora mirrors.\nurl --mirrorlist=\"https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-$releasever&arch=$basearch\"\n\n# Disk: wipe disk and let Anaconda auto-partition the whole drive (creates the ESP under UEFI).\nzerombr\nclearpart --all --initlabel\nautopart\nbootloader --location=mbr\n\n# Accounts: root login disabled; the user is a sudoer (wheel). Password is a SHA-512 crypt hash.\nrootpw --lock\nuser --name={username} --groups=wheel --iscrypted --password={passwordHash}\n\n# Power off when the install finishes so Boxwright graduates the VM to a disk boot.\npoweroff\n\n%packages\n@^workstation-product-environment\n%end\n"
+      }
     },
     {
       "id": "linuxmint-22.3-cinnamon",
