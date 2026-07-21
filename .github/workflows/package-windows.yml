@@ -1,7 +1,7 @@
 name: Package Boxwright (Windows)
 
-# Builds the self-contained Windows ZIP (app + bundled QEMU) on a version tag or manual
-# dispatch, and attaches it to the GitHub Release. Companion to publish-qmp.yml.
+# Builds the self-contained Windows ZIP and the Inno Setup installer (app + bundled QEMU)
+# on a version tag or manual dispatch, and attaches both to the GitHub Release.
 on:
   push:
     tags:
@@ -36,18 +36,35 @@ jobs:
             echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Ensure Inno Setup
+        shell: pwsh
+        # ISCC is preinstalled on windows-latest; this guard only fires if the image drops it.
+        run: |
+          if (-not (Get-Command iscc.exe -ErrorAction SilentlyContinue) -and
+              -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --no-progress -y
+          }
+
       - name: Package
         shell: pwsh
         run: ./tools/package-windows.ps1 -Version ${{ steps.version.outputs.value }}
+
+      - name: Smoke-test installer
+        shell: pwsh
+        run: ./tools/test-windows-installer.ps1 -SetupExe artifacts/win-x64/Boxwright-Setup-${{ steps.version.outputs.value }}-win-x64.exe
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: Boxwright-win-x64
-          path: artifacts/win-x64/*.zip
+          path: |
+            artifacts/win-x64/*.zip
+            artifacts/win-x64/*.exe
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/win-x64/*.zip
+          files: |
+            artifacts/win-x64/*.zip
+            artifacts/win-x64/*.exe
