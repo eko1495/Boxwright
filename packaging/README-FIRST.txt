@@ -1,6 +1,12 @@
 Boxwright for Windows - read me first
 =====================================
 
+Two ways to get Boxwright (both on the GitHub Releases page):
+  - Boxwright-Setup-<version>-win-x64.exe  - recommended: per-user installer (no admin
+    prompt), Start-menu entry, in-place upgrades, uninstall from the Apps list.
+  - Boxwright-<version>-win-x64.zip        - portable: extract anywhere, run Boxwright.App.exe.
+Uninstalling or deleting the app never touches your VMs (see 5).
+
 1) First run / SmartScreen
    Boxwright is not code-signed yet, so Windows SmartScreen may show
    "Windows protected your PC". Click "More info" -> "Run anyway".

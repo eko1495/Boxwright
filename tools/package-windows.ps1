@@ -2,7 +2,8 @@
 <#
 .SYNOPSIS
   Builds the self-contained Windows ZIP for Boxwright (ADR-0009): publishes the app, bundles
-  QEMU (weilnetz, unmodified) under qemu/, drops the license + notices, and zips it.
+  QEMU (weilnetz, unmodified) under qemu/, drops the license + notices, zips it, and compiles
+  the Inno Setup installer (ADR-0029).
 
 .DESCRIPTION
   By default it downloads the pinned weilnetz QEMU installer and silently extracts it. Pass
@@ -17,7 +18,8 @@ param(
     [Parameter(Mandatory = $true)] [string] $Version,
     [string] $QemuDir = '',
     [string] $OutputDir = '',
-    [switch] $SkipPublish
+    [switch] $SkipPublish,
+    [switch] $SkipInstaller
 )
 
 $ErrorActionPreference = 'Stop'
@@ -104,3 +106,31 @@ $zipHash = (Get-FileHash -Algorithm SHA256 $zipPath).Hash
 Write-Host ''
 Write-Host "Created $zipPath ($sizeMB MB)"
 Write-Host "SHA-256: $zipHash"
+
+# 6. Installer (ADR-0029): compile the Inno Setup script over the same staged tree.
+function Find-Iscc {
+    $cmd = Get-Command 'iscc.exe' -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    $candidates = @(
+        "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+        "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+        "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+    )
+    foreach ($c in $candidates) { if (Test-Path $c) { return $c } }
+    throw 'ISCC.exe (Inno Setup 6.3+) not found. Install it (winget install -e --id JRSoftware.InnoSetup) or pass -SkipInstaller.'
+}
+
+if (-not $SkipInstaller) {
+    $iscc = Find-Iscc
+    $issPath = Join-Path $repoRoot 'packaging\windows-installer.iss'
+    Write-Host ''
+    Write-Host 'Compiling installer ...'
+    & $iscc "/DAppVersion=$Version" "/DStagedDir=$publishDir" "/O$OutputDir" $issPath
+    if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+    $setupPath = Join-Path $OutputDir "Boxwright-Setup-$Version-win-x64.exe"
+    if (-not (Test-Path $setupPath)) { throw "ISCC succeeded but $setupPath is missing" }
+    $setupMB   = [math]::Round((Get-Item $setupPath).Length / 1MB, 1)
+    $setupHash = (Get-FileHash -Algorithm SHA256 $setupPath).Hash
+    Write-Host "Created $setupPath ($setupMB MB)"
+    Write-Host "SHA-256: $setupHash"
+}

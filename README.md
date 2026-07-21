@@ -68,10 +68,14 @@ See [`docs/roadmap.md`](docs/roadmap.md) for the full plan.
 
 ### Windows
 
-1. Download the latest `Boxwright-<version>-win-x64.zip` from the
-   [Releases](https://github.com/eko1495/Boxwright/releases) page.
-2. Extract it anywhere and run `Boxwright.App.exe`. It is **self-contained** (no .NET
-   install needed) and **QEMU is bundled** (no QEMU install needed).
+1. Download either artifact from the
+   [Releases](https://github.com/eko1495/Boxwright/releases) page:
+   - **Recommended:** `Boxwright-Setup-<version>-win-x64.exe` — per-user installer (no
+     admin prompt), Start-menu entry, in-place upgrades, uninstall from the Apps list.
+   - **Portable:** `Boxwright-<version>-win-x64.zip` — extract anywhere and run
+     `Boxwright.App.exe`.
+2. Either way it is **self-contained** (no .NET install needed) and **QEMU is bundled**
+   (no QEMU install needed).
 3. It isn't code-signed yet, so SmartScreen may warn — click **More info → Run anyway**.
 4. To *view* a running VM, install **virt-viewer** once (it isn't bundled):
    [virt-manager.org/download](https://virt-manager.org/download/). VMs run without it;

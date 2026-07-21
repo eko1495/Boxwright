@@ -19,6 +19,19 @@ QEMU **bundled in the Windows ZIP**; the Linux AppImage bundles no QEMU (system 
 - [ ] `README-FIRST.txt` is present (SmartScreen + virt-viewer guidance).
 - [ ] README performance copy stays honest (Directive 9).
 
+## Installer (Windows setup EXE, ADR-0029)
+- [ ] `Boxwright-Setup-<version>-win-x64.exe` installs on a clean Windows machine with
+      **no admin / no UAC prompt**, into `%LOCALAPPDATA%\Programs\Boxwright`.
+- [ ] Running the new setup over an existing install upgrades in place: old `qemu\` tree
+      replaced (no stale files from the previous pin), shortcuts intact.
+- [ ] Upgrading interactively while Boxwright or a VM is running shows the close-applications
+      prompt and does not kill QEMU (do not test this with a VM you care about).
+- [ ] Uninstall from the Apps list removes the install dir + shortcuts and leaves
+      `%LOCALAPPDATA%\Boxwright` (VMs, logs, settings) in place.
+- [ ] `THIRD-PARTY-NOTICES.txt` is present in the installed tree (same GPL obligations as
+      the ZIP — the installer ships the identical staged tree).
+- [ ] The CI smoke test (`tools/test-windows-installer.ps1`) passed for the released EXE.
+
 ## Linux (AppImage)
 - [ ] No bundled QEMU (system QEMU on Linux, ADR-0011) — so no GPL source-offer obligation;
       `package-linux.sh` bundles only the app + .NET runtime.
