@@ -1,4 +1,4 @@
-; Boxwright Windows installer (ADR-0022). Compiled by tools/package-windows.ps1 via:
+; Boxwright Windows installer (ADR-0029). Compiled by tools/package-windows.ps1 via:
 ;   ISCC.exe /DAppVersion=<ver> /DStagedDir=<staged publish tree> /O<output dir> packaging\windows-installer.iss
 ; The staged tree is the same one the ZIP is built from (ADR-0009). This script globs it
 ; wholesale, so QEMU pin bumps never require installer edits.

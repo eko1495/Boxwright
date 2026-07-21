@@ -19,7 +19,7 @@ QEMU **bundled in the Windows ZIP**; the Linux AppImage bundles no QEMU (system 
 - [ ] `README-FIRST.txt` is present (SmartScreen + virt-viewer guidance).
 - [ ] README performance copy stays honest (Directive 9).
 
-## Installer (Windows setup EXE, ADR-0022)
+## Installer (Windows setup EXE, ADR-0029)
 - [ ] `Boxwright-Setup-<version>-win-x64.exe` installs on a clean Windows machine with
       **no admin / no UAC prompt**, into `%LOCALAPPDATA%\Programs\Boxwright`.
 - [ ] Running the new setup over an existing install upgrades in place: old `qemu\` tree

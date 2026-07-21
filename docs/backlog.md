@@ -649,7 +649,7 @@ Ordered: build foundation → `Qmp` → `Core` → `App` → packaging → exit 
         QEMU) on a clean Windows machine.
   - [x] No admin/root required for the default (user-mode networking) path.
   - [x] Built in CI and downloadable as a release asset.
-- **✅ Resolved (ADR-0022):** Windows ships the ZIP **and** an Inno Setup per-user
+- **✅ Resolved (ADR-0029):** Windows ships the ZIP **and** an Inno Setup per-user
   installer (`Boxwright-Setup-<version>-win-x64.exe`: no UAC, in-place upgrades, uninstall
   preserves VM data), built by `tools/package-windows.ps1` + `package-windows.yml` with a
   CI silent install/uninstall smoke test (`tools/test-windows-installer.ps1`). The

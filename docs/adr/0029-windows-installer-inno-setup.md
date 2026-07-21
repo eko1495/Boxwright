@@ -1,4 +1,4 @@
-# ADR-0022: Windows installer via Inno Setup (per-user, alongside the ZIP)
+# ADR-0029: Windows installer via Inno Setup (per-user, alongside the ZIP)
 
 - **Status:** Accepted
 - **Date:** 2026-07-21

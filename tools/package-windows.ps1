@@ -3,7 +3,7 @@
 .SYNOPSIS
   Builds the self-contained Windows ZIP for Boxwright (ADR-0009): publishes the app, bundles
   QEMU (weilnetz, unmodified) under qemu/, drops the license + notices, zips it, and compiles
-  the Inno Setup installer (ADR-0022).
+  the Inno Setup installer (ADR-0029).
 
 .DESCRIPTION
   By default it downloads the pinned weilnetz QEMU installer and silently extracts it. Pass
@@ -107,7 +107,7 @@ Write-Host ''
 Write-Host "Created $zipPath ($sizeMB MB)"
 Write-Host "SHA-256: $zipHash"
 
-# 6. Installer (ADR-0022): compile the Inno Setup script over the same staged tree.
+# 6. Installer (ADR-0029): compile the Inno Setup script over the same staged tree.
 function Find-Iscc {
     $cmd = Get-Command 'iscc.exe' -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
