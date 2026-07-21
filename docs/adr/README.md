@@ -57,3 +57,4 @@ What we rejected and why.
 | [0026](0026-declarative-os-recipes.md) | Declarative OS recipes for community-contributed OS definitions (data, not code) | Accepted (phase 1 + 2: initrd-inject + cloud-init) |
 | [0027](0027-openpgp-signature-verification.md) | OpenPGP signature verification for catalog downloads (BouncyCastle, bundled trust anchors) | Accepted (phase 1: the verifier) |
 | [0028](0028-vm-rename-folder-slug.md) | VM rename: human-readable folder slug while the id stays the stable key | Accepted (phase 1: Core + CLI; GUI rename deferred) |
+| [0022](0022-windows-installer-inno-setup.md) | Windows installer via Inno Setup (per-user, alongside the ZIP) | Accepted |
