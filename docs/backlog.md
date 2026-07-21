@@ -645,10 +645,15 @@ Ordered: build foundation → `Qmp` → `Core` → `App` → packaging → exit 
   stranger can download and run — the thing the exit gate measures. README/UI
   copy must stay honest about Windows performance (Directive 9).
 - **Acceptance criteria:**
-  - [ ] Double-click/extract install puts a runnable Boxwright (with bundled
+  - [x] Double-click/extract install puts a runnable Boxwright (with bundled
         QEMU) on a clean Windows machine.
-  - [ ] No admin/root required for the default (user-mode networking) path.
-  - [ ] Built in CI and downloadable as a release asset.
+  - [x] No admin/root required for the default (user-mode networking) path.
+  - [x] Built in CI and downloadable as a release asset.
+- **✅ Resolved (ADR-0022):** Windows ships the ZIP **and** an Inno Setup per-user
+  installer (`Boxwright-Setup-<version>-win-x64.exe`: no UAC, in-place upgrades, uninstall
+  preserves VM data), built by `tools/package-windows.ps1` + `package-windows.yml` with a
+  CI silent install/uninstall smoke test (`tools/test-windows-installer.ps1`). The
+  clean-machine run remains part of GATE-1.
 
 ### PKG-3 — Linux artifact (AppImage or Flatpak)
 - **Project:** cross-cutting/build

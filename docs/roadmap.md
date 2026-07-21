@@ -58,6 +58,8 @@ is the strategic wedge (the gap is biggest there).
 - [ ] Bundle QEMU on Windows; system/Flatpak QEMU on Linux; signed QEMU in the
       macOS `.app`.
 - [ ] Installable artifact per OS (MSI/zip, AppImage/Flatpak, signed `.app`).
+      (Windows ZIP + Inno Setup installer (ADR-0022) via `package-windows.ps1`/`.yml`;
+      Linux AppImage `package-linux.sh`/`.yml`; **macOS `.app` pending**.)
 
 **Exit gate (go/no-go):** *Can a stranger install it on Windows and boot Ubuntu
 in under 10 minutes?* If yes → ship publicly and move to Stage 2. If no → fix
