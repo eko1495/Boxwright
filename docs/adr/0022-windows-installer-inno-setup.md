@@ -20,9 +20,12 @@ per-user with no UAC (no-admin directive), in-place upgrades, still unsigned.
   needs no changes.
 - **In-place upgrades** via a permanent `AppId` GUID; `[InstallDelete]` clears the old
   `qemu/` subtree first so files from an older weilnetz pin cannot linger.
-- **Never auto-kill QEMU:** Restart Manager (`CloseApplications=yes`) prompts the user to
-  close Boxwright / running VMs; `RestartApplications=no`. Killing a VM risks guest
-  corruption.
+- **Never auto-kill QEMU (interactive installs):** Restart Manager (`CloseApplications=yes`)
+  prompts the user to close Boxwright / running VMs; `RestartApplications=no`. Killing a VM
+  risks guest corruption. **Caveat:** silent installs (`/SILENT`, `/VERYSILENT`) follow
+  Inno's auto-close semantics — no prompt — so do not upgrade silently while a VM is
+  running; a `[Code]` guard for silent mode is a prerequisite for any future winget
+  submission (winget installs silently).
 - **Uninstall preserves VM data:** removes only the install dir + shortcuts;
   `%LOCALAPPDATA%\Boxwright` (VMs, logs, settings) is untouched and the uninstaller says so.
 - **CI:** the existing `package-windows.yml` job compiles the installer (ISCC is
@@ -33,7 +36,7 @@ per-user with no UAC (no-admin directive), in-place upgrades, still unsigned.
 - **Easier:** one-click install, Start-menu entry, Apps-list uninstall, safe upgrades;
   winget submission becomes possible later (winget accepts Inno EXEs) once signing lands.
 - **Harder / accepted:** still unsigned → SmartScreen friction on the setup EXE too;
-  ~300 MB per user for per-user installs; Inno Setup is a build-time tool dependency.
+  ~300 MB per user for per-user installs; Inno Setup (6.3+) is a build-time tool dependency.
 
 ## Alternatives considered
 - **WiX (MSI):** true MSI, but per-user MSI is awkward (ICE warnings, folder redirection),

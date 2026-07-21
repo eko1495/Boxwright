@@ -28,6 +28,13 @@ foreach ($f in 'Boxwright.App.exe', 'qemu\qemu-system-x86_64.exe', 'THIRD-PARTY-
 }
 Write-Host "Install layout OK: $installDir"
 
+# The uninstaller must preserve user data under %LOCALAPPDATA%\Boxwright - seed a marker to prove it.
+$dataDir = Join-Path $env:LOCALAPPDATA 'Boxwright'
+$dataDirCreated = -not (Test-Path $dataDir)
+if ($dataDirCreated) { New-Item -ItemType Directory -Path $dataDir | Out-Null }
+$marker = Join-Path $dataDir 'smoke-test-marker.txt'
+'seeded by test-windows-installer.ps1' | Set-Content $marker
+
 Write-Host 'Uninstalling ...'
 $p = Start-Process -FilePath (Join-Path $installDir 'unins000.exe') -ArgumentList $silentArgs -Wait -PassThru
 if ($p.ExitCode -ne 0) { throw "Uninstaller exited with $($p.ExitCode)" }
@@ -36,4 +43,9 @@ if ($p.ExitCode -ne 0) { throw "Uninstaller exited with $($p.ExitCode)" }
 $deadline = (Get-Date).AddSeconds(30)
 while ((Test-Path $installDir) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
 if (Test-Path $installDir) { throw "Install dir still present after uninstall: $installDir" }
+
+if (-not (Test-Path $marker)) { throw "User data was not preserved: $marker vanished during uninstall" }
+Remove-Item $marker -Force
+if ($dataDirCreated) { Remove-Item $dataDir -Force }
+Write-Host 'User data preserved.'
 Write-Host 'Uninstall OK.'

@@ -117,7 +117,7 @@ function Find-Iscc {
         "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
     )
     foreach ($c in $candidates) { if (Test-Path $c) { return $c } }
-    throw 'ISCC.exe (Inno Setup 6) not found. Install it (winget install -e --id JRSoftware.InnoSetup) or pass -SkipInstaller.'
+    throw 'ISCC.exe (Inno Setup 6.3+) not found. Install it (winget install -e --id JRSoftware.InnoSetup) or pass -SkipInstaller.'
 }
 
 if (-not $SkipInstaller) {

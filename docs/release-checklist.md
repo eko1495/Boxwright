@@ -24,6 +24,8 @@ QEMU **bundled in the Windows ZIP**; the Linux AppImage bundles no QEMU (system 
       **no admin / no UAC prompt**, into `%LOCALAPPDATA%\Programs\Boxwright`.
 - [ ] Running the new setup over an existing install upgrades in place: old `qemu\` tree
       replaced (no stale files from the previous pin), shortcuts intact.
+- [ ] Upgrading interactively while Boxwright or a VM is running shows the close-applications
+      prompt and does not kill QEMU (do not test this with a VM you care about).
 - [ ] Uninstall from the Apps list removes the install dir + shortcuts and leaves
       `%LOCALAPPDATA%\Boxwright` (VMs, logs, settings) in place.
 - [ ] `THIRD-PARTY-NOTICES.txt` is present in the installed tree (same GPL obligations as

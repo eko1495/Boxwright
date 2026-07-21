@@ -24,8 +24,10 @@ DefaultDirName={autopf}\Boxwright
 DisableProgramGroupPage=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-; Restart Manager: prompt the user to close Boxwright / running QEMU that hold files
-; under {app}. Never kill (a killed VM risks guest corruption), never relaunch.
+; Restart Manager: interactive installs prompt the user to close Boxwright / running QEMU
+; that hold files under {app} - never killed, never relaunched. NOTE: in silent installs
+; (/SILENT, /VERYSILENT) Inno auto-closes in-use apps without a prompt - do NOT upgrade
+; silently while a VM is running (revisit with a [Code] guard before any winget submission).
 CloseApplications=yes
 RestartApplications=no
 OutputBaseFilename=Boxwright-Setup-{#AppVersion}-win-x64
@@ -41,6 +43,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [InstallDelete]
 ; Upgrades: clear the previous QEMU tree first so files from an older weilnetz pin
 ; cannot linger next to the new one. App files are simply overwritten.
+; If an app file or native dependency is ever renamed/removed between versions, add an
+; [InstallDelete] entry for the old name - plain overwrite never removes vanished files.
 Type: filesandordirs; Name: "{app}\qemu"
 
 [Files]
