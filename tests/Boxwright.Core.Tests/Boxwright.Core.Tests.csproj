@@ -2,12 +2,13 @@
 
   <!-- Tests for Core. CommandLineBuilder (config -> args) is covered exhaustively;
        AcceleratorDetector logic via injected probes.
-       xUnit v3 test project (an executable; runs under `dotnet test` via the VSTest adapter).
+       xUnit v3 test project (an executable; runs under `dotnet test` via Microsoft.Testing.Platform).
        Package versions are centralized in Directory.Packages.props. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,12 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
-    <PackageReference Include="xunit.runner.visualstudio">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
     <PackageReference Include="coverlet.collector">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
