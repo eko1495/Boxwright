@@ -7,7 +7,7 @@
         WindowStartupLocation="CenterOwner">
     <StackPanel Margin="24" Spacing="20" Width="460">
         <Grid ColumnDefinitions="Auto,*">
-            <ui:SymbolIcon Grid.Column="0" Symbol="ImportantFilled" FontSize="26"
+            <ui:FASymbolIcon Grid.Column="0" Symbol="ImportantFilled" FontSize="26"
                            Foreground="#E8920C" VerticalAlignment="Top" Margin="0,0,14,0" />
             <TextBlock Grid.Column="1" x:Name="MessageText" TextWrapping="Wrap" />
         </Grid>

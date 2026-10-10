@@ -35,50 +35,50 @@
                 <WrapPanel>
                     <Button Classes="action accent" Command="{Binding StartCommand}" Margin="0,0,8,8">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <ui:SymbolIcon Symbol="Play" FontSize="16" /><TextBlock Text="Start" />
+                            <ui:FASymbolIcon Symbol="Play" FontSize="16" /><TextBlock Text="Start" />
                         </StackPanel>
                     </Button>
                     <Button Classes="action" Command="{Binding OpenDisplayCommand}" Margin="0,0,8,8">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <ui:SymbolIcon Symbol="OpenLocal" FontSize="16" /><TextBlock Text="Open display" />
+                            <ui:FASymbolIcon Symbol="OpenLocal" FontSize="16" /><TextBlock Text="Open display" />
                         </StackPanel>
                     </Button>
                     <Button Classes="action" Command="{Binding PauseCommand}" Margin="0,0,8,8">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <ui:SymbolIcon Symbol="Pause" FontSize="16" /><TextBlock Text="Pause" />
+                            <ui:FASymbolIcon Symbol="Pause" FontSize="16" /><TextBlock Text="Pause" />
                         </StackPanel>
                     </Button>
                     <Button Classes="action" Command="{Binding ResumeCommand}" Margin="0,0,8,8">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <ui:SymbolIcon Symbol="Play" FontSize="16" /><TextBlock Text="Resume" />
+                            <ui:FASymbolIcon Symbol="Play" FontSize="16" /><TextBlock Text="Resume" />
                         </StackPanel>
                     </Button>
                     <Button Classes="action" Command="{Binding ResetCommand}" Margin="0,0,8,8">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <ui:SymbolIcon Symbol="RotateClockwise" FontSize="16" /><TextBlock Text="Reset" />
+                            <ui:FASymbolIcon Symbol="RotateClockwise" FontSize="16" /><TextBlock Text="Reset" />
                         </StackPanel>
                     </Button>
                     <Button Classes="action" Command="{Binding SaveStateCommand}" Margin="0,0,8,8"
                             ToolTip.Tip="Suspend the VM to disk and resume on next Start. Needs the KVM or TCG accelerator — WHPX (Windows) and HVF (macOS) can't serialize VM state.">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <ui:SymbolIcon Symbol="SaveLocal" FontSize="16" /><TextBlock Text="Save state" />
+                            <ui:FASymbolIcon Symbol="SaveLocal" FontSize="16" /><TextBlock Text="Save state" />
                         </StackPanel>
                     </Button>
                     <Button Classes="action" Command="{Binding RefreshGuestIpCommand}" Margin="0,0,8,8">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <ui:SymbolIcon Symbol="Sync" FontSize="16" /><TextBlock Text="Refresh IP" />
+                            <ui:FASymbolIcon Symbol="Sync" FontSize="16" /><TextBlock Text="Refresh IP" />
                         </StackPanel>
                     </Button>
                     <Button Classes="action" Command="{Binding StopCommand}" Margin="0,0,8,8">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <ui:SymbolIcon Symbol="Stop" FontSize="16" /><TextBlock Text="Stop" />
+                            <ui:FASymbolIcon Symbol="Stop" FontSize="16" /><TextBlock Text="Stop" />
                         </StackPanel>
                     </Button>
                 </WrapPanel>
             </Border>
 
             <!-- Status / honesty message -->
-            <ui:InfoBar IsOpen="{Binding HasStatusMessage}" IsClosable="False" Severity="Informational"
+            <ui:FAInfoBar IsOpen="{Binding HasStatusMessage}" IsClosable="False" Severity="Informational"
                         Message="{Binding StatusMessage}" />
 
             <!-- Live performance (CPU / RAM / disk) while running -->
@@ -109,19 +109,19 @@
             </Border>
 
             <!-- Saved state -->
-            <ui:InfoBar IsOpen="{Binding HasSavedState}" IsClosable="False" Severity="Informational"
+            <ui:FAInfoBar IsOpen="{Binding HasSavedState}" IsClosable="False" Severity="Informational"
                         Title="Saved state"
                         Message="This VM has a saved state — Start resumes it where you left off.">
-                <ui:InfoBar.ActionButton>
+                <ui:FAInfoBar.ActionButton>
                     <Button Content="Discard saved state" Command="{Binding DiscardSavedStateCommand}" />
-                </ui:InfoBar.ActionButton>
-            </ui:InfoBar>
+                </ui:FAInfoBar.ActionButton>
+            </ui:FAInfoBar>
 
             <!-- Installer media -->
             <Expander IsExpanded="True" HorizontalAlignment="Stretch">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ui:SymbolIcon Symbol="OpenFolder" /><TextBlock Text="Installer media" VerticalAlignment="Center" />
+                        <ui:FASymbolIcon Symbol="OpenFolder" /><TextBlock Text="Installer media" VerticalAlignment="Center" />
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel Spacing="6">
@@ -142,7 +142,7 @@
             <Expander HorizontalAlignment="Stretch">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ui:SymbolIcon Symbol="Repair" /><TextBlock Text="Integrity" VerticalAlignment="Center" />
+                        <ui:FASymbolIcon Symbol="Repair" /><TextBlock Text="Integrity" VerticalAlignment="Center" />
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel Spacing="8">
@@ -164,7 +164,7 @@
             <Expander HorizontalAlignment="Stretch">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ui:SymbolIcon Symbol="Camera" /><TextBlock Text="Snapshots" VerticalAlignment="Center" />
+                        <ui:FASymbolIcon Symbol="Camera" /><TextBlock Text="Snapshots" VerticalAlignment="Center" />
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel Spacing="8">
@@ -174,20 +174,20 @@
 
                     <StackPanel IsVisible="{Binding CanManageSnapshots}" Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBox Text="{Binding NewSnapshotName}" Watermark="New snapshot name"
+                            <TextBox Text="{Binding NewSnapshotName}" PlaceholderText="New snapshot name"
                                      Width="220" VerticalAlignment="Center" />
                             <Button Content="Take snapshot" Command="{Binding TakeSnapshotCommand}" />
                             <Button Content="Refresh" Command="{Binding RefreshSnapshotsCommand}" />
                         </StackPanel>
 
-                        <ui:InfoBar IsOpen="{Binding IsConfirmingRestore}" IsClosable="False" Severity="Warning"
+                        <ui:FAInfoBar IsOpen="{Binding IsConfirmingRestore}" IsClosable="False" Severity="Warning"
                                     Title="Restore snapshot?"
                                     Message="{Binding SnapshotPendingRestore.Name, StringFormat='Restoring “{0}” discards the current disk state.'}">
                             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
                                 <Button Content="Restore" Command="{Binding ConfirmRestoreSnapshotCommand}" />
                                 <Button Content="Cancel" Command="{Binding CancelRestoreSnapshotCommand}" />
                             </StackPanel>
-                        </ui:InfoBar>
+                        </ui:FAInfoBar>
 
                         <TextBlock IsVisible="{Binding !HasSnapshots}" FontSize="12" Opacity="0.5"
                                    Text="No snapshots yet." />
@@ -219,7 +219,7 @@
             <Expander HorizontalAlignment="Stretch">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ui:SymbolIcon Symbol="Camera" /><TextBlock Text="Live snapshots" VerticalAlignment="Center" />
+                        <ui:FASymbolIcon Symbol="Camera" /><TextBlock Text="Live snapshots" VerticalAlignment="Center" />
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel Spacing="8">
@@ -228,7 +228,7 @@
 
                     <!-- Take: only while running -->
                     <StackPanel IsVisible="{Binding CanTakeLiveSnapshot}" Orientation="Horizontal" Spacing="8">
-                        <TextBox Text="{Binding NewLiveSnapshotName}" Watermark="Live snapshot name"
+                        <TextBox Text="{Binding NewLiveSnapshotName}" PlaceholderText="Live snapshot name"
                                  Width="220" VerticalAlignment="Center" />
                         <Button Content="Take live snapshot" Command="{Binding TakeLiveSnapshotCommand}" />
                     </StackPanel>
@@ -238,23 +238,23 @@
                     <Button Content="Refresh" Command="{Binding RefreshLiveSnapshotsCommand}"
                             HorizontalAlignment="Left" />
 
-                    <ui:InfoBar IsOpen="{Binding IsConfirmingLiveRevert}" IsClosable="False" Severity="Warning"
+                    <ui:FAInfoBar IsOpen="{Binding IsConfirmingLiveRevert}" IsClosable="False" Severity="Warning"
                                 Title="Revert to live snapshot?"
                                 Message="{Binding LiveSnapshotPendingRevert.Name, StringFormat='Reverting to “{0}” discards changes made since it was taken.'}">
                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
                             <Button Content="Revert" Command="{Binding ConfirmRevertLiveSnapshotCommand}" />
                             <Button Content="Cancel" Command="{Binding CancelRevertLiveSnapshotCommand}" />
                         </StackPanel>
-                    </ui:InfoBar>
+                    </ui:FAInfoBar>
 
-                    <ui:InfoBar IsOpen="{Binding IsConfirmingLiveDelete}" IsClosable="False" Severity="Warning"
+                    <ui:FAInfoBar IsOpen="{Binding IsConfirmingLiveDelete}" IsClosable="False" Severity="Warning"
                                 Title="Delete live snapshot?"
                                 Message="{Binding LiveSnapshotPendingDelete.Name, StringFormat='Deleting “{0}” folds its data into the chain and removes the snapshot.'}">
                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
                             <Button Content="Delete" Command="{Binding ConfirmDeleteLiveSnapshotCommand}" />
                             <Button Content="Cancel" Command="{Binding CancelDeleteLiveSnapshotCommand}" />
                         </StackPanel>
-                    </ui:InfoBar>
+                    </ui:FAInfoBar>
 
                     <TextBlock IsVisible="{Binding !HasLiveSnapshots}" FontSize="12" Opacity="0.5"
                                Text="No live snapshots yet." />
@@ -287,7 +287,7 @@
             <Expander HorizontalAlignment="Stretch">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ui:SymbolIcon Symbol="Copy" /><TextBlock Text="Clone" VerticalAlignment="Center" />
+                        <ui:FASymbolIcon Symbol="Copy" /><TextBlock Text="Clone" VerticalAlignment="Center" />
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel Spacing="8">
@@ -296,7 +296,7 @@
 
                     <StackPanel IsVisible="{Binding CanClone}" Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBox Text="{Binding CloneName}" Watermark="Clone name (optional)"
+                            <TextBox Text="{Binding CloneName}" PlaceholderText="Clone name (optional)"
                                      Width="220" VerticalAlignment="Center" />
                             <Button Content="Full clone" Command="{Binding FullCloneCommand}" />
                             <Button Content="Linked clone" Command="{Binding LinkedCloneCommand}" />
@@ -311,7 +311,7 @@
             <Expander HorizontalAlignment="Stretch">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ui:SymbolIcon Symbol="Copy" /><TextBlock Text="Template" VerticalAlignment="Center" />
+                        <ui:FASymbolIcon Symbol="Copy" /><TextBlock Text="Template" VerticalAlignment="Center" />
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel Spacing="8">
@@ -326,7 +326,7 @@
                         <StackPanel IsVisible="{Binding IsTemplate}" Spacing="8">
                             <TextBlock Text="New instance from this template" FontSize="12" Opacity="0.7" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBox Text="{Binding InstanceName}" Watermark="Instance name (optional)"
+                                <TextBox Text="{Binding InstanceName}" PlaceholderText="Instance name (optional)"
                                          Width="220" VerticalAlignment="Center" />
                                 <Button Content="New instance" Command="{Binding CreateInstanceCommand}" />
                             </StackPanel>
@@ -339,7 +339,7 @@
             <Expander HorizontalAlignment="Stretch">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ui:SymbolIcon Symbol="Document" /><TextBlock Text="Logs" VerticalAlignment="Center" />
+                        <ui:FASymbolIcon Symbol="Document" /><TextBlock Text="Logs" VerticalAlignment="Center" />
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel Spacing="6">

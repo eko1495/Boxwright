@@ -10,9 +10,9 @@
         <StackPanel Spacing="14" MaxWidth="460" HorizontalAlignment="Left" Margin="0,0,0,8">
             <TextBlock Text="VM settings" FontSize="24" FontWeight="SemiBold" />
 
-            <ui:InfoBar IsOpen="True" IsClosable="False" Severity="Informational"
+            <ui:FAInfoBar IsOpen="True" IsClosable="False" Severity="Informational"
                         Message="These are boot-time settings — they take effect the next time the VM starts." />
-            <ui:InfoBar IsOpen="{Binding IsRunning}" IsClosable="False" Severity="Warning"
+            <ui:FAInfoBar IsOpen="{Binding IsRunning}" IsClosable="False" Severity="Warning"
                         Message="The VM is running. Stop and restart it to apply these changes." />
 
             <Border Classes="card">
@@ -96,19 +96,19 @@
                     <StackPanel Spacing="4">
                         <TextBlock Text="Or add by vendor:product (e.g. 046d:c52b)" Opacity="0.7" FontSize="12" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                            <TextBox Grid.Column="0" Text="{Binding ManualEntry}" Watermark="046d:c52b" />
+                            <TextBox Grid.Column="0" Text="{Binding ManualEntry}" PlaceholderText="046d:c52b" />
                             <Button Grid.Column="1" Content="Add" Command="{Binding AddManualCommand}" />
                         </Grid>
                     </StackPanel>
 
-                    <ui:InfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Warning"
+                    <ui:FAInfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Warning"
                                 Message="{Binding ErrorMessage}" />
                 </StackPanel>
             </Border>
 
             <TextBlock Text="{Binding ValidationError}" IsVisible="{Binding HasValidationError}"
                        Foreground="#CC8800" TextWrapping="Wrap" />
-            <ui:InfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Error"
+            <ui:FAInfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Error"
                         Message="{Binding ErrorMessage}" />
 
             <StackPanel Orientation="Horizontal" Spacing="8">
