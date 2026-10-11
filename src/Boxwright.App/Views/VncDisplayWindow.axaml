@@ -14,7 +14,7 @@
         <vnc:VncView x:Name="Vnc" />
 
         <!-- Connection status overlay (hidden once connected). -->
-        <ui:InfoBar x:Name="StatusBar" VerticalAlignment="Top" Margin="8" IsClosable="False"
+        <ui:FAInfoBar x:Name="StatusBar" VerticalAlignment="Top" Margin="8" IsClosable="False"
                     IsOpen="True" Severity="Informational"
                     Title="Connecting" Message="Connecting to the VM's display…" />
     </Grid>

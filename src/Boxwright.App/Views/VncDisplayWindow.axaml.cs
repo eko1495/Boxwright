@@ -66,7 +66,7 @@ public sealed partial class VncDisplayWindow : Window, IDisposable
         }
         catch (Exception ex)
         {
-            StatusBar.Severity = InfoBarSeverity.Error;
+            StatusBar.Severity = FAInfoBarSeverity.Error;
             StatusBar.Title = "Display unavailable";
             StatusBar.Message = $"Couldn't connect to the VM display at {_host}:{_port}. {ex.Message}";
             StatusBar.IsOpen = true;

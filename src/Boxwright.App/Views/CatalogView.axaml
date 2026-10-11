@@ -29,11 +29,11 @@
             </ListBox>
 
             <!-- Provenance / notes / license for the selected OS -->
-            <ui:InfoBar IsOpen="{Binding HasSelection}" IsClosable="False" Severity="Informational"
+            <ui:FAInfoBar IsOpen="{Binding HasSelection}" IsClosable="False" Severity="Informational"
                         Message="{Binding ProvenanceText}" />
-            <ui:InfoBar IsOpen="{Binding HasNotes}" IsClosable="False" Severity="Informational"
+            <ui:FAInfoBar IsOpen="{Binding HasNotes}" IsClosable="False" Severity="Informational"
                         Message="{Binding NotesText}" />
-            <ui:InfoBar IsOpen="{Binding RequiresLicense}" IsClosable="False" Severity="Warning"
+            <ui:FAInfoBar IsOpen="{Binding RequiresLicense}" IsClosable="False" Severity="Warning"
                         Title="License required" Message="{Binding LicenseText}" />
 
             <!-- Confirm: recommended specs (name editable) -->
@@ -114,7 +114,7 @@
                 </Expander>
 
                 <!-- Other OSes install interactively (preseed/kickstart aren't automated yet — ADR-0013). -->
-                <ui:InfoBar IsOpen="{Binding ShowManualInstallNote}" IsClosable="False" Severity="Informational"
+                <ui:FAInfoBar IsOpen="{Binding ShowManualInstallNote}" IsClosable="False" Severity="Informational"
                             Title="Manual install"
                             Message="Unattended setup isn't available for this OS yet — Boxwright boots the installer and you follow the on-screen steps." />
 
@@ -122,7 +122,7 @@
                            Foreground="#CC8800" TextWrapping="Wrap" />
             </StackPanel>
 
-            <ui:InfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Error"
+            <ui:FAInfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Error"
                         Message="{Binding ErrorMessage}" />
 
             <!-- Download progress -->

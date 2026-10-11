@@ -13,7 +13,7 @@
                 <StackPanel Spacing="12">
                     <StackPanel Spacing="4">
                         <TextBlock Text="Name" Opacity="0.7" />
-                        <TextBox Text="{Binding Name}" Watermark="e.g. Ubuntu 24.04" />
+                        <TextBox Text="{Binding Name}" PlaceholderText="e.g. Ubuntu 24.04" />
                     </StackPanel>
                     <StackPanel Spacing="4">
                         <TextBlock Text="Memory (MiB)" Opacity="0.7" />
@@ -70,7 +70,7 @@
                         </StackPanel>
                         <StackPanel Spacing="4">
                             <TextBlock Text="Product key (optional)" Opacity="0.7" />
-                            <TextBox Text="{Binding ProductKey}" Watermark="Leave blank for Evaluation ISOs"
+                            <TextBox Text="{Binding ProductKey}" PlaceholderText="Leave blank for Evaluation ISOs"
                                      Width="240" HorizontalAlignment="Left" />
                         </StackPanel>
                         <CheckBox Content="Use virtio drivers (faster disk + network)"
@@ -92,7 +92,7 @@
 
             <TextBlock Text="{Binding ValidationError}" IsVisible="{Binding HasValidationError}"
                        Foreground="#CC8800" TextWrapping="Wrap" />
-            <ui:InfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Error"
+            <ui:FAInfoBar IsOpen="{Binding HasErrorMessage}" IsClosable="False" Severity="Error"
                         Message="{Binding ErrorMessage}" />
 
             <!-- virtio-win driver download progress (shown while the create flow fetches it). -->

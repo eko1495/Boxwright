@@ -4,7 +4,7 @@
     Boxwright.App — the Avalonia GUI (MVVM).
     Views + viewmodels ONLY. No QEMU/process/QMP logic here.
     References Core (and transitively Qmp). Package versions are centralized in
-    Directory.Packages.props; Avalonia is pinned to the 11.x line (see APP-1).
+    Directory.Packages.props; Avalonia 12.x (see APP-1).
   -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -40,8 +40,6 @@
     <PackageReference Include="Community.MarcusW.VncClient" />
     <PackageReference Include="Community.MarcusW.VncClient.Avalonia" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-    <!-- Dev-only visual inspector (F12). Excluded from Release builds. -->
-    <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
   </ItemGroup>
